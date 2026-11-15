@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Animated, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar,
-  StyleSheet, TextInput, View, ActivityIndicator,
+  StyleSheet, TextInput, View, Image, ActivityIndicator, AccessibilityInfo,
 } from 'react-native';
 import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
@@ -9,6 +9,8 @@ import {
   completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
+import {LinearGradient} from 'expo-linear-gradient';
+import {House, Swords, Flag, ChartColumn, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
 import {C, LABELS} from './theme';
 import * as Application from 'expo-application';
 import * as DocumentPicker from 'expo-document-picker';
@@ -20,9 +22,12 @@ import {
 } from './data/repository';
 
 type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'More';
-const TABS: {tab:Tab;glyph:string}[] = [
-  {tab:'Home',glyph:'⌂'}, {tab:'Quests',glyph:'⚔'}, {tab:'Goals',glyph:'◇'},
-  {tab:'Hunter',glyph:'♜'}, {tab:'Progress',glyph:'▥'}, {tab:'More',glyph:'⚙'},
+const TABS = [
+  {tab:'Home' as const, Icon:House},
+  {tab:'Quests' as const, Icon:Swords},
+  {tab:'Goals' as const, Icon:Flag},
+  {tab:'Progress' as const, Icon:ChartColumn},
+  {tab:'More' as const, Icon:Settings2},
 ];
 const INITIAL_QUEST: QuestInput = {
   title: '', description: '', attribute: 'discipline', difficulty: 'medium',
@@ -50,9 +55,15 @@ export default function App() {
   const [restoreText,setRestoreText] = useState<string|null>(null);
   const [questPackText,setQuestPackText] = useState<string|null>(null);
   const [expandedGoals,setExpandedGoals] = useState<Record<string,boolean>>({});
-  const [questFilter,setQuestFilter] = useState<'All'|'Pending'|'Done'>('Pending');
+  const [questFilter,setQuestFilter] = useState<'Today'|'Weekly'|'Milestones'|'Pending'|'Done'|'All'>('Today');
+  const [questSearch,setQuestSearch] = useState('');
+  const [questLimit,setQuestLimit] = useState(20);
+  const [goalLimit,setGoalLimit] = useState(8);
+  const [goalSearch,setGoalSearch] = useState('');
+  const [reduceMotion,setReduceMotion] = useState(false);
   const [reward,setReward] = useState<{xp:number;levelUp:boolean}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
+  useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
 
   const refresh = useCallback(async () => {
     setData(await loadSnapshot());
@@ -104,6 +115,18 @@ export default function App() {
   const activeQuests = quests.filter(q=>q.repeatRule!=='once'||!completed(q));
   const pending = activeQuests.filter(q=>!completed(q));
   const todayBoard = pending.filter(q=>q.repeatRule==='daily');
+  const filteredQuests = quests.filter(q=>{
+    const match = (q.title+' '+q.description).toLowerCase().includes(questSearch.trim().toLowerCase());
+    if(!match)return false;
+    const done=completed(q);
+    if(questFilter==='Today') return q.repeatRule==='daily'&&!done;
+    if(questFilter==='Weekly') return q.repeatRule==='weekly'&&!done;
+    if(questFilter==='Milestones')return isMilestoneQuest(q)&&!done;
+    if(questFilter==='Pending')return !done;
+    if(questFilter==='Done')return done;
+    return true;
+  });
+  const filteredGoals=goals.filter(g=>g.title.toLowerCase().includes(goalSearch.trim().toLowerCase()));
 
   const openQuest = (q?:Quest,goalId?:string) => {
     setEditingQuest(q??null);
@@ -125,9 +148,9 @@ export default function App() {
       setReward({xp:reward.xp,levelUp});
       rewardPulse.stopAnimation(); rewardPulse.setValue(0);
       Animated.sequence([
-        Animated.timing(rewardPulse,{toValue:1,duration:250,useNativeDriver:true}),
-        Animated.delay(1000),
-        Animated.timing(rewardPulse,{toValue:0,duration:320,useNativeDriver:true}),
+        Animated.timing(rewardPulse,{toValue:1,duration:reduceMotion?0:180,useNativeDriver:true}),
+        Animated.delay(reduceMotion?700:850),
+        Animated.timing(rewardPulse,{toValue:0,duration:reduceMotion?0:300,useNativeDriver:true}),
       ]).start(()=>setReward(null));
     }
   });
