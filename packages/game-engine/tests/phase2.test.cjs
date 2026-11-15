@@ -81,3 +81,13 @@ test('evidence-based forecasts avoid invented ETAs without activity',()=>{
  assert.equal(perArea.intelligence,25);assert.equal(perArea.finance,0);
  assert.equal(engine.activeDaysInWindow(comps,date,7),2);
 });
+
+test('strict ISO calendar validation rejects impossible dates',()=>{
+ const {validCalendarDay}=require('../dist/index.js');
+ assert.equal(validCalendarDay('2026-02-28'),true);
+ assert.equal(validCalendarDay('2026-02-30'),false);
+ assert.equal(validCalendarDay('2026-13-10'),false);
+ const control=defaultQuestControl(q('date'));
+ assert.throws(()=>validateControl({...control,dueOn:'2026-02-30'}));
+ assert.throws(()=>validateControl({...control,snoozedUntil:'2026-02-30'}));
+});
