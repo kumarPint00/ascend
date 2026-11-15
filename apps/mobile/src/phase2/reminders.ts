@@ -73,8 +73,13 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
       if(!c.dueOn||!validCalendarDay(c.dueOn)||isCompleted(quest,input.completions,now))continue;
       const [y,m,d]=c.dueOn.split('-').map(Number);
       const date=new Date(y,m-1,d,hour,minute);
-      if(date.getTime()>now.getTime()+60_000)
-        await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DATE,date,channelId:CHANNEL});
+      // Past-due one-offs should not silently disappear: use the next
+      // available local occurrence of the chosen reminder time.
+      if(date.getTime()<=now.getTime()+60_000){
+        date.setFullYear(now.getFullYear(),now.getMonth(),now.getDate());
+        if(date.getTime()<=now.getTime()+60_000)date.setDate(date.getDate()+1);
+      }
+      await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DATE,date,channelId:CHANNEL});
       continue;
     }
     const delayed=!!(c.snoozedUntil&&c.snoozedUntil>localDayKey(now))||
@@ -82,7 +87,11 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
     if(!delayed){
       // For weekly tasks without selected weekdays, Monday is the default.
       // Multiple selected weekdays produce multiple native weekly triggers.
-      const weekdays=c.weekdays.length?c.weekdays:(quest.repeatRule==='weekly'?[1]:[]);
+      // Weekly completion is once per ISO week, so only one weekly
+      // reminder is registered even when multiple eligible days exist.
+      const weekdays=quest.repeatRule==='weekly'
+        ?[c.weekdays.length?c.weekdays.slice().sort((a,b)=>a-b)[0]:1]
+        :c.weekdays;
       if(!weekdays.length){
         await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DAILY,
           hour,minute,channelId:CHANNEL});
