@@ -13,6 +13,7 @@ import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
 import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
 import {Planner} from './phase2/Planner';
+import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
 import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './data/phase2';
 import {C, LABELS} from './theme';
@@ -22,7 +23,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useAppUpdates } from './updates/useAppUpdates';
 import {
   type Snapshot, type QuestInput, initialize, loadSnapshot, saveQuest, archiveQuest,
-  saveGoal, archiveGoal, completeQuest, exportJSON, restoreJSON, wipeAllData, importQuestPack,
+  saveGoal, archiveGoal, completeQuest, wipeAllData, importQuestPack,
 } from './data/repository';
 
 type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More';
@@ -421,8 +422,8 @@ export default function App() {
     </Panel>
     <Panel>
       <T bold>Export your data</T>
-      <T color={C.sub} size={13} style={{marginTop:8}}>Generate a text backup. Copy it to a safe location outside this device. Cloud restore is not yet implemented.</T>
-      <View style={{marginTop:13}}><Action secondary onPress={()=>run(async()=>setBackup(await exportJSON()))}>VIEW BACKUP JSON</Action></View>
+      <T color={C.sub} size={13} style={{marginTop:8}}>Export a full v2 text backup including planner, skills and reviews. Save a copy outside this phone; automatic cloud backup is not enabled.</T>
+      <View style={{marginTop:13}}><Action secondary onPress={()=>run(async()=>setBackup(await exportFullBackup()))}>VIEW BACKUP JSON</Action></View>
       <View style={{marginTop:10}}><Action secondary onPress={()=>setRestoreText('')}>RESTORE SAVED JSON</Action></View>
     </Panel>
     <Panel>
@@ -560,7 +561,7 @@ export default function App() {
             'Save a copy of current data first. This operation cannot be undone.',[
               {text:'Cancel',style:'cancel'},
               {text:'Restore',style:'destructive',onPress:()=>run(async()=>{
-                await restoreJSON(restoreText!);
+                await restoreFullBackup(restoreText!);
                 setRestoreText(null);
               })},
             ])}>RESTORE BACKUP</Action></View>
