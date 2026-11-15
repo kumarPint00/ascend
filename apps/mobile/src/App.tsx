@@ -14,7 +14,7 @@ import * as Application from 'expo-application';
 import { useAppUpdates } from './updates/useAppUpdates';
 import {
   type Snapshot, type QuestInput, initialize, loadSnapshot, saveQuest, archiveQuest,
-  saveGoal, archiveGoal, completeQuest, exportJSON, wipeAllData,
+  saveGoal, archiveGoal, completeQuest, exportJSON, restoreJSON, wipeAllData,
 } from './data/repository';
 
 type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'More';
@@ -45,6 +45,7 @@ export default function App() {
   const [goalAttribute,setGoalAttribute] = useState<Attribute>('discipline');
   const [goalTarget,setGoalTarget] = useState('20');
   const [backup,setBackup] = useState<string|null>(null);
+  const [restoreText,setRestoreText] = useState<string|null>(null);
   const [questFilter,setQuestFilter] = useState<'All'|'Pending'|'Done'>('Pending');
   const [reward,setReward] = useState<{xp:number;levelUp:boolean}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
@@ -301,6 +302,7 @@ export default function App() {
       <T bold>Export your data</T>
       <T color={C.sub} size={13} style={{marginTop:8}}>Generate a text backup. Copy it to a safe location outside this device. Cloud restore is not yet implemented.</T>
       <View style={{marginTop:13}}><Action secondary onPress={()=>run(async()=>setBackup(await exportJSON()))}>VIEW BACKUP JSON</Action></View>
+      <View style={{marginTop:10}}><Action secondary onPress={()=>setRestoreText('')}>RESTORE SAVED JSON</Action></View>
     </Panel>
     <Panel>
       <T bold color={C.danger}>Reset all local data</T>
@@ -388,6 +390,27 @@ export default function App() {
           })}>SAVE QUESTLINE</Action>
         </ScrollView>
       </KeyboardAvoidingView>
+    </Modal>
+    <Modal visible={restoreText!==null} animationType="slide" transparent onRequestClose={()=>setRestoreText(null)}>
+      <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
+        <View style={s.between}><T size={19} bold>Restore your saved progress</T>
+          <Pressable onPress={()=>setRestoreText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
+        <T color={C.sub} size={12} style={{marginVertical:12}}>
+          Paste ASCEND backup JSON. Restoring REPLACES all existing quests and XP on this phone.
+        </T>
+        <TextInput multiline value={restoreText??''} onChangeText={setRestoreText}
+          placeholder="Paste ASCEND backup JSON here" placeholderTextColor={C.dim}
+          style={[s.input,{height:250,fontSize:11,textAlignVertical:'top'}]}/>
+        <View style={{marginTop:13}}><Action danger disabled={busy||!restoreText?.trim()}
+          onPress={()=>Alert.alert('Replace all local progress?',
+            'Save a copy of current data first. This operation cannot be undone.',[
+              {text:'Cancel',style:'cancel'},
+              {text:'Restore',style:'destructive',onPress:()=>run(async()=>{
+                await restoreJSON(restoreText!);
+                setRestoreText(null);
+              })},
+            ])}>RESTORE BACKUP</Action></View>
+      </View></View>
     </Modal>
     <Modal visible={backup!==null} animationType="fade" transparent onRequestClose={()=>setBackup(null)}>
       <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'83%'}]}>
