@@ -152,10 +152,12 @@ export async function initialize(): Promise<void> {
         );
         INSERT OR IGNORE INTO backup_settings(id) VALUES(1);
         INSERT OR IGNORE INTO goal_measurements(id,goal_id,value,unit,recorded_at)
-          SELECT 'baseline:'||goal_id,goal_id,value,unit,
-            COALESCE((SELECT created_at FROM goals WHERE id=goal_id),
+          SELECT 'baseline:'||outcome.goal_id,outcome.goal_id,outcome.value,outcome.unit,
+            COALESCE((SELECT created_at FROM goals WHERE id=outcome.goal_id),
               '2026-01-01T00:00:00Z')
-          FROM goal_outcomes;
+          FROM goal_outcomes AS outcome
+          WHERE NOT EXISTS (SELECT 1 FROM goal_measurements m
+            WHERE m.goal_id=outcome.goal_id);
         PRAGMA user_version = 3;
       `);
     });
