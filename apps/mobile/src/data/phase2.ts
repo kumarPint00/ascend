@@ -1,7 +1,7 @@
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,BossBattle,
   FocusSession,WeeklyReview,SchedulePreferences} from '@ascend/game-engine';
 import {defaultQuestControl,validateControl,introducesCycle,DEFAULT_PREFERENCES,isoWeekKey,
-  completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill} from '@ascend/game-engine';
+  completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill,validCalendarDay} from '@ascend/game-engine';
 import {getDb,loadSnapshot} from './repository';
 
 export interface PhaseTwoSnapshot {
@@ -93,7 +93,7 @@ export async function saveGoalOutcome(goalId:string,input:{target:number;value:n
   const {target,value,unit,deadline}=input;
   if(!Number.isFinite(target)||target<=0||target>1e9||!Number.isFinite(value)||value<0||value>1e9||
      unit.trim().length<1||unit.length>24||
-     (deadline!==null&&!/^\d{4}-\d{2}-\d{2}$/.test(deadline)))
+     (deadline!==null&&!validCalendarDay(deadline)))
     throw Error('Invalid measurable goal values');
   const db=await getDb();
   await db.runAsync(`INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline) VALUES(?,?,?,?,?)
