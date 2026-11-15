@@ -13,6 +13,9 @@ db.prepare('INSERT INTO goals(id,title,attribute,target_count,created_at,archive
   .run('g1','Existing goal','discipline',10,'2026-01-01T00:00:00Z');
 db.prepare(`INSERT INTO quests(id,title,description,attribute,difficulty,repeat_rule,goal_id,created_at,archived)
   VALUES(?,?,?,?,?,?,?,?,0)`).run('q1','Existing quest','','discipline','easy','daily','g1','2026-01-01T00:00:00Z');
+db.prepare(`INSERT INTO quests(id,title,description,attribute,difficulty,repeat_rule,goal_id,created_at,archived)
+  VALUES(?,?,?,?,?,?,?,?,0)`).run('q2','Imported milestone',
+    'Target date: 2026-12-05. Review before completion.','discipline','hard','once','g1','2026-01-01T00:00:00Z');
 db.prepare('INSERT INTO completions(id,quest_id,period_key,completed_at) VALUES(?,?,?,?)')
   .run('c1','q1','2026-11-16','2026-11-16T12:00:00Z');
 db.prepare('INSERT INTO xp_events(id,completion_id,day_key,amount,attribute,created_at) VALUES(?,?,?,?,?,?)')
@@ -22,12 +25,14 @@ db.exec(v2[1]);db.exec(v2[2]);db.exec('COMMIT');
 assert.equal(db.prepare('PRAGMA user_version').get().user_version,2);
 assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
 assert.equal(db.prepare('SELECT status FROM quest_state WHERE quest_id=?').get('q1').status,'active');
+assert.equal(db.prepare('SELECT status FROM quest_state WHERE quest_id=?').get('q2').status,'backlog');
+assert.equal(db.prepare('SELECT due_on FROM quest_state WHERE quest_id=?').get('q2').due_on,'2026-12-05');
 for(const name of ['quest_state','quest_dependencies','goal_outcomes','boss_battles',
   'focus_sessions','weekly_reviews','preferences','skill_unlocks']){
   assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name),name);
 }
 assert.throws(()=>db.prepare('INSERT INTO quest_state(quest_id,status,due_on) VALUES(?,?,?)')
-  .run('q2','backlog',null)); // invalid FK must fail
+  .run('q-missing','backlog',null)); // invalid FK must fail
 
 db.exec('BEGIN EXCLUSIVE');
 db.exec(v2[1]);db.exec(v2[2]);db.exec('COMMIT');
