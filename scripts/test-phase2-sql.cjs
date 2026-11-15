@@ -6,6 +6,8 @@ const v1=code.match(/await db\.execAsync\(`([\s\S]*?PRAGMA user_version = 1;[\s\
 const v2=code.match(/\/\/ Additive v1→v2 migration;[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
 assert.ok(v1,'Cannot find v1 database schema');
 assert.ok(v2,'Cannot find v2 migration scripts');
+const v3=code.match(/\/\/ Additive v2→v3 migration:[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
+assert.ok(v3,'Cannot find v3 goal/backup migration');
 const db=new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
 db.exec(v1[1]);
@@ -37,4 +39,19 @@ assert.throws(()=>db.prepare('INSERT INTO quest_state(quest_id,status,due_on) VA
 db.exec('BEGIN EXCLUSIVE');
 db.exec(v2[1]);db.exec(v2[2]);db.exec('COMMIT');
 assert.equal(db.prepare('SELECT COUNT(*) AS n FROM xp_events').get().n,1);
-console.log('Phase 2 migration: schema v2, preserved XP, constraints and idempotence verified');
+db.exec('BEGIN EXCLUSIVE');db.exec(v3[1]);db.exec('COMMIT');
+assert.equal(db.prepare('PRAGMA user_version').get().user_version,3);
+assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
+for(const name of ['goal_measurements','backup_settings'])
+  assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name),name);
+assert.equal(db.prepare("SELECT COUNT(*) AS n FROM goal_measurements").get().n,0);
+db.prepare('INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline) VALUES(?,?,?,?,?)')
+  .run('g1',10,3,'sessions',null);
+db.prepare('INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)')
+  .run('m1','g1',3,'sessions','2026-11-16T10:00:00Z');
+assert.equal(db.prepare("SELECT value FROM goal_measurements WHERE id='m1'").get().value,3);
+assert.throws(()=>db.prepare('INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)')
+  .run('bad','missing',2,'sessions','2026-11-16T10:00:00Z'));
+db.exec('BEGIN EXCLUSIVE');db.exec(v3[1]);db.exec('COMMIT');
+assert.equal(db.prepare("SELECT COUNT(*) AS n FROM goal_measurements").get().n,1);
+console.log('Phase 2 migrations v1→v2→v3: XP preserved, goal history, backup settings and constraints verified');
