@@ -685,6 +685,26 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       </KeyboardAvoidingView>
     </Modal>
 
+    <Modal visible={victoryMessage!==null} transparent animationType="fade"
+      onRequestClose={()=>setVictoryMessage(null)}>
+      <View style={[ss.overlay,{justifyContent:'center',padding:22}]}>
+        <Animated.View style={{opacity:victoryPulse,transform:[{
+          scale:victoryPulse.interpolate({inputRange:[0,1],outputRange:[reduceMotion?1:.83,1]})
+        }]}}>
+          <LinearGradient colors={['#463A52','#182C43','#0A172B']} style={{
+            borderRadius:27,borderWidth:2,borderColor:C.gold,padding:25,alignItems:'center'}}>
+            <Sparkles color={C.gold} size={34}/>
+            <T color={C.gold} size={11} bold style={{letterSpacing:3,marginTop:12}}>BOSS BATTLE CLEARED</T>
+            <T size={23} bold style={{textAlign:'center',marginTop:11}}>{victoryMessage??''}</T>
+            <T color={C.sub} size={12} style={{textAlign:'center',marginTop:14,marginBottom:20}}>
+              Victory verified against a real completed quest or measurable goal.
+              No extra XP is invented.
+            </T>
+            <Action onPress={()=>setVictoryMessage(null)}>RETURN TO THE SYSTEM</Action>
+          </LinearGradient>
+        </Animated.View>
+      </View>
+    </Modal>
     <Modal visible={backupText!==null} animationType="fade" transparent onRequestClose={()=>setBackupText(null)}>
       <View style={ss.overlay}><View style={ss.sheet}>
         <T bold size={19}>Restore from backup?</T>
