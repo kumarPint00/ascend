@@ -66,3 +66,18 @@ test('one-off scheduled milestones only appear once in the future calendar',()=>
  assert.equal(slots.filter(d=>d.quests.length>0).length,1);
  assert.equal(slots.find(d=>d.quests.length>0).date,'2026-11-18');
 });
+
+test('evidence-based forecasts avoid invented ETAs without activity',()=>{
+ const engine=require('../dist/index.js');
+ const goal={id:'g',targetCount:20};
+ const quest={...q('work','weekly'),goalId:'g'};
+ assert.equal(engine.forecastGoalCompletion(goal,[quest],[],date),null);
+ const comps=Array.from({length:4},(_,i)=>({id:'c'+i,questId:'work',
+   periodKey:'2026-W'+(41+i),completedAt:new Date(2026,10,2+i*4,12).toISOString()}));
+ const f=engine.forecastGoalCompletion(goal,[quest],comps,date);
+ assert.equal(f.done,4);assert.ok(f.weeksRemaining>0);assert.match(f.projectedDate,/^\d{4}-\d{2}-\d{2}$/);
+ const perArea=engine.attributeWeekBreakdown([{id:'x',completionId:'c',dayKey:'2026-11-16',amount:25,
+   attribute:'intelligence',createdAt:date.toISOString()}],date);
+ assert.equal(perArea.intelligence,25);assert.equal(perArea.finance,0);
+ assert.equal(engine.activeDaysInWindow(comps,date,7),1);
+});
