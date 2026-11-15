@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View, Pressable, StyleSheet, type ViewStyle, type TextStyle } from 'react-native';
+import { Text, View, Pressable, StyleSheet, type ViewStyle, type TextStyle, type StyleProp } from 'react-native';
 import { C } from '../theme';
 
 export function T({children, size=15, color=C.ink, bold=false, style}: {
@@ -7,12 +7,12 @@ export function T({children, size=15, color=C.ink, bold=false, style}: {
 }) {
   return <Text style={[{fontSize:size,color,fontWeight:bold?'700':'400'},style]}>{children}</Text>;
 }
-export function Panel({children,style}: {children:React.ReactNode;style?:ViewStyle}) {
+export function Panel({children,style}: {children:React.ReactNode;style?:StyleProp<ViewStyle>}) {
   return <View style={[st.panel,style]}>{children}</View>;
 }
 export function Action({children,onPress,secondary=false,disabled=false,danger=false,style}: {
   children: React.ReactNode; onPress:()=>void; secondary?:boolean; disabled?:boolean;
-  danger?:boolean; style?:ViewStyle;
+  danger?:boolean; style?:StyleProp<ViewStyle>;
 }) {
   return <Pressable
     accessibilityRole="button" accessibilityState={{disabled}}
