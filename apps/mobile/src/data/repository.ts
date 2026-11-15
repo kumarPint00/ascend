@@ -219,6 +219,12 @@ export async function importQuestPack(source: string): Promise<{goalsAdded:numbe
         quest.attribute,quest.difficulty,quest.repeatRule,importGoalId(pack.packId,quest.goalKey),now);
       if(quest.kind==='milestone')milestonesAdded+=r.changes;
       else questsAdded+=r.changes;
+      // Preserve imported target dates without activating the entire backlog.
+      // Existing user edits/state always win on repeat import.
+      await tx.runAsync(
+        'INSERT OR IGNORE INTO quest_state(quest_id,status,due_on) VALUES(?,?,?)',
+        importQuestId(pack.packId,quest.key),
+        quest.repeatRule==='once'?'backlog':'active',quest.dueOn??null);
     }
   });
   return {goalsAdded,questsAdded,milestonesAdded};
