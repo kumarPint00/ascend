@@ -88,7 +88,7 @@ export function activeMissionList(quests:readonly Quest[],controls:Readonly<Reco
 export function occurrencesForDays(quests:readonly Quest[],controls:Readonly<Record<string,QuestControl>>,
   completions:readonly Completion[],deps:readonly QuestDependency[],start:Date,days=14):
   {date:string;quests:Quest[]}[] {
-  return Array.from({length:Math.min(31,Math.max(1,days))},(_,i)=>{
+  return Array.from({length:Math.min(90,Math.max(1,days))},(_,i)=>{
     const date=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i,12);
     const eligible=quests.filter(q=>{
       const c=controls[q.id]??defaultQuestControl(q);
