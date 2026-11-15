@@ -109,3 +109,6 @@ jobs:
 
 # Phase 2 v0.8.1 candidate: strict scheduling, correct milestone actions, date validation and external JSON selection.
 # This push verifies and uploads a permanently signed APK; it does not publish a release.
+
+# Phase 2 feature-depth verification: v0.9.0 / build 10 (SQLite v3, adaptive planning, Android SAF backups, WorkManager maintenance, RPG polish).
+# Verify with permanent signing key but DO NOT publish the release until device acceptance.
