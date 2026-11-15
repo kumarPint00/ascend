@@ -15,6 +15,7 @@ import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronR
 import {Planner} from './phase2/Planner';
 import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
+import {syncMaintenanceRegistration,maintainAppData} from './phase2/maintenance';
 import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './data/phase2';
 import {C, LABELS} from './theme';
 import * as Application from 'expo-application';
@@ -79,7 +80,10 @@ export default function App() {
   useEffect(()=>{
     let live = true;
     (async () => {
-      try { await initialize(); if (live) await refresh(); }
+      try { await initialize(); if (live) await refresh();
+        void syncMaintenanceRegistration().catch(()=>{});
+        void maintainAppData().catch(()=>{});
+      }
       catch(e) { Alert.alert('Cannot load ASCEND',String(e)); }
       finally { if (live) setLoading(false); }
     })();
@@ -87,7 +91,10 @@ export default function App() {
   },[refresh]);
   useEffect(()=>{
     const sub=AppState.addEventListener('change',state=>{
-      if(state==='active')void refresh().catch(()=>{});
+      if(state==='active'){
+        void refresh().catch(()=>{});
+        void maintainAppData().catch(()=>{});
+      }
     });
     return ()=>sub.remove();
   },[refresh]);
