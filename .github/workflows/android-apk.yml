@@ -105,3 +105,4 @@ jobs:
           fi
           notes=$(printf 'ASCEND Android %s (build %s)\n\nSigned update preserves existing app data when the key matches.\n\n<!-- ASCEND_ANDROID_RELEASE {"packageName":"%s","versionCode":%s} -->' "$VERSION" "$VERSION_CODE" "$APP_PACKAGE" "$VERSION_CODE")
           gh release create "$tag" 'ascend-android.apk#ascend-android.apk' --target "$GITHUB_SHA" --title "ASCEND v${VERSION}" --notes "$notes" --latest
+# Phase 2 final verification: includes milestone date migration, complete backup history and integrity scan.
