@@ -19,7 +19,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub Ubuntu runners already ship Android SDK cmdline tools.
+      - name: Check installed Android SDK
+        run: test -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}" && echo "SDK available"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Validate before building
