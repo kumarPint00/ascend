@@ -16,7 +16,7 @@ import {completeQuest} from '../data/repository';
 import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,updateQuestControl,addQuestDependency,
   removeQuestDependency,saveGoalOutcome,createBoss,winBoss,logFocusSession,saveWeeklyReview,
   savePreferences,unlockSkill,type PhaseTwoSnapshot} from '../data/phase2';
-import {shareBackupFile,chooseBackupFile,restoreFullBackup} from '../data/backup';
+import {shareBackupFile,chooseBackupFile,restoreFullBackup,verifyLocalDatabase} from '../data/backup';
 import {askReminderPermission,syncLocalReminders} from './reminders';
 
 type Area='Today'|'Calendar'|'Library'|'Goals'|'Skills'|'Insights'|'Settings';
@@ -440,6 +440,13 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
         <Action secondary disabled={busy} onPress={()=>void run(shareBackupFile)}>EXPORT & SHARE BACKUP</Action>
         <View style={{height:10}}/>
         <Action secondary disabled={busy} onPress={()=>{void fromFile();}}>CHOOSE BACKUP TO RESTORE</Action>
+        <View style={{height:10}}/>
+        <Action secondary disabled={busy} onPress={()=>void run(async()=>{
+          const check=await verifyLocalDatabase();
+          Alert.alert('Local data integrity',check.integrity==='ok'&&check.foreignKeyErrors===0
+            ?'Database OK. '+check.tables+' tables verified, no broken references.'
+            :'Database needs review: '+check.integrity+', foreign key errors: '+check.foreignKeyErrors);
+        })}>VERIFY LOCAL DATABASE</Action>
         <T color={C.dim} size={11} style={{marginTop:10}}>Restore replaces current data. Choose an external file; don't rely on an internal app folder for disaster recovery.</T>
       </Panel>
     </>}
