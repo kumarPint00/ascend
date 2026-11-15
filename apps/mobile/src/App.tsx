@@ -85,10 +85,10 @@ export default function App() {
   },[refresh]);
   useEffect(()=>{
     const sub=AppState.addEventListener('change',state=>{
-      if(state==='active') setClock(new Date());
+      if(state==='active')void refresh().catch(()=>{});
     });
     return ()=>sub.remove();
-  },[]);
+  },[refresh]);
 
   const selectQuestPackFile=async()=>{
     try{
