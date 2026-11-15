@@ -58,3 +58,11 @@ test('achievements require recorded evidence',()=>{
  assert.equal(first.find(a=>a.id==='awakening').unlocked,true);
  assert.equal(first.find(a=>a.id==='boss').unlocked,false);
 });
+
+test('one-off scheduled milestones only appear once in the future calendar',()=>{
+ const x=q('milestone','once');
+ const control={...defaultQuestControl(x),status:'active',dueOn:'2026-11-18'};
+ const slots=occurrencesForDays([x],{milestone:control},[],[],date,7);
+ assert.equal(slots.filter(d=>d.quests.length>0).length,1);
+ assert.equal(slots.find(d=>d.quests.length>0).date,'2026-11-18');
+});
