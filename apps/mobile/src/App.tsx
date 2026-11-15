@@ -6,15 +6,17 @@ import {
 import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
-  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP,
+  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {C, LABELS} from './theme';
 import * as Application from 'expo-application';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useAppUpdates } from './updates/useAppUpdates';
 import {
   type Snapshot, type QuestInput, initialize, loadSnapshot, saveQuest, archiveQuest,
-  saveGoal, archiveGoal, completeQuest, exportJSON, restoreJSON, wipeAllData,
+  saveGoal, archiveGoal, completeQuest, exportJSON, restoreJSON, wipeAllData, importQuestPack,
 } from './data/repository';
 
 type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'More';
@@ -46,6 +48,8 @@ export default function App() {
   const [goalTarget,setGoalTarget] = useState('20');
   const [backup,setBackup] = useState<string|null>(null);
   const [restoreText,setRestoreText] = useState<string|null>(null);
+  const [questPackText,setQuestPackText] = useState<string|null>(null);
+  const [expandedGoals,setExpandedGoals] = useState<Record<string,boolean>>({});
   const [questFilter,setQuestFilter] = useState<'All'|'Pending'|'Done'>('Pending');
   const [reward,setReward] = useState<{xp:number;levelUp:boolean}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
@@ -70,6 +74,19 @@ export default function App() {
     return ()=>sub.remove();
   },[]);
 
+  const selectQuestPackFile=async()=>{
+    try{
+      const selection=await DocumentPicker.getDocumentAsync({type:'*/*',copyToCacheDirectory:true});
+      if(selection.canceled)return;
+      const file=selection.assets[0];
+      if(!file)return;
+      if(file.size!==undefined&&file.size>100_000)throw new Error('Quest pack file is too large (100 KB limit)');
+      const contents=await FileSystem.readAsStringAsync(file.uri);
+      parseQuestPack(contents);
+      setQuestPackText(contents);
+    }catch(e){Alert.alert('Cannot open quest pack',e instanceof Error?e.message:String(e));}
+  };
+
   const run = async (work:()=>Promise<void>) => {
     if(busy)return;
     setBusy(true);
@@ -86,6 +103,7 @@ export default function App() {
   const completed = (q:Quest)=>isCompleted(q,data.completions,clock);
   const activeQuests = quests.filter(q=>q.repeatRule!=='once'||!completed(q));
   const pending = activeQuests.filter(q=>!completed(q));
+  const todayBoard = pending.filter(q=>q.repeatRule==='daily');
 
   const openQuest = (q?:Quest,goalId?:string) => {
     setEditingQuest(q??null);
@@ -119,7 +137,7 @@ export default function App() {
     return <Panel style={{padding:13,opacity:done ? 0.8 : 1}}>
       <View style={s.between}>
         <View style={{flex:1,marginRight:10}}>
-          <T size={15} bold color={done?C.sub:C.ink}>{quest.title}</T>
+          <T size={15} bold color={done?C.sub:C.ink}>{isMilestoneQuest(quest)?quest.title.slice(MILESTONE_PREFIX.length):quest.title}</T>
           {!!quest.description && <T size={12} color={C.sub} style={{marginTop:4}}>{quest.description}</T>}
         </View>
         <View style={[s.reward,{borderColor:done?C.green:C.energy}]}>
@@ -129,7 +147,7 @@ export default function App() {
       </View>
       <View style={[s.between,{marginTop:12}]}>
         <T color={LABELS[quest.attribute].tint} size={11}>
-          {LABELS[quest.attribute].glyph} {LABELS[quest.attribute].label} · {quest.difficulty} · {quest.repeatRule}
+          {isMilestoneQuest(quest)?'◆ Milestone · ':''}{LABELS[quest.attribute].glyph} {LABELS[quest.attribute].label} · {quest.difficulty} · {quest.repeatRule}
         </T>
         <View style={{flexDirection:'row',gap:9,alignItems:'center'}}>
           {editable&& <Pressable accessibilityRole="button" onPress={()=>openQuest(quest)}><T color={C.sub} size={12}>Edit</T></Pressable>}
@@ -166,11 +184,11 @@ export default function App() {
     </Panel>
     <View style={s.statRow}>
       <Panel style={[s.miniPanel,{marginRight:5}]}><T color={C.sub} size={11}>TODAY'S QUESTS</T><T bold size={25}>{completedToday.length}<T size={15} color={C.dim}> completed</T></T></Panel>
-      <Panel style={[s.miniPanel,{marginLeft:5}]}><T color={C.sub} size={11}>PENDING</T><T color={C.energy} bold size={25}>{pending.length}</T></Panel>
+      <Panel style={[s.miniPanel,{marginLeft:5}]}><T color={C.sub} size={11}>PENDING</T><T color={C.energy} bold size={25}>{todayBoard.length}</T></Panel>
     </View>
     <Section title="Daily Quest Board" right={<Pressable onPress={()=>setTab('Quests')}><T color={C.energy} size={12}>View all →</T></Pressable>}/>
-    {pending.length===0?<Panel><T color={C.green} bold>All current quests cleared ✦</T><T color={C.sub} size={13}>Enjoy your progress. More quests can wait until tomorrow.</T></Panel>:
-      pending.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
+    {todayBoard.length===0?<Panel><T color={C.green} bold>All daily quests cleared ✦</T><T color={C.sub} size={13}>Enjoy your progress. More quests can wait until tomorrow.</T></Panel>:
+      todayBoard.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
     <Action onPress={()=>openQuest()} secondary style={{marginBottom:10}}>+ CREATE NEW QUEST</Action>
     <Section title="Main Questlines" right={<Pressable onPress={()=>setTab('Goals')}><T color={C.energy} size={12}>All goals →</T></Pressable>}/>
     {goals.length===0 ? <Panel><T color={C.sub}>Create a long-term goal and link quests to it.</T>
@@ -190,6 +208,8 @@ export default function App() {
 
   const GoalCard=({goal}:{goal:Goal})=>{
     const count=completedGoalCount(goal.id,data.quests,data.completions);
+    const milestones=quests.filter(q=>q.goalId===goal.id&&isMilestoneQuest(q));
+    const cleared=milestones.filter(completed).length;
     return <Panel>
       <View style={s.between}>
         <View style={{flex:1}}><T bold size={15}>{goal.title}</T>
@@ -198,6 +218,18 @@ export default function App() {
         <T color={C.energy} bold size={14}>{count} / {goal.targetCount}</T>
       </View>
       <View style={{marginTop:12}}><Meter value={count/goal.targetCount} tint={C.violet}/></View>
+      {milestones.length>0&&<View style={{marginTop:13}}>
+        <Pressable accessibilityRole="button" onPress={()=>setExpandedGoals(v=>({...v,[goal.id]:!v[goal.id]}))}>
+          <T color={C.energy} size={12} bold>◆ Milestones {cleared}/{milestones.length} · {expandedGoals[goal.id]?'Hide':'View'}</T>
+        </Pressable>
+        {!!expandedGoals[goal.id]&&milestones.map(m=><View key={m.id} style={[s.between,{paddingTop:12,alignItems:'flex-start'}]}>
+          <View style={{flex:1,marginRight:8}}>
+            <T size={13} color={completed(m)?C.green:C.ink}>{completed(m)?'✓ ':'○ '}{m.title.slice(MILESTONE_PREFIX.length)}</T>
+            {!!m.description&&<T size={11} color={C.dim} style={{marginTop:3}}>{m.description}</T>}
+          </View>
+          {!completed(m)&&<Pressable disabled={busy} accessibilityRole="button" onPress={()=>finish(m)} style={s.finish}><T size={11} color={C.bg} bold>Done</T></Pressable>}
+        </View>)}
+      </View>}
       <View style={[s.between,{marginTop:13}]}>
         <Pressable onPress={()=>openGoal(goal)}><T color={C.sub} size={12}>Edit goal</T></Pressable>
         <Pressable onPress={()=>openQuest(undefined,goal.id)}><T color={C.energy} size={12}>+ Link a quest</T></Pressable>
