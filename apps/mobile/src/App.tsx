@@ -284,7 +284,7 @@ export default function App() {
 
   if(loading) return <View style={[s.root,{justifyContent:'center',alignItems:'center'}]}><ActivityIndicator color={C.energy} size="large"/><T color={C.sub} style={{marginTop:16}}>Initializing the System…</T></View>;
   return <View style={s.root}>
-    <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
+    <StatusBar barStyle="light-content"/>
     <View style={s.top}>
       <View><T color={C.energy} size={10} bold>▰ ASCEND / SYSTEM ONLINE</T><T color={C.sub} size={12} style={{marginTop:5}}>{fmt(clock)}</T></View>
       <View style={s.levelPill}><T color={C.gold} bold size={12}>RANK {player.rank}  •  LV {player.level}</T></View>
