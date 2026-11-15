@@ -1,15 +1,17 @@
+/** Original ASCEND visual language: quiet surfaces + rare luminous rewards. */
 export const C = {
-  bg: '#090F1D', surface: '#111C31', elevated: '#182742', muted: '#24344F',
-  border: '#2B3C59', ink: '#EEF5FF', sub: '#9BAECA', dim: '#667C9C',
-  energy: '#42C6EF', violet: '#9677FF', gold: '#E9BF73', green: '#62D6AB',
-  danger: '#FF7E91',
+  bg:'#070D19', surface:'#101B2E', elevated:'#17273E', muted:'#23364D',
+  border:'#263852', borderActive:'#41698E', ink:'#F1F6FF', sub:'#A9BDD8',
+  dim:'#788EAB', energy:'#51D6FF', violet:'#A28CFF', gold:'#EFC77E',
+  green:'#65DCC1', danger:'#FF8796', frost:'#E3F6FF', dark:'#0A1425',
+  glass:'#14243D', glow:'#235F89', quiet:'#0B1627',
 } as const;
 
 export const LABELS = {
-  strength: { label: 'Strength', glyph: '💪', tint: '#EF9A76' },
-  intelligence: { label: 'Intelligence', glyph: '🧠', tint: '#A58BFF' },
-  discipline: { label: 'Discipline', glyph: '🎯', tint: '#75BFFF' },
-  finance: { label: 'Finance', glyph: '💰', tint: '#E7BF70' },
-  relationships: { label: 'Relationships', glyph: '🤝', tint: '#E48EA8' },
-  recovery: { label: 'Recovery', glyph: '🌙', tint: '#7AD8B3' },
+  strength: { label:'Strength', glyph:'STR', tint:'#F7A181' },
+  intelligence: { label:'Intellect', glyph:'INT', tint:'#AD96FF' },
+  discipline: { label:'Discipline', glyph:'DIS', tint:'#72CEFF' },
+  finance: { label:'Finance', glyph:'FIN', tint:'#EFC77E' },
+  relationships: { label:'Connections', glyph:'SOC', tint:'#EE9BB4' },
+  recovery: { label:'Recovery', glyph:'REC', tint:'#7DDCC5' },
 } as const;
