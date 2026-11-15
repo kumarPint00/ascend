@@ -21,7 +21,7 @@ const array=(v:unknown,max:number,field:string):unknown[]=>{
   return v;
 };
 export async function exportFullBackup():Promise<string>{
-  const base=await loadSnapshot(),phase2=await loadPhaseTwoSnapshot();
+  const base=await loadSnapshot(),phase2=await loadPhaseTwoSnapshot(true);
   return JSON.stringify({format:'ascend-backup',schemaVersion:2,
     exportedAt:new Date().toISOString(),...base,phase2},null,2);
 }
@@ -83,12 +83,12 @@ export function parseFullBackup(source:string):FullBackup{
     b.description.length<=350&&(b.goalId===null||gIds.has(b.goalId))&&
     (b.questId===null||qIds.has(b.questId))&&(b.wonAt===null||date(b.wonAt))&&date(b.createdAt))||
     !unique(bosses))throw Error('Invalid boss records');
-  const focusSessions=array(p.focusSessions,1000,'focus sessions') as FocusSession[];
+  const focusSessions=array(p.focusSessions,100000,'focus sessions') as FocusSession[];
   if(!focusSessions.every(x=>obj(x)&&str(x.id)&&
     (x.questId===null||qIds.has(x.questId))&&Number.isInteger(x.minutes)&&
     x.minutes>=1&&x.minutes<=480&&date(x.createdAt))||!unique(focusSessions))
     throw Error('Invalid focus records');
-  const weeklyReviews=array(p.weeklyReviews,100,'weekly reviews') as WeeklyReview[];
+  const weeklyReviews=array(p.weeklyReviews,5000,'weekly reviews') as WeeklyReview[];
   if(!weeklyReviews.every(r=>obj(r)&&/^\d{4}-W\d{2}$/.test(r.weekKey)&&
     typeof r.wins==='string'&&r.wins.length<=1200&&typeof r.blockers==='string'&&
     r.blockers.length<=1200&&typeof r.nextFocus==='string'&&r.nextFocus.length<=1200&&
