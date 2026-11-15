@@ -2,12 +2,14 @@ import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,
   StyleSheet,TextInput,View} from 'react-native';
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
-  ChevronRight,ShieldCheck,Lock,CheckCircle2} from 'lucide-react-native';
+  ChevronRight,ShieldCheck,Lock,CheckCircle2,Trophy,Sparkles,Flame} from 'lucide-react-native';
+import {LinearGradient} from 'expo-linear-gradient';
 import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences} from '@ascend/game-engine';
 import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuestControl,
   questDueOn,blockedByDependencies,isCompleted,localDayKey,isoWeekKey,
   derivedSkills,derivedAchievements,canUnlockSkill,outcomeProgress,xpTrend,focusMinutesForWeek,
-  forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow
+  forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow,
+  adaptiveMissionRecommendations,metricForecast,milestoneHistoryStatus
 } from '@ascend/game-engine';
 import {Action,Chip,Meter,Panel,Section,T} from '../components/Elements';
 import {C,LABELS} from '../theme';
@@ -18,6 +20,9 @@ import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,updateQuestControl,addQuestDependen
   savePreferences,unlockSkill,type PhaseTwoSnapshot} from '../data/phase2';
 import {shareBackupFile,chooseBackupFile,restoreFullBackup,verifyLocalDatabase} from '../data/backup';
 import {askReminderPermission,syncLocalReminders} from './reminders';
+import {readBackupSettings,selectExternalBackupFolder,configureAutoBackup,
+  runAutomaticBackup,type AutomaticBackupSettings} from '../data/autoBackup';
+import {syncMaintenanceRegistration} from './maintenance';
 
 type Area='Today'|'Calendar'|'Library'|'Goals'|'Skills'|'Insights'|'Settings';
 const AREAS:Area[]=['Today','Calendar','Library','Goals','Skills','Insights','Settings'];
@@ -42,6 +47,13 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [prefs,setPrefs]=useState<SchedulePreferences>(EMPTY_PHASE_TWO.preferences);
   const [backupText,setBackupText]=useState<string|null>(null);
   const [notificationsCount,setNotificationsCount]=useState<number|null>(null);
+  const [calendarDays,setCalendarDays]=useState<14|30|90>(30);
+  const [backupSettings,setBackupSettings]=useState<AutomaticBackupSettings|null>(null);
+  const [backupRetention,setBackupRetention]=useState(7);
+  const [backupInterval,setBackupInterval]=useState<12|24|72>(24);
+  const [backupEnabled,setBackupEnabled]=useState(false);
+  const [victoryMessage,setVictoryMessage]=useState<string|null>(null);
+  const victoryPulse=useRef(new Animated.Value(0)).current;
   const [reduceMotion,setReduceMotion]=useState(false);
   const entrance=useRef(new Animated.Value(1)).current;
   useEffect(()=>{
@@ -63,9 +75,17 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     setReview({wins:thisWeek?.wins??'',blockers:thisWeek?.blockers??'',
       nextFocus:thisWeek?.nextFocus??''});
     await onRefresh();
+    const backup=await readBackupSettings();
+    setBackupSettings(backup);setBackupRetention(backup.retention);
+    setBackupInterval(backup.intervalHours);setBackupEnabled(backup.enabled);
   },[onRefresh]);
   useEffect(()=>{
     let live=true;
+    void readBackupSettings().then(backup=>{
+      if(!live)return;
+      setBackupSettings(backup);setBackupRetention(backup.retention);
+      setBackupInterval(backup.intervalHours);setBackupEnabled(backup.enabled);
+    }).catch(()=>{});
     loadPhaseTwoSnapshot().then(p=>{
       if(!live)return;
       setPhase(p);setPrefs({...p.preferences});
@@ -103,12 +123,14 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const allQuests=base.quests.filter(q=>!q.archived);
   const allGoals=base.goals.filter(g=>!g.archived);
   const today=new Date();
-  const due=activeMissionList(allQuests,phase.controls,base.completions,
-    phase.dependencies,today,phase.preferences.dailyMissionLimit);
+  const recommendations=adaptiveMissionRecommendations(
+    allQuests,phase.controls,base.completions,phase.dependencies,today,
+    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit);
+  const due=recommendations.map(r=>r.quest);
   const active=allQuests.filter(q=>controlFor(q).status==='active');
   const backlog=allQuests.filter(q=>controlFor(q).status==='backlog');
   const paused=allQuests.filter(q=>controlFor(q).status==='paused');
-  const calendar=occurrencesForDays(allQuests,phase.controls,base.completions,phase.dependencies,today,14);
+  const calendar=occurrencesForDays(allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays);
   const shown=allQuests.filter(q=>libraryStatus==='All'||controlFor(q).status===libraryStatus)
     .filter(q=>(q.title+' '+q.description).toLowerCase().includes(search.toLowerCase()));
   const skills=derivedSkills(base.xpEvents),achievements=derivedAchievements(
@@ -156,6 +178,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     if(permitted)permitted=await askReminderPermission();
     const next={...prefs,remindersEnabled:permitted};
     await savePreferences(next);
+    await syncMaintenanceRegistration();
     const count=await syncLocalReminders({quests:base.quests,completions:base.completions,
       controls:phase.controls,dependencies:phase.dependencies,preferences:next});
     setNotificationsCount(count);
