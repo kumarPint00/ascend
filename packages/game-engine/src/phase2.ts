@@ -15,9 +15,11 @@ export interface FocusSession {id:string;questId:string|null;minutes:number;crea
 export interface BossBattle {id:string;title:string;description:string;goalId:string|null;questId:string|null;wonAt:string|null;createdAt:string}
 export interface SchedulePreferences {
   remindersEnabled:boolean;quietStart:string;quietEnd:string;dailyMissionLimit:number;
+  availableMinutes:number;
 }
 export const DEFAULT_PREFERENCES:SchedulePreferences={
-  remindersEnabled:false,quietStart:'22:00',quietEnd:'07:00',dailyMissionLimit:4
+  remindersEnabled:false,quietStart:'22:00',quietEnd:'07:00',dailyMissionLimit:4,
+  availableMinutes:90
 };
 export function validCalendarDay(v:string):boolean {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
