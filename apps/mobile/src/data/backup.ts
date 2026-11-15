@@ -94,6 +94,9 @@ export function parseFullBackup(source:string):FullBackup{
     r.blockers.length<=1200&&typeof r.nextFocus==='string'&&r.nextFocus.length<=1200&&
     date(r.createdAt))||new Set(weeklyReviews.map(r=>r.weekKey)).size!==weeklyReviews.length)
     throw Error('Invalid weekly review records');
+  const skillUnlocks=array(p.skillUnlocks,100,'skill unlocks') as string[];
+  if(!skillUnlocks.every(x=>typeof x==='string'&&/^(strength|intelligence|discipline|finance|relationships|recovery)-[123]$/.test(x))||
+    new Set(skillUnlocks).size!==skillUnlocks.length)throw Error('Invalid skill unlocks');
   if(!obj(p.preferences))throw Error('Invalid preferences');
   const pref=p.preferences as unknown as SchedulePreferences;
   if(typeof pref.remindersEnabled!=='boolean'||!validTime(pref.quietStart)||
@@ -102,7 +105,7 @@ export function parseFullBackup(source:string):FullBackup{
     throw Error('Invalid reminder preferences');
   return {format:'ascend-backup',schemaVersion:2,exportedAt:date(raw.exportedAt)?raw.exportedAt as string:new Date().toISOString(),
     goals,quests,completions,xpEvents,phase2:{controls,dependencies:chain,outcomes,bosses,
-      focusSessions,weeklyReviews,preferences:pref}};
+      focusSessions,weeklyReviews,skillUnlocks,preferences:pref}};
 }
 export async function restoreFullBackup(source:string):Promise<void>{
   const summary:unknown=JSON.parse(source);
@@ -119,6 +122,7 @@ export async function restoreFullBackup(source:string):Promise<void>{
     await tx.runAsync('DELETE FROM boss_battles');
     await tx.runAsync('DELETE FROM goal_outcomes');
     await tx.runAsync('DELETE FROM weekly_reviews');
+    await tx.runAsync('DELETE FROM skill_unlocks');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
     for(const g of data.goals)await tx.runAsync('INSERT INTO goals(id,title,attribute,target_count,created_at,archived) VALUES(?,?,?,?,?,?)',
@@ -149,6 +153,8 @@ export async function restoreFullBackup(source:string):Promise<void>{
     for(const r of p.weeklyReviews)await tx.runAsync(
       'INSERT INTO weekly_reviews(week_key,wins,blockers,next_focus,created_at) VALUES(?,?,?,?,?)',
       r.weekKey,r.wins,r.blockers,r.nextFocus,r.createdAt);
+    for(const node of p.skillUnlocks)await tx.runAsync(
+      'INSERT INTO skill_unlocks(node_id,unlocked_at) VALUES(?,?)',node,new Date().toISOString());
     for(const [key,value] of Object.entries(p.preferences))await tx.runAsync(
       'INSERT OR REPLACE INTO preferences(key,value) VALUES(?,?)',key,String(value));
     await tx.runAsync("INSERT OR REPLACE INTO app_state(key,value) VALUES('starter_seeded','1')");
