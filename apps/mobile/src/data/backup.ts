@@ -107,11 +107,13 @@ export function parseFullBackup(source:string):FullBackup{
   const pref=p.preferences as unknown as SchedulePreferences;
   if(typeof pref.remindersEnabled!=='boolean'||!validTime(pref.quietStart)||
     !validTime(pref.quietEnd)||!Number.isInteger(pref.dailyMissionLimit)||
-    pref.dailyMissionLimit<1||pref.dailyMissionLimit>8)
+    pref.dailyMissionLimit<1||pref.dailyMissionLimit>8||
+    (pref.availableMinutes!==undefined&&(!Number.isInteger(pref.availableMinutes)||
+      pref.availableMinutes<10||pref.availableMinutes>480)))
     throw Error('Invalid reminder preferences');
   return {format:'ascend-backup',schemaVersion:raw.schemaVersion as 2|3,exportedAt:date(raw.exportedAt)?raw.exportedAt as string:new Date().toISOString(),
     goals,quests,completions,xpEvents,phase2:{controls,dependencies:chain,outcomes,bosses,
-      focusSessions,weeklyReviews,skillUnlocks,goalMeasurements,preferences:pref}};
+      focusSessions,weeklyReviews,skillUnlocks,goalMeasurements,preferences:{...pref,availableMinutes:pref.availableMinutes??90}}};
 }
 export async function restoreFullBackup(source:string):Promise<void>{
   if(source.length>10_000_000)throw Error('Backup exceeds 10 MB');
