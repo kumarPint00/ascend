@@ -114,6 +114,9 @@ export async function initialize(): Promise<void> {
         CREATE TABLE IF NOT EXISTS preferences (
           key TEXT PRIMARY KEY, value TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS skill_unlocks (
+          node_id TEXT PRIMARY KEY, unlocked_at TEXT NOT NULL
+        );
         CREATE INDEX IF NOT EXISTS idx_quest_state_status ON quest_state(status);
         CREATE INDEX IF NOT EXISTS idx_focus_sessions_created ON focus_sessions(created_at);
       `);
