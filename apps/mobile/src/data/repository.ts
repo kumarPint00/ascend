@@ -316,6 +316,7 @@ export async function wipeAllData(): Promise<void> {
     await tx.runAsync('DELETE FROM boss_battles');
     await tx.runAsync('DELETE FROM goal_outcomes');
     await tx.runAsync('DELETE FROM weekly_reviews');
+    await tx.runAsync('DELETE FROM skill_unlocks');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
     await tx.runAsync("INSERT OR REPLACE INTO app_state (key,value) VALUES ('starter_seeded','1')");
@@ -384,6 +385,7 @@ export async function restoreJSON(source: string): Promise<void> {
     await tx.runAsync('DELETE FROM boss_battles');
     await tx.runAsync('DELETE FROM goal_outcomes');
     await tx.runAsync('DELETE FROM weekly_reviews');
+    await tx.runAsync('DELETE FROM skill_unlocks');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
     for(const g of goals) await tx.runAsync(
