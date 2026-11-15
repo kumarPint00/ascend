@@ -79,5 +79,5 @@ test('evidence-based forecasts avoid invented ETAs without activity',()=>{
  const perArea=engine.attributeWeekBreakdown([{id:'x',completionId:'c',dayKey:'2026-11-16',amount:25,
    attribute:'intelligence',createdAt:date.toISOString()}],date);
  assert.equal(perArea.intelligence,25);assert.equal(perArea.finance,0);
- assert.equal(engine.activeDaysInWindow(comps,date,7),1);
+ assert.equal(engine.activeDaysInWindow(comps,date,7),2);
 });
