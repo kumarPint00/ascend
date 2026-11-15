@@ -491,6 +491,15 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <Chip key={n} active={prefs.dailyMissionLimit===n} onPress={()=>setPrefs(p=>({...p,dailyMissionLimit:n}))}>{n} missions</Chip>)}</View>
       </Panel>
       <Panel>
+        <T bold size={16}>Daily available time</T>
+        <T color={C.sub} size={12} style={{marginTop:6}}>
+          Suggestions prioritize tasks that fit your schedule rather than demanding every quest at once.
+        </T>
+        <View style={[ss.chips,{marginTop:12}]}>{[30,60,90,120,180].map(n=>
+          <Chip key={n} active={prefs.availableMinutes===n}
+            onPress={()=>setPrefs(p=>({...p,availableMinutes:n}))}>{n} min</Chip>)}</View>
+      </Panel>
+      <Panel>
         <T bold size={16}>Local reminders</T>
         <T color={C.sub} size={12} style={{marginVertical:9}}>Only selected quests with an active reminder time will notify you. No cloud push service.</T>
         <View style={ss.chips}>
@@ -505,6 +514,53 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           onChangeText={quietEnd=>setPrefs(p=>({...p,quietEnd}))} placeholder="07:00" placeholderTextColor={C.dim}/>
         <Action disabled={busy} onPress={saveSettings}>SAVE & SYNC REMINDERS</Action>
         {notificationsCount!==null&&<T color={C.green} size={11} style={{marginTop:10}}>{notificationsCount} local reminder schedules active (some repeat indefinitely).</T>}
+      </Panel>
+      <Panel style={{borderColor:C.borderActive}}>
+        <View style={ss.between}><T bold size={17}>Automatic verified backups</T>
+          <ShieldCheck size={22} color={C.energy}/></View>
+        <T color={C.sub} size={12} style={{marginVertical:9}}>
+          Choose a private folder outside ASCEND. Backups are unencrypted JSON,
+          so don't select a shared folder. Android's background maintenance is best-effort;
+          backups also run when you reopen the app.
+        </T>
+        <T color={backupSettings?.directoryUri?C.green:C.gold} size={12}>
+          {backupSettings?.directoryUri?'External folder selected':'No external folder selected'}
+        </T>
+        <View style={{marginTop:10,marginBottom:12}}>
+          <Action secondary disabled={busy} onPress={()=>void run(async()=>{
+            await selectExternalBackupFolder();
+            await syncMaintenanceRegistration();
+            const result=await runAutomaticBackup(true);
+            Alert.alert('Backup verified',result.message);
+          })}>SELECT / CHANGE BACKUP FOLDER</Action>
+        </View>
+        <T color={C.sub} size={12}>Automatic backup</T>
+        <View style={ss.chips}>
+          <Chip active={backupEnabled} onPress={()=>setBackupEnabled(true)}>Enabled</Chip>
+          <Chip active={!backupEnabled} onPress={()=>setBackupEnabled(false)}>Disabled</Chip>
+        </View>
+        <T color={C.sub} size={12}>Minimum interval</T>
+        <View style={ss.chips}>{([12,24,72] as const).map(n=>
+          <Chip key={n} active={backupInterval===n} onPress={()=>setBackupInterval(n)}>{n} hours</Chip>)}</View>
+        <T color={C.sub} size={12}>Keep latest copies</T>
+        <View style={ss.chips}>{[3,7,14,30].map(n=>
+          <Chip key={n} active={backupRetention===n} onPress={()=>setBackupRetention(n)}>{n}</Chip>)}</View>
+        <Action disabled={busy} onPress={()=>void run(async()=>{
+          await configureAutoBackup({enabled:backupEnabled,intervalHours:backupInterval,retention:backupRetention});
+          await syncMaintenanceRegistration();
+          if(backupEnabled)await runAutomaticBackup(true);
+        },'Backup settings saved and enabled copies verified')}>SAVE AUTOMATIC BACKUP SETTINGS</Action>
+        <View style={{height:10}}/>
+        <Action secondary disabled={busy} onPress={()=>void run(async()=>{
+          const result=await runAutomaticBackup(true);
+          Alert.alert('Backup result',result.message);
+        })}>BACK UP NOW & VERIFY</Action>
+        <T color={C.sub} size={11} style={{marginTop:10}}>
+          Last verified: {backupSettings?.lastVerifiedAt?.slice(0,19)??'Never'}
+        </T>
+        {!!backupSettings?.lastError&&<T color={C.danger} size={11} style={{marginTop:7}}>
+          Last error: {backupSettings.lastError}
+        </T>}
       </Panel>
       <Panel>
         <T bold size={16}>Verified file backups</T>
