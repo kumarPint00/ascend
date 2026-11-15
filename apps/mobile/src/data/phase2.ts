@@ -1,17 +1,17 @@
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,BossBattle,
   FocusSession,WeeklyReview,SchedulePreferences} from '@ascend/game-engine';
 import {defaultQuestControl,validateControl,introducesCycle,DEFAULT_PREFERENCES,isoWeekKey,
-  completedGoalCount,localDayKey} from '@ascend/game-engine';
+  completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill} from '@ascend/game-engine';
 import {getDb,loadSnapshot} from './repository';
 
 export interface PhaseTwoSnapshot {
   controls:Record<string,QuestControl>;dependencies:QuestDependency[];
   outcomes:Record<string,GoalOutcome>;bosses:BossBattle[];
-  focusSessions:FocusSession[];weeklyReviews:WeeklyReview[];
+  focusSessions:FocusSession[];weeklyReviews:WeeklyReview[];skillUnlocks:string[];
   preferences:SchedulePreferences;
 }
 export const EMPTY_PHASE_TWO:PhaseTwoSnapshot={
-  controls:{},dependencies:[],outcomes:{},bosses:[],focusSessions:[],weeklyReviews:[],
+  controls:{},dependencies:[],outcomes:{},bosses:[],focusSessions:[],weeklyReviews:[],skillUnlocks:[],
   preferences:DEFAULT_PREFERENCES
 };
 const newId=()=>Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);
@@ -26,7 +26,7 @@ function decodeControl(row:StateRow):QuestControl{
 }
 export async function loadPhaseTwoSnapshot():Promise<PhaseTwoSnapshot>{
   const db=await getDb();
-  const [states,deps,results,bosses,sessions,reviews,prefs]=await Promise.all([
+  const [states,deps,results,bosses,sessions,reviews,prefs,unlocks]=await Promise.all([
     db.getAllAsync<StateRow>('SELECT * FROM quest_state'),
     db.getAllAsync<{quest_id:string;requires_quest_id:string}>('SELECT * FROM quest_dependencies'),
     db.getAllAsync<{goal_id:string;target:number;value:number;unit:string;deadline:string|null}>('SELECT * FROM goal_outcomes'),
@@ -34,6 +34,7 @@ export async function loadPhaseTwoSnapshot():Promise<PhaseTwoSnapshot>{
     db.getAllAsync<{id:string;quest_id:string|null;minutes:number;created_at:string}>('SELECT * FROM focus_sessions ORDER BY created_at DESC LIMIT 1000'),
     db.getAllAsync<{week_key:string;wins:string;blockers:string;next_focus:string;created_at:string}>('SELECT * FROM weekly_reviews ORDER BY week_key DESC LIMIT 100'),
     db.getAllAsync<{key:string;value:string}>('SELECT * FROM preferences'),
+    db.getAllAsync<{node_id:string}>('SELECT node_id FROM skill_unlocks'),
   ]);
   const controls:Record<string,QuestControl>={};
   for(const row of states){const c=decodeControl(row);controls[c.questId]=c;}
@@ -53,7 +54,7 @@ export async function loadPhaseTwoSnapshot():Promise<PhaseTwoSnapshot>{
     focusSessions:sessions.map(s=>({id:s.id,questId:s.quest_id,minutes:s.minutes,createdAt:s.created_at})),
     weeklyReviews:reviews.map(r=>({weekKey:r.week_key,wins:r.wins,blockers:r.blockers,
       nextFocus:r.next_focus,createdAt:r.created_at})),
-    preferences,
+    skillUnlocks:unlocks.map(u=>u.node_id),preferences,
   };
 }
 export async function updateQuestControl(quest:Quest,patch:Partial<Omit<QuestControl,'questId'>>):Promise<void>{
@@ -147,4 +148,15 @@ export async function savePreferences(p:SchedulePreferences):Promise<void>{
     for(const [key,value] of Object.entries(p))
       await tx.runAsync('INSERT OR REPLACE INTO preferences(key,value) VALUES(?,?)',key,String(value));
   });
+}
+
+export async function unlockSkill(nodeId:string):Promise<void>{
+  const node=SKILL_NODES.find(n=>n.id===nodeId);
+  if(!node)throw Error('Unknown skill node');
+  const core=await loadSnapshot(),p2=await loadPhaseTwoSnapshot();
+  if(!canUnlockSkill(node,core.xpEvents,p2.skillUnlocks))
+    throw Error('Earn more attribute XP to unlock this skill');
+  const db=await getDb();
+  await db.runAsync('INSERT OR IGNORE INTO skill_unlocks(node_id,unlocked_at) VALUES(?,?)',
+    nodeId,new Date().toISOString());
 }
