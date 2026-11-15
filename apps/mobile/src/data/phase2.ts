@@ -24,15 +24,17 @@ function decodeControl(row:StateRow):QuestControl{
     weekdays,dueOn:row.due_on,timeOfDay:row.time_of_day,snoozedUntil:row.snoozed_until,
     estimateMinutes:row.estimate_minutes,reminder:row.reminder===1};
 }
-export async function loadPhaseTwoSnapshot():Promise<PhaseTwoSnapshot>{
+export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSnapshot>{
   const db=await getDb();
   const [states,deps,results,bosses,sessions,reviews,prefs,unlocks]=await Promise.all([
     db.getAllAsync<StateRow>('SELECT * FROM quest_state'),
     db.getAllAsync<{quest_id:string;requires_quest_id:string}>('SELECT * FROM quest_dependencies'),
     db.getAllAsync<{goal_id:string;target:number;value:number;unit:string;deadline:string|null}>('SELECT * FROM goal_outcomes'),
     db.getAllAsync<{id:string;title:string;description:string;goal_id:string|null;quest_id:string|null;won_at:string|null;created_at:string}>('SELECT * FROM boss_battles ORDER BY created_at DESC'),
-    db.getAllAsync<{id:string;quest_id:string|null;minutes:number;created_at:string}>('SELECT * FROM focus_sessions ORDER BY created_at DESC LIMIT 1000'),
-    db.getAllAsync<{week_key:string;wins:string;blockers:string;next_focus:string;created_at:string}>('SELECT * FROM weekly_reviews ORDER BY week_key DESC LIMIT 100'),
+    db.getAllAsync<{id:string;quest_id:string|null;minutes:number;created_at:string}>(
+      'SELECT * FROM focus_sessions ORDER BY created_at DESC'+(fullHistory?'':' LIMIT 1000')),
+    db.getAllAsync<{week_key:string;wins:string;blockers:string;next_focus:string;created_at:string}>(
+      'SELECT * FROM weekly_reviews ORDER BY week_key DESC'+(fullHistory?'':' LIMIT 100')),
     db.getAllAsync<{key:string;value:string}>('SELECT * FROM preferences'),
     db.getAllAsync<{node_id:string}>('SELECT node_id FROM skill_unlocks'),
   ]);
