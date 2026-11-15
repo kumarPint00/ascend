@@ -10,6 +10,8 @@ import {
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {C, LABELS} from './theme';
+import * as Application from 'expo-application';
+import { useAppUpdates } from './updates/useAppUpdates';
 import {
   type Snapshot, type QuestInput, initialize, loadSnapshot, saveQuest, archiveQuest,
   saveGoal, archiveGoal, completeQuest, exportJSON, wipeAllData,
@@ -28,6 +30,7 @@ const EMPTY: Snapshot = {quests:[],goals:[],completions:[],xpEvents:[]};
 const fmt = (d:Date) => d.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
 
 export default function App() {
+  const updates = useAppUpdates();
   const [data,setData] = useState<Snapshot>(EMPTY);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
@@ -268,6 +271,33 @@ export default function App() {
       <T color={C.sub} size={13} style={{marginTop:8}}>Your data is stored in the SQLite database on this phone. No account, paid cloud service or internet connection is required.</T>
     </Panel>
     <Panel>
+      <T bold>Application updates</T>
+      <T color={C.sub} size={13} style={{marginTop:8}}>
+        Installed version: {Application.nativeApplicationVersion ?? '?'} ({Application.nativeBuildVersion ?? '?'})
+      </T>
+      <T color={C.sub} size={13} style={{marginTop:8}}>
+        {updates.available
+          ? 'Version ' + updates.available.version + ' available (' +
+            Math.round(updates.available.sizeBytes/1048576) + ' MB). Install over the existing app to keep local progress.'
+          : 'ASCEND checks official GitHub Releases. Compatible updates keep your quests and XP.'}
+      </T>
+      <View style={{marginTop:12}}>
+        <Action secondary disabled={updates.status!=='idle'} onPress={()=>{void updates.check(true);}}>
+          {updates.status==='checking'?'CHECKING...':'CHECK FOR UPDATES'}
+        </Action>
+      </View>
+      {updates.available && <View style={{marginTop:10}}>
+        <Action disabled={updates.status!=='idle'} onPress={()=>Alert.alert('Update ASCEND?',
+          'Download and install v' + updates.available!.version + '? Android will ask you to confirm.',[
+          {text:'Cancel',style:'cancel'}, {text:'Download & update',onPress:()=>{void updates.install();}},
+        ])}>
+          {updates.status==='downloading'?'DOWNLOADING APK...':
+            updates.status==='installing'?'OPENING INSTALLER...':'DOWNLOAD & UPDATE'}
+        </Action>
+      </View>}
+      {updates.error && <T color={C.danger} size={11} style={{marginTop:9}}>{updates.error}</T>}
+    </Panel>
+    <Panel>
       <T bold>Export your data</T>
       <T color={C.sub} size={13} style={{marginTop:8}}>Generate a text backup. Copy it to a safe location outside this device. Cloud restore is not yet implemented.</T>
       <View style={{marginTop:13}}><Action secondary onPress={()=>run(async()=>setBackup(await exportJSON()))}>VIEW BACKUP JSON</Action></View>
@@ -287,7 +317,11 @@ export default function App() {
     <StatusBar barStyle="light-content"/>
     <View style={s.top}>
       <View><T color={C.energy} size={10} bold>▰ ASCEND / SYSTEM ONLINE</T><T color={C.sub} size={12} style={{marginTop:5}}>{fmt(clock)}</T></View>
-      <View style={s.levelPill}><T color={C.gold} bold size={12}>RANK {player.rank}  •  LV {player.level}</T></View>
+      <Pressable onPress={()=>updates.available&&setTab('More')} style={s.levelPill}>
+        <T color={updates.available?C.green:C.gold} bold size={12}>
+          {updates.available?'↑ UPDATE AVAILABLE':'RANK '+player.rank+' • LV '+player.level}
+        </T>
+      </Pressable>
     </View>
     <ScrollView style={{flex:1}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:<More/>}
