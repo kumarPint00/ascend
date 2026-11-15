@@ -7,10 +7,13 @@ import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
   completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
+  activeMissionList,defaultQuestControl,blockedByDependencies,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
-import {House, Swords, Flag, ChartColumn, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
+import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
+import {Planner} from './phase2/Planner';
+import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './data/phase2';
 import {C, LABELS} from './theme';
 import * as Application from 'expo-application';
 import * as DocumentPicker from 'expo-document-picker';
@@ -21,12 +24,12 @@ import {
   saveGoal, archiveGoal, completeQuest, exportJSON, restoreJSON, wipeAllData, importQuestPack,
 } from './data/repository';
 
-type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'More';
+type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More';
 const TABS = [
   {tab:'Home' as const, Icon:House},
   {tab:'Quests' as const, Icon:Swords},
   {tab:'Goals' as const, Icon:Flag},
-  {tab:'Progress' as const, Icon:ChartColumn},
+  {tab:'Planner' as const, Icon:CalendarDays},
   {tab:'More' as const, Icon:Settings2},
 ];
 const INITIAL_QUEST: QuestInput = {
@@ -39,6 +42,7 @@ const fmt = (d:Date) => d.toLocaleDateString(undefined,{weekday:'long',month:'sh
 export default function App() {
   const updates = useAppUpdates();
   const [data,setData] = useState<Snapshot>(EMPTY);
+  const [phaseSummary,setPhaseSummary] = useState<PhaseTwoSnapshot>(EMPTY_PHASE_TWO);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
   const [tab,setTab] = useState<Tab>('Home');
@@ -66,8 +70,8 @@ export default function App() {
   useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
 
   const refresh = useCallback(async () => {
-    setData(await loadSnapshot());
-    setClock(new Date());
+    const [snapshot,planner]=await Promise.all([loadSnapshot(),loadPhaseTwoSnapshot()]);
+    setData(snapshot);setPhaseSummary(planner);setClock(new Date());
   },[]);
   useEffect(()=>{
     let live = true;
@@ -112,15 +116,19 @@ export default function App() {
   const completedToday = data.completions.filter(c=>localDayKey(new Date(c.completedAt))===day);
   const todayXP = data.xpEvents.filter(e=>e.dayKey===day).reduce((a,e)=>a+e.amount,0);
   const completed = (q:Quest)=>isCompleted(q,data.completions,clock);
-  const activeQuests = quests.filter(q=>q.repeatRule!=='once'||!completed(q));
+  const activeQuests = quests.filter(q=>
+    (phaseSummary.controls[q.id]?.status??defaultQuestControl(q).status)==='active'&&
+    (q.repeatRule!=='once'||!completed(q)));
   const pending = activeQuests.filter(q=>!completed(q));
-  const todayBoard = pending.filter(q=>q.repeatRule==='daily');
+  const todayBoard = activeMissionList(quests,phaseSummary.controls,data.completions,
+    phaseSummary.dependencies,clock,phaseSummary.preferences.dailyMissionLimit);
   const filteredQuests = quests.filter(q=>{
     const match = (q.title+' '+q.description).toLowerCase().includes(questSearch.trim().toLowerCase());
     if(!match)return false;
     const done=completed(q);
-    if(questFilter==='Today') return q.repeatRule==='daily'&&!done;
-    if(questFilter==='Weekly') return q.repeatRule==='weekly'&&!done;
+    if(questFilter==='Today') return todayBoard.some(x=>x.id===q.id);
+    if(questFilter==='Weekly') return q.repeatRule==='weekly'&&!done&&
+      (phaseSummary.controls[q.id]?.status??defaultQuestControl(q).status)==='active';
     if(questFilter==='Milestones')return isMilestoneQuest(q)&&!done;
     if(questFilter==='Pending')return !done;
     if(questFilter==='Done')return done;
@@ -157,6 +165,8 @@ export default function App() {
 
   const QuestCard=({quest,editable=false}:{quest:Quest;editable?:boolean})=>{
     const done=completed(quest);
+    const status=phaseSummary.controls[quest.id]?.status??defaultQuestControl(quest).status;
+    const blocked=blockedByDependencies(quest,phaseSummary.dependencies,data.completions);
     return <Panel style={{padding:13,opacity:done ? 0.8 : 1}}>
       <View style={s.between}>
         <View style={{flex:1,marginRight:10}}>
@@ -177,8 +187,11 @@ export default function App() {
           {editable&& <Pressable accessibilityRole="button" onPress={()=>Alert.alert('Archive quest?', 'Your XP history stays intact.',[
             {text:'Cancel',style:'cancel'}, {text:'Archive',style:'destructive',onPress:()=>run(()=>archiveQuest(quest.id))},
           ])}><T color={C.danger} size={12}>Archive</T></Pressable>}
-          {!done&&<Pressable accessibilityRole="button" disabled={busy} style={s.finish} onPress={()=>finish(quest)}>
+          {!done&&status==='active'&&!blocked&&<Pressable accessibilityRole="button" disabled={busy} style={s.finish} onPress={()=>finish(quest)}>
             <T color={C.bg} bold size={12}>COMPLETE</T>
+          </Pressable>}
+          {!done&&(status!=='active'||blocked)&&<Pressable accessibilityRole="button" onPress={()=>setTab('Planner')}>
+            <T color={blocked?C.gold:C.sub} size={11}>{blocked?'LOCKED':'PLAN / ACTIVATE'}</T>
           </Pressable>}
         </View>
       </View>
@@ -435,7 +448,7 @@ export default function App() {
       </Pressable>
     </View>
     <ScrollView style={{flex:1}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:<More/>}
+      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh}/>:<More/>}
     </ScrollView>
     {reward&&<Animated.View pointerEvents="none" style={[s.rewardToast,{opacity:rewardPulse,transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[0.85,1]})}]}]}>
       <T color={C.energy} bold size={12}>{reward.levelUp?'✦ LEVEL UP ✦':'QUEST CLEARED'}</T>
