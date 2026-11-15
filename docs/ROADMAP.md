@@ -9,7 +9,7 @@
 - [ ] Device UX/accessibility and backup/restore migration acceptance test
 - [ ] Confirm in-place upgrade on the user's phone before broadening the release
 
-## Phase 2 · Full personal progression engine (v0.8.1 signed release candidate)
+## Phase 2 · Full offline progression engine (v0.9.0 release candidate)
 - [x] Quest lifecycle (active, backlog, paused), priority, snooze, focused day selection
 - [x] 14-day calendar, weekdays/date/time scheduling and local opt-in reminders with quiet hours
 - [x] Measurable goal metrics and prerequisite milestone graph with cycle checks
@@ -18,8 +18,9 @@
 - [x] Planner UI with search, section transitions, OS reduced-motion support
 - [x] Additive SQLite v2 migration, complete v2 backup file and transactional restore
 - [x] Automated game rule, SQLite migration and TypeScript CI checks
-- [ ] Install and test v0.8.1 on actual Android devices; sign off notifications, migration and the 30-point UX checklist
-- [ ] Publish signed v0.8.1 to the live update feed only after acceptance
+- [x] Feature-depth pass: 90-day planning, repeating reminders, goal measurement history, adaptive time-budget recommendations, verified folder backups, and boss/skill motion polish
+- [ ] Install and test v0.9.0 on actual Android devices; sign off notifications, backup folder persistence and the 30-point UX checklist
+- [ ] Publish signed v0.9.0 to the live update feed only after acceptance
 
 ## Phase 3 · Future public beta (not part of personal Phase 2)
 - [ ] Opt-in Supabase login and RLS multi-tenant authorization
