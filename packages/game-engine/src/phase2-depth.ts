@@ -14,7 +14,11 @@ export function metricForecast(
   const sorted=history.filter(p=>Number.isFinite(p.value)&&Number.isFinite(Date.parse(p.recordedAt)))
     .slice().sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));
   if(!Number.isFinite(target)||sorted.length<3)return null;
-  const recent=sorted.filter(p=>new Date(p.recordedAt).getTime()>=now.getTime()-90*86400000);
+  // Reject mixed measurement units, e.g. kg and lb, until the user
+  // explicitly converts or re-records them in one consistent unit.
+  const currentUnit=sorted[sorted.length-1].unit;
+  const recent=sorted.filter(p=>p.unit===currentUnit&&
+    new Date(p.recordedAt).getTime()>=now.getTime()-90*86400000);
   if(recent.length<3)return null;
   const first=recent[0],last=recent[recent.length-1],span=
     (Date.parse(last.recordedAt)-Date.parse(first.recordedAt))/86400000;
