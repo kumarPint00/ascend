@@ -127,3 +127,24 @@ export function focusMinutesForWeek(sessions:readonly FocusSession[],date:Date):
   const key=isoWeekKey(date);
   return sessions.filter(s=>isoWeekKey(new Date(s.createdAt))===key).reduce((n,s)=>n+s.minutes,0);
 }
+
+export interface SkillNode {id:string;attribute:Attribute;title:string;description:string;requiredLevel:number;}
+const SKILL_PATHS:Record<Attribute,[string,string,string]>={
+  strength:['Foundation','Progressive Strength','Body Mastery'],
+  intelligence:['Curiosity','Deliberate Practice','Systems Thinker'],
+  discipline:['Starter','Consistency','Deep Focus'],
+  finance:['Money Awareness','Cash Flow Steward','Financial Resilience'],
+  relationships:['Presence','Connection Builder','Trusted Ally'],
+  recovery:['Mindful Rest','Recovery Routine','Sustainable Rhythm'],
+};
+export const SKILL_NODES:readonly SkillNode[]=(Object.entries(SKILL_PATHS) as [Attribute,[string,string,string]][])
+  .flatMap(([attribute,titles])=>titles.map((title,i)=>({
+    id:attribute+'-'+(i+1),attribute,title,
+    description:i===0?'Begin building this ability':i===1?'Build repeated real-world practice':'Demonstrate sustained progress',
+    requiredLevel:[2,4,7][i],
+  })));
+export function canUnlockSkill(node:SkillNode,events:readonly XPEvent[],already:readonly string[]):boolean {
+  if(already.includes(node.id))return false;
+  const skills=derivedSkills(events);
+  return skills[node.attribute].level>=node.requiredLevel;
+}
