@@ -122,6 +122,13 @@ export async function initialize(): Promise<void> {
       `);
       await tx.execAsync(`INSERT OR IGNORE INTO quest_state(quest_id,status)
           SELECT id, CASE WHEN repeat_rule='once' THEN 'backlog' ELSE 'active' END FROM quests;
+        UPDATE quest_state SET due_on = (
+          SELECT substr(description,14,10) FROM quests
+          WHERE id=quest_state.quest_id)
+        WHERE due_on IS NULL AND EXISTS (
+          SELECT 1 FROM quests
+          WHERE id=quest_state.quest_id
+            AND description LIKE 'Target date: ____-__-__.%');
         PRAGMA user_version = 2;`);
     });
   }
