@@ -229,13 +229,30 @@ export default function App() {
   </>;
 
   const Quests=()=> <>
-    <Section title="Quest Board" right={<Action onPress={()=>openQuest()} style={{paddingHorizontal:12}}>+ New</Action>}/>
-    <View style={s.chips}>{(['Pending','Done','All'] as const).map(f=><Chip key={f} active={questFilter===f} onPress={()=>setQuestFilter(f)}>{f}</Chip>)}</View>
-    {quests.filter(q=>questFilter==='All'||(questFilter==='Done'?completed(q):!completed(q)))
-      .map(q=><QuestCard key={q.id} quest={q} editable/>)}
-    {quests.filter(q=>questFilter==='All'||(questFilter==='Done'?completed(q):!completed(q))).length===0 &&
-      <Panel><T color={C.sub}>No quests in this view. Create a mission or switch filters.</T></Panel>}
-    <T color={C.dim} size={11}>Archived quests disappear from the board but remain in completion history.</T>
+    <Section title="Quest Board" right={<Action onPress={()=>openQuest()} style={{paddingHorizontal:13}}>+ QUEST</Action>}/>
+    <T color={C.sub} size={13} style={{marginBottom:12}}>Choose your next move. No pressure to clear every mission at once.</T>
+    <View style={s.searchRow}>
+      <SearchIcon color={C.sub} size={17}/>
+      <TextInput accessibilityLabel="Search quests" placeholder="Find a quest, skill, or project" placeholderTextColor={C.dim}
+        value={questSearch} onChangeText={x=>{setQuestSearch(x);setQuestLimit(20);}}
+        autoCorrect={false} style={s.searchInput}/>
+    </View>
+    <View style={s.chips}>{(['Today','Weekly','Milestones','Pending','Done','All'] as const).map(f=>
+      <Chip key={f} active={questFilter===f} onPress={()=>{setQuestFilter(f);setQuestLimit(20);}}>{f}</Chip>)}</View>
+    <View style={[s.between,{marginTop:3,marginBottom:12}]}>
+      <T color={C.sub} size={12}>{filteredQuests.length} {filteredQuests.length===1?'mission':'missions'}</T>
+      <T color={C.dim} size={11}>{questFilter==='Today'?'Daily focus':questFilter==='Milestones'?'One-time objectives':'Your board'}</T>
+    </View>
+    {filteredQuests.slice(0,questLimit).map(q=><QuestCard key={q.id} quest={q} editable/>)}
+    {filteredQuests.length>questLimit&&<Action secondary onPress={()=>setQuestLimit(x=>x+20)} style={{marginBottom:15}}>
+      SHOW MORE ({filteredQuests.length-questLimit} LEFT)
+    </Action>}
+    {filteredQuests.length===0&&<Panel>
+      <T color={C.green} size={16} bold>{questFilter==='Today'?'Daily quests cleared':'No matching missions'}</T>
+      <T color={C.sub} size={13} style={{marginTop:5}}>Try another filter or create a quest that matters today.</T>
+      <View style={{marginTop:12}}><Action secondary onPress={()=>openQuest()}>CREATE QUEST</Action></View>
+    </Panel>}
+    <T color={C.dim} size={11}>One-off milestones are available under Goals. Archived quests remain in your history.</T>
   </>;
 
   const GoalCard=({goal}:{goal:Goal})=>{
@@ -272,9 +289,20 @@ export default function App() {
     </Panel>;
   };
   const Goals=()=> <>
-    <Section title="Main Questlines" right={<Action onPress={()=>openGoal()} style={{paddingHorizontal:12}}>+ New</Action>}/>
-    <T color={C.sub} size={13} style={{marginBottom:14}}>Define a real-life objective. Every linked quest completion moves it forward.</T>
-    {goals.length===0?<Panel><T color={C.sub}>No goals yet. Start with a milestone you can measure.</T></Panel>:goals.map(g=><GoalCard key={g.id} goal={g}/>)}
+    <Section title="Questlines" right={<Action onPress={()=>openGoal()} style={{paddingHorizontal:12}}>+ GOAL</Action>}/>
+    <T color={C.sub} size={13} style={{marginBottom:12}}>Your long-term stories. Open each goal to review and complete its milestones.</T>
+    <View style={s.searchRow}>
+      <SearchIcon color={C.sub} size={17}/>
+      <TextInput accessibilityLabel="Search goals" placeholder="Find a goal or project" placeholderTextColor={C.dim}
+        value={goalSearch} onChangeText={x=>{setGoalSearch(x);setGoalLimit(8);}}
+        autoCorrect={false} style={s.searchInput}/>
+    </View>
+    <T color={C.dim} size={12} style={{marginBottom:12}}>{filteredGoals.length} active questlines</T>
+    {filteredGoals.length===0?<Panel><T color={C.sub}>No goals found. Add a new questline or change the search.</T></Panel>:
+      filteredGoals.slice(0,goalLimit).map(g=><GoalCard key={g.id} goal={g}/>)}
+    {filteredGoals.length>goalLimit&&<Action secondary onPress={()=>setGoalLimit(x=>x+8)}>
+      SHOW MORE ({filteredGoals.length-goalLimit} LEFT)
+    </Action>}
   </>;
 
   const Hunter=()=> <>
