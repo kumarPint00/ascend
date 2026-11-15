@@ -2,14 +2,14 @@
   "expo": {
     "name": "ASCEND",
     "slug": "ascend-real-life-rpg",
-    "version": "0.4.0",
+    "version": "0.8.0",
     "orientation": "portrait",
     "scheme": "ascendrpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#090F1D",
     "android": {
       "package": "com.ascendrpg.personal",
-      "versionCode": 4,
+      "versionCode": 8,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
@@ -18,7 +18,8 @@
       },
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.REQUEST_INSTALL_PACKAGES"
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "ios": {
@@ -37,6 +38,13 @@
             "image": "./assets/splash-icon.png",
             "backgroundColor": "#060B16"
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#51D6FF",
+          "enableRemoteNotifications": false
         }
       ]
     ],
