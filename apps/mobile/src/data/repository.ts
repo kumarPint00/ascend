@@ -40,7 +40,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 2) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 3) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -130,6 +130,34 @@ export async function initialize(): Promise<void> {
           WHERE id=quest_state.quest_id
             AND description LIKE 'Target date: ____-__-__.%');
         PRAGMA user_version = 2;`);
+    });
+  }
+  if ((version?.user_version ?? 0) < 3) {
+    // Additive v2→v3 migration: preserve all existing quest and XP records.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        CREATE TABLE IF NOT EXISTS goal_measurements (
+          id TEXT PRIMARY KEY, goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+          value REAL NOT NULL CHECK(value >= 0), unit TEXT NOT NULL,
+          recorded_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_goal_measurements_goal_date
+          ON goal_measurements(goal_id,recorded_at);
+        CREATE TABLE IF NOT EXISTS backup_settings (
+          id INTEGER PRIMARY KEY CHECK(id=1),
+          directory_uri TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 0,
+          interval_hours INTEGER NOT NULL DEFAULT 24,
+          retention INTEGER NOT NULL DEFAULT 7,
+          last_backup_at TEXT, last_verified_at TEXT, last_error TEXT
+        );
+        INSERT OR IGNORE INTO backup_settings(id) VALUES(1);
+        INSERT OR IGNORE INTO goal_measurements(id,goal_id,value,unit,recorded_at)
+          SELECT 'baseline:'||goal_id,goal_id,value,unit,
+            COALESCE((SELECT created_at FROM goals WHERE id=goal_id),
+              '2026-01-01T00:00:00Z')
+          FROM goal_outcomes;
+        PRAGMA user_version = 3;
+      `);
     });
   }
   const seedFlag = await db.getFirstAsync<{ value: string }>(
@@ -345,6 +373,7 @@ export async function wipeAllData(): Promise<void> {
     await tx.runAsync('DELETE FROM goal_outcomes');
     await tx.runAsync('DELETE FROM weekly_reviews');
     await tx.runAsync('DELETE FROM skill_unlocks');
+    await tx.runAsync('DELETE FROM goal_measurements');
     await tx.runAsync('DELETE FROM preferences');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
@@ -415,6 +444,7 @@ export async function restoreJSON(source: string): Promise<void> {
     await tx.runAsync('DELETE FROM goal_outcomes');
     await tx.runAsync('DELETE FROM weekly_reviews');
     await tx.runAsync('DELETE FROM skill_unlocks');
+    await tx.runAsync('DELETE FROM goal_measurements');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
     for(const g of goals) await tx.runAsync(
