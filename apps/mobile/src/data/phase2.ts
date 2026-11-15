@@ -51,6 +51,7 @@ export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSn
     if(row.key==='quietStart')preferences.quietStart=row.value;
     if(row.key==='quietEnd')preferences.quietEnd=row.value;
     if(row.key==='dailyMissionLimit')preferences.dailyMissionLimit=Number(row.value)||4;
+    if(row.key==='availableMinutes')preferences.availableMinutes=Number(row.value)||90;
   }
   return {
     controls,dependencies:deps.map(d=>({questId:d.quest_id,requiresQuestId:d.requires_quest_id})),
@@ -157,7 +158,8 @@ export async function saveWeeklyReview(input:{wins:string;blockers:string;nextFo
 export async function savePreferences(p:SchedulePreferences):Promise<void>{
   if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(p.quietStart)||
      !/^([01]\d|2[0-3]):[0-5]\d$/.test(p.quietEnd)||
-     !Number.isInteger(p.dailyMissionLimit)||p.dailyMissionLimit<1||p.dailyMissionLimit>8)
+     !Number.isInteger(p.dailyMissionLimit)||p.dailyMissionLimit<1||p.dailyMissionLimit>8||
+     !Number.isInteger(p.availableMinutes)||p.availableMinutes<10||p.availableMinutes>480)
     throw Error('Invalid reminder settings');
   const db=await getDb();
   await db.withExclusiveTransactionAsync(async tx=>{
