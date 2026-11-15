@@ -261,6 +261,17 @@ export async function completeQuest(quest: Quest, now = new Date()): Promise<{ a
       'SELECT archived,repeat_rule,difficulty,attribute FROM quests WHERE id=?', quest.id
     );
     if (!current || current.archived) throw new Error('Quest no longer exists');
+    const control=await tx.getFirstAsync<{status:string}>(
+      'SELECT status FROM quest_state WHERE quest_id=?',quest.id);
+    if(control?.status==='paused'||control?.status==='backlog'||
+       (!control&&current.repeat_rule==='once'))
+      throw Error('Activate this quest from the Planner before completing it');
+    const dependency=await tx.getFirstAsync<{requires_quest_id:string}>(`
+      SELECT d.requires_quest_id FROM quest_dependencies d
+      WHERE d.quest_id=? AND NOT EXISTS (
+        SELECT 1 FROM completions c WHERE c.quest_id=d.requires_quest_id)
+      LIMIT 1`,quest.id);
+    if(dependency)throw Error('Complete prerequisite milestone before this quest');
     const actualKey = periodKey(current.repeat_rule, now);
     const existing = await tx.getFirstAsync<{ id: string }>(
       'SELECT id FROM completions WHERE quest_id=? AND period_key=?', quest.id, actualKey
@@ -296,6 +307,12 @@ export async function wipeAllData(): Promise<void> {
   await db.withExclusiveTransactionAsync(async tx => {
     await tx.runAsync('DELETE FROM xp_events');
     await tx.runAsync('DELETE FROM completions');
+    await tx.runAsync('DELETE FROM quest_dependencies');
+    await tx.runAsync('DELETE FROM quest_state');
+    await tx.runAsync('DELETE FROM focus_sessions');
+    await tx.runAsync('DELETE FROM boss_battles');
+    await tx.runAsync('DELETE FROM goal_outcomes');
+    await tx.runAsync('DELETE FROM weekly_reviews');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
     await tx.runAsync("INSERT OR REPLACE INTO app_state (key,value) VALUES ('starter_seeded','1')");
@@ -358,6 +375,12 @@ export async function restoreJSON(source: string): Promise<void> {
   await db.withExclusiveTransactionAsync(async tx=>{
     await tx.runAsync('DELETE FROM xp_events');
     await tx.runAsync('DELETE FROM completions');
+    await tx.runAsync('DELETE FROM quest_dependencies');
+    await tx.runAsync('DELETE FROM quest_state');
+    await tx.runAsync('DELETE FROM focus_sessions');
+    await tx.runAsync('DELETE FROM boss_battles');
+    await tx.runAsync('DELETE FROM goal_outcomes');
+    await tx.runAsync('DELETE FROM weekly_reviews');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
     for(const g of goals) await tx.runAsync(
