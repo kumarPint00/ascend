@@ -9,7 +9,7 @@ import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuest
   questDueOn,blockedByDependencies,isCompleted,localDayKey,isoWeekKey,
   derivedSkills,derivedAchievements,canUnlockSkill,outcomeProgress,xpTrend,focusMinutesForWeek,
   forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow,
-  adaptiveMissionRecommendations,metricForecast,milestoneHistoryStatus
+  adaptiveMissionRecommendations,metricForecast,milestoneHistoryStatus,measuredGoalProgress
 } from '@ascend/game-engine';
 import {Action,Chip,Meter,Panel,Section,T} from '../components/Elements';
 import {C,LABELS} from '../theme';
@@ -325,7 +325,9 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       {heading('Epic questlines','Measure real results separately from XP and task counts.')}
       {allGoals.slice(0,30).map(g=>{
         const m=phase.outcomes[g.id];
-        const recorded=m?outcomeProgress(m):Math.min(1,base.completions.filter(c=>
+        const history=milestoneHistoryStatus(phase.goalMeasurements,g.id);
+        const measuredTrend=m?metricForecast(history,m.target,today):null;
+        const recorded=m?measuredGoalProgress(history,m.value,m.target):Math.min(1,base.completions.filter(c=>
           base.quests.some(q=>q.id===c.questId&&q.goalId===g.id)).length/g.targetCount);
         const milestoneCount=allQuests.filter(q=>q.goalId===g.id&&q.title.startsWith('◆ ')).length;
         return <Panel key={g.id}>
@@ -337,10 +339,27 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <T size={11} color={C.dim} style={{marginTop:7}}>
             {milestoneCount} milestones · {Math.round(recorded*100)}% of {m?'measured result':'activity target'}
           </T>
+          {m&&<View style={{marginTop:10}}>
+            <View style={ss.between}>
+              <T color={C.energy} size={12} bold>MEASUREMENT HISTORY</T>
+              <T color={C.dim} size={11}>{history.length} samples</T>
+            </View>
+            {history.slice(0,4).map(point=><View key={point.id}
+              style={[ss.between,{marginTop:7,borderBottomColor:C.border,borderBottomWidth:1,paddingBottom:5}]}>
+              <T color={C.sub} size={11}>{point.recordedAt.slice(0,10)}</T>
+              <T size={12} color={C.frost} bold>{point.value} {point.unit}</T>
+            </View>)}
+            {measuredTrend?<T color={C.gold} size={11} style={{marginTop:9}}>
+              Estimated trend: {Math.abs(measuredTrend.changePerWeek).toFixed(2)} {m.unit}/week {measuredTrend.direction}.
+              Target may be reached around {measuredTrend.estimatedDate}. Not guaranteed.
+            </T>:<T color={C.dim} size={11} style={{marginTop:7}}>
+              No reliable trend yet. Record 3+ measurements across at least 7 days, with progress toward the target.
+            </T>}
+          </View>}
           {!m&&(()=>{const f=forecastGoalCompletion(g,base.quests,base.completions,today);
             return f?<T color={C.sub} size={11} style={{marginTop:5}}>
-              Trend estimate: {f.projectedDate} at {f.weeklyRate.toFixed(1)} recorded completions/week
-            </T>:<T color={C.dim} size={11} style={{marginTop:5}}>Forecast: not enough recent evidence</T>;
+              Activity-only estimate: {f.projectedDate} at {f.weeklyRate.toFixed(1)} quest completions/week
+            </T>:<T color={C.dim} size={11} style={{marginTop:5}}>Activity estimate: not enough recent evidence</T>;
           })()}
           <View style={[ss.between,{marginTop:12}]}>
             <Pressable accessibilityRole="button" onPress={()=>openMetric(g)} style={ss.smallButton}>
