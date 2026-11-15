@@ -79,7 +79,7 @@ async function runBackupInner(force:boolean){
     const prune=autoBackupPruneCandidates(managed.map(x=>x.name),settings.retention);
     // Retention deletes *only* confidently recognized ASCEND-AUTO files.
     for(const old of managed.filter(x=>prune.includes(x.name))){
-      if(old.uri!==uri)await FileSystem.StorageAccessFramework.deleteAsync(old.uri);
+      if(old.uri!==uri)await FileSystem.deleteAsync(old.uri,{idempotent:true});
     }
     await db.runAsync('UPDATE backup_settings SET last_backup_at=?,last_verified_at=?,last_error=NULL WHERE id=1',
       now.toISOString(),now.toISOString());
