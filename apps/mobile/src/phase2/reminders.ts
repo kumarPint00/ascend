@@ -19,10 +19,18 @@ export async function askReminderPermission():Promise<boolean>{
   if(!current.granted)current=await Notifications.requestPermissionsAsync();
   return current.granted;
 }
-export async function syncLocalReminders(input:{
+type ReminderInput={
   quests:Quest[];completions:Completion[];controls:Record<string,QuestControl>;
   dependencies:QuestDependency[];preferences:SchedulePreferences;
-},now=new Date()):Promise<number>{
+};
+let queue:Promise<unknown>=Promise.resolve();
+/** Serialize reschedules so a previous refresh cannot cancel newer reminders. */
+export function syncLocalReminders(input:ReminderInput,now=new Date()):Promise<number>{
+  const next=queue.then(()=>scheduleReminders(input,now));
+  queue=next.catch(()=>{});
+  return next;
+}
+async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
   const pending=await Notifications.getAllScheduledNotificationsAsync();
   // Never cancel anything except our own scheduled quest notifications.
   for(const scheduled of pending){
@@ -49,7 +57,7 @@ export async function syncLocalReminders(input:{
         trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:fire,channelId:CHANNEL},
       });
       count++;
-      if(count>=32)return count;
+      if(count>=96)return count;
     }
   }
   return count;
