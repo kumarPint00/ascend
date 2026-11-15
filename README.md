@@ -74,3 +74,9 @@ ASCEND checks [official GitHub Releases](https://github.com/kumarPint00/ascend/r
 **Before publishing APKs, configure a persistent private signing key in GitHub Actions secrets.** The old V0.1 test APKs used temporary debug signing and may require a one-time migration; back up your existing data before uninstalling an old build. Full instructions: [Android updates and signing](docs/ANDROID_UPDATES.md).
 
 No paid update backend is required. An APK release still requires device verification, and no signed release is published automatically by a source commit.
+
+## Private personal quest packs (v0.3.0)
+
+ASCEND imports private JSON goal, quest and milestone packs from a local file through **More > Personal quest pack**. The import is transactional, additive and repeat-safe; it never grants XP automatically. See [private quest-pack instructions](docs/PRIVATE_QUEST_PACKS.md).
+
+**Privacy:** No user-specific plan is stored in this public GitHub repository.
