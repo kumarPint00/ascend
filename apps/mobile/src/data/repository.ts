@@ -277,11 +277,26 @@ export async function completeQuest(quest: Quest, now = new Date()): Promise<{ a
       'SELECT archived,repeat_rule,difficulty,attribute FROM quests WHERE id=?', quest.id
     );
     if (!current || current.archived) throw new Error('Quest no longer exists');
-    const control=await tx.getFirstAsync<{status:string}>(
-      'SELECT status FROM quest_state WHERE quest_id=?',quest.id);
+    const control=await tx.getFirstAsync<{
+      status:string;weekdays:string;due_on:string|null;snoozed_until:string|null
+    }>('SELECT status,weekdays,due_on,snoozed_until FROM quest_state WHERE quest_id=?',quest.id);
     if(control?.status==='paused'||control?.status==='backlog'||
        (!control&&current.repeat_rule==='once'))
       throw Error('Activate this quest from the Planner before completing it');
+    // Enforce scheduling in the same transaction as XP to prevent stale UI
+    // or a background refresh from completing an off-schedule quest.
+    if(control?.snoozed_until&&today<control.snoozed_until)
+      throw Error('This quest is snoozed. Change its plan before completing it');
+    if(control?.due_on&&today<control.due_on)
+      throw Error('This quest is scheduled for a future date');
+    if(current.repeat_rule!=='once'&&control?.weekdays){
+      let scheduled:unknown;
+      try{scheduled=JSON.parse(control.weekdays);}catch{throw Error('Invalid saved quest weekdays');}
+      if(!Array.isArray(scheduled)||!scheduled.every(d=>Number.isInteger(d)&&d>=0&&d<=6))
+        throw Error('Invalid saved quest weekdays');
+      if(scheduled.length>0&&!scheduled.includes(now.getDay()))
+        throw Error('This quest is not scheduled for today');
+    }
     const dependency=await tx.getFirstAsync<{requires_quest_id:string}>(`
       SELECT d.requires_quest_id FROM quest_dependencies d
       WHERE d.quest_id=? AND NOT EXISTS (
