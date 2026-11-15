@@ -11,7 +11,7 @@ Android-first, offline-first, Solo Leveling-*inspired* (not affiliated) personal
 - Data export as selectable JSON text.
 - Automated game-engine tests and manual GitHub Actions APK workflow.
 
-> **Current state:** V0.1 source implementation. Game engine tests pass locally. Expo dependencies and Android APK could not be installed/built in the author's network-restricted environment, so the UI has not yet been device-tested. GitHub Actions can perform those steps after repository import.
+> **Current state:** Android source v0.4.0. CI validates the game engine and TypeScript. Android APK builds run in GitHub Actions; device-level accessibility, layout and update testing remains necessary.
 
 ## Run it
 
@@ -24,23 +24,23 @@ npm run typecheck
 npm run start
 ```
 
-To compile an Android APK via GitHub Actions: put this project at the root of your own repository, push the project files, open **Actions → Build Android APK (manual, no EAS required) → Run workflow**, and download the `ascend-android-v0.1` artifact from that run. The APK is a test build, not a production-distribution signed release.
+To compile an Android APK: use **Actions → Build ASCEND test APK (no signing setup)** for a temporary certificate, or **Actions → Build signed updatable Android APK** for the permanent signing key and optional GitHub Release. **Never install the temporary test APK over an existing signed release**; Android rejects mismatched signatures.
 
 ### First-time dependency installation
 
-Package versions target **Expo SDK 58**, React 19.3 and React Native 0.88. The Node/npm commands above require internet for the initial install. Run `npx expo install --check` after install and resolve any SDK compatibility warnings. Commit `package-lock.json` after your first successful online install to lock dependency versions. The initial workflows use `npm install` because a lockfile could not be generated offline; switch them to `npm ci` once the lockfile is committed. The included workflows are configuration only: they have not been executed yet.
+Package versions target **Expo SDK 58**, React 19.3 and React Native 0.88. The Node/npm commands above require internet for the initial install. Run `npx expo install --check` after install and resolve any SDK compatibility warnings. Commit `package-lock.json` after your first successful online install to lock dependency versions. The initial workflows use `npm install` because a lockfile could not be generated offline; switch them to `npm ci` once the lockfile is committed. The workflows have been exercised in GitHub Actions; check the latest run for authoritative build status.
 
 If you want to run a phone-specific release build locally, install Android Studio SDK tools and run `npm run android` (debug development); use the GitHub Actions release job for an installable test APK.
 
 ## Cost policy
 
-**V0.1 has zero required recurring cloud costs:** no Supabase, Firebase, Vercel, paid AI API, push service, remote database or analytics needed. Your device is the primary database. GitHub-hosted Actions are free without metered runner compute for standard public repositories; private repositories have included monthly quotas and may incur charges if billing permits overages. Configure billing spending limits to prevent surprises.
+**V0.4 has zero required recurring cloud costs:** no Supabase, Firebase, Vercel, paid AI API, push service, remote database or analytics needed. Your device is the primary database. GitHub-hosted Actions are free without metered runner compute for standard public repositories; private repositories have included monthly quotas and may incur charges if billing permits overages. Configure billing spending limits to prevent surprises.
 
 A future public app cannot be guaranteed zero infrastructure cost indefinitely, and store registration may have separate one-time costs. Plan paid upgrades only after proving retention and having actual revenue.
 
 ## Protect your data
 
-**There is no cloud backup in this version.** Before uninstalling, resetting the device, or replacing a phone, use **More → View Backup JSON**, copy all JSON and save it securely. Import/restore is a planned enhancement; this export currently needs a developer-assisted restore path. Do not store personal health or financial secrets in public GitHub issues or repository files.
+**There is no cloud backup in this version.** Before uninstalling, resetting the device, or replacing a phone, use **More → View Backup JSON**, copy all JSON and save it securely. **More → Restore Saved JSON** supports a validated manual restore that replaces local records. Verify your export before a signing-key migration. Do not store personal health or financial secrets in public GitHub issues or repository files.
 
 ## Repository layout
 
@@ -80,3 +80,15 @@ No paid update backend is required. An APK release still requires device verific
 ASCEND imports private JSON goal, quest and milestone packs from a local file through **More > Personal quest pack**. The import is transactional, additive and repeat-safe; it never grants XP automatically. See [private quest-pack instructions](docs/PRIVATE_QUEST_PACKS.md).
 
 **Privacy:** No user-specific plan is stored in this public GitHub repository.
+
+## Original brand, splash and v0.4 UX
+
+- `npm install` generates original PNG assets via `scripts/generate-brand-assets.cjs`; no paid design tools or binary asset commits.
+- Native `expo-splash-screen` configuration, Android adaptive and monochrome icons, and an in-app branded loading state.
+- Focused five-item icon navigation; profile accessible from the level badge and dashboard hero.
+- Searchable quest board with Today, Weekly, Milestones, Pending, Done and All filters; show-more pagination prevents rendering 180 quests at once.
+- Searchable goals with expandable milestones, a refined dark RPG palette and more accessible touch targets.
+- Respects the OS reduced-motion preference for quest completion toast transitions.
+- [30-point UX and motion audit](docs/UX_30_POINT_AUDIT.md) — implemented and pending checks are explicitly distinguished.
+
+**Personal data is not bundled.** Download the user's private quest pack in the conversation, then import locally from More → Personal quest pack. The public repository must never contain it.
