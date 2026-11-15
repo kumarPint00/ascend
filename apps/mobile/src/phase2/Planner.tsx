@@ -6,7 +6,8 @@ import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
 import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences} from '@ascend/game-engine';
 import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuestControl,
   questDueOn,blockedByDependencies,isCompleted,localDayKey,isoWeekKey,
-  derivedSkills,derivedAchievements,canUnlockSkill,outcomeProgress,xpTrend,focusMinutesForWeek
+  derivedSkills,derivedAchievements,canUnlockSkill,outcomeProgress,xpTrend,focusMinutesForWeek,
+  forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow
 } from '@ascend/game-engine';
 import {Action,Chip,Meter,Panel,Section,T} from '../components/Elements';
 import {C,LABELS} from '../theme';
@@ -90,6 +91,8 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
   const trend=xpTrend(base.xpEvents,today,7);
   const trendMax=Math.max(25,...trend.map(x=>x.xp));
   const totalWeekFocus=focusMinutesForWeek(phase.focusSessions,today);
+  const weekAttributes=attributeWeekBreakdown(base.xpEvents,today);
+  const activeDays=activeDaysInWindow(base.completions,today,7);
   const completedThisWeek=base.completions.filter(c=>isoWeekKey(new Date(c.completedAt))===isoWeekKey(today)).length;
 
   const openPlan=(q:Quest)=>{
@@ -264,6 +267,11 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
           <T size={11} color={C.dim} style={{marginTop:7}}>
             {milestoneCount} milestones · {Math.round(recorded*100)}% of {m?'measured result':'activity target'}
           </T>
+          {!m&&(()=>{const f=forecastGoalCompletion(g,base.quests,base.completions,today);
+            return f?<T color={C.sub} size={11} style={{marginTop:5}}>
+              Trend estimate: {f.projectedDate} at {f.weeklyRate.toFixed(1)} recorded completions/week
+            </T>:<T color={C.dim} size={11} style={{marginTop:5}}>Forecast: not enough recent evidence</T>;
+          })()}
           <View style={[ss.between,{marginTop:12}]}>
             <Pressable accessibilityRole="button" onPress={()=>openMetric(g)} style={ss.smallButton}>
               <T color={C.energy} size={11} bold>SET METRIC</T>
@@ -331,6 +339,20 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
         <View style={ss.metric}><T color={C.sub} size={10}>FOCUS MINUTES</T>
           <T size={24} bold color={C.energy}>{totalWeekFocus}</T></View>
       </View>
+      <Panel>
+        <View style={ss.between}><T bold size={14}>Consistency · last 7 days</T>
+          <T color={C.energy} bold size={17}>{activeDays} / 7</T></View>
+        <Meter value={activeDays/7} tint={C.green}/>
+        <T color={C.sub} size={11} style={{marginTop:6}}>Distinct days with recorded quest completions. Rest days are allowed.</T>
+      </Panel>
+      <Panel>
+        <T bold>Contribution by life area</T>
+        {ATTRIBUTES.map(a=><View key={a} style={{marginTop:11}}>
+          <View style={ss.between}><T color={C.sub} size={12}>{LABELS[a].label}</T>
+            <T color={LABELS[a].tint} size={12}>{weekAttributes[a]} XP</T></View>
+          <View style={{marginTop:6}}><Meter value={weekAttributes[a]/Math.max(1,...Object.values(weekAttributes))} tint={LABELS[a].tint}/></View>
+        </View>)}
+      </Panel>
       <Panel>
         <T bold>XP · last seven days</T>
         <View style={ss.chart}>{trend.map(d=><View key={d.day} style={ss.barCell}>
