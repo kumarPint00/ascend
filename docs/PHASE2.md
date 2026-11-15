@@ -8,12 +8,12 @@ See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring dev
 | Area | Implemented | Limitations / verification |
 |---|---|---|
 | 2.1 Quest intelligence | SQLite lifecycle: active/backlog/paused, priorities, daily 1–8 focused missions, snooze, status filters, 180-entry search, dependency locks before awarding XP | Not AI-powered; deliberately rule-based and auditable |
-| 2.2 Calendar and reminders | 14-day calendar, selected weekdays, target dates, time-of-day settings, Android local opt-in reminders, quiet hours, permission handling | Rolling horizon refreshed on foreground/edits; Android battery/notification settings can delay delivery; no background server |
-| 2.3 Epic questlines | Measurable goals with value/target/unit/deadline, prerequisite edges between one-off milestones, cycle prevention | Metric history/forecast based on real values is a later enhancement |
+| 2.2 Calendar and reminders | 14/30/90-day calendar, selected weekdays, target dates, opt-in Android repeating daily/weekly reminders and one-off reminders with quiet hours | Repeating notifications survive long periods unopened; Android Doze and background scheduling may still defer notifications |
+| 2.3 Epic questlines | Measurable goals with value/target/unit/deadline, prerequisite edges between one-off milestones, cycle prevention | SQLite v3 historical measurements and consistent-unit outcome forecasts implemented; no guarantee from limited data |
 | 2.4 Skills and bosses | Six attributes, 18 unlockable skill nodes, six evidence-based achievements, goal-linked boss battles with proof checks | No fictitious XP for claiming boss victories; original visual assets only |
 | 2.5 Analytics and review | 7-day XP chart, activity-day consistency, attribute XP contribution, conservative goal projections, focus-minute ledger, weekly reviews | Forecast absent if insufficient recent evidence; XP is not a validated performance score |
-| 2.6 Motion and UX | Native icon/splash from v0.4, five primary tabs with Planner, focused cards, searchable library, accessible motion-reduced transitions, original palette | 30-point checklist not fully signed off without device tests |
-| 2.7 Data/reliability | Additive SQLite schema v1→v2, database integrity checks, backup v2 with planner/skills/reviews and v1 import support, atomic restore transaction, local file share/picker, GitHub Actions CI, invariant tests | Backup is manual; no automatic cloud backup; signed upgrade requires same JKS |
+| 2.6 Motion and UX | Native icon/splash, original boss-gate visuals, skill-level progress, reduced-motion victory reveal, searchable library and focused navigation | 30-point checklist not fully signed off without device tests |
+| 2.7 Data/reliability | Additive SQLite schema v1→v2, database integrity checks, backup v2 with planner/skills/reviews and v1 import support, atomic restore transaction, local file share/picker, GitHub Actions CI, invariant tests | Optional selected-folder automatic local backups with readback verification, 2–30 retention and WorkManager catch-up; no automatic cloud backup; same JKS required |
 
 ## User journey
 
