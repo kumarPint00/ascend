@@ -37,6 +37,7 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
   const [search,setSearch]=useState(''),[showCount,setShowCount]=useState(18);
   const [chosenDay,setChosenDay]=useState(localDayKey(new Date()));
   const [focusMinutes,setFocusMinutes]=useState('25');
+  const [focusQuestId,setFocusQuestId]=useState<string|null>(null);
   const [review,setReview]=useState({wins:'',blockers:'',nextFocus:''});
   const [prefs,setPrefs]=useState<SchedulePreferences>(EMPTY_PHASE_TWO.preferences);
   const [backupText,setBackupText]=useState<string|null>(null);
@@ -380,9 +381,13 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
       <Panel>
         <T bold>Log a focused work session</T>
         <T size={12} color={C.sub} style={{marginTop:6}}>Record real minutes you spent, rather than inventing productive time.</T>
+        <T color={C.sub} size={12} style={{marginTop:12}}>Link this session to a current mission (optional)</T>
+        <View style={ss.chips}><Chip active={focusQuestId===null} onPress={()=>setFocusQuestId(null)}>General</Chip>
+          {due.slice(0,5).map(q=><Chip key={q.id} active={focusQuestId===q.id}
+            onPress={()=>setFocusQuestId(q.id)}>{q.title.slice(0,19)}</Chip>)}</View>
         <TextInput style={[ss.input,{marginTop:10}]} accessibilityLabel="Focus minutes" keyboardType="number-pad"
           value={focusMinutes} onChangeText={setFocusMinutes} placeholder="Minutes" placeholderTextColor={C.dim}/>
-        <Action secondary disabled={busy} onPress={()=>void run(()=>logFocusSession(null,Number(focusMinutes)),'Focus time recorded')}>LOG FOCUS</Action>
+        <Action secondary disabled={busy} onPress={()=>void run(()=>logFocusSession(focusQuestId,Number(focusMinutes)),'Focus time recorded')}>LOG FOCUS</Action>
       </Panel>
       <Section title={'Weekly review · '+isoWeekKey(today)}/>
       <Panel>
