@@ -58,7 +58,7 @@ export function blockedByDependencies(q:Quest,deps:readonly QuestDependency[],co
 }
 export function introducesCycle(deps:readonly QuestDependency[],edge:QuestDependency):boolean {
   if(edge.questId===edge.requiresQuestId)return true;
-  const all=[...deps.filter(x=>x.questId!==edge.questId),edge];
+  const all=[...deps.filter(x=>!(x.questId===edge.questId&&x.requiresQuestId===edge.requiresQuestId)),edge];
   const walk=(id:string,seen:Set<string>):boolean=>{
     if(id===edge.questId)return true;
     if(seen.has(id))return false;
