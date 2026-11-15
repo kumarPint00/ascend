@@ -3,7 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,
   BossBattle,FocusSession,WeeklyReview,SchedulePreferences} from '@ascend/game-engine';
-import {ATTRIBUTES,validateControl,introducesCycle,DEFAULT_PREFERENCES,validTime} from '@ascend/game-engine';
+import {ATTRIBUTES,validateControl,introducesCycle,validTime,validCalendarDay} from '@ascend/game-engine';
 import {getDb,loadSnapshot,restoreJSON} from './repository';
 import {loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './phase2';
 
@@ -75,7 +75,7 @@ export function parseFullBackup(source:string):FullBackup{
   for(const [id,o] of Object.entries(outcomes)){
     if(!gIds.has(id)||!obj(o)||o.goalId!==id||!Number.isFinite(o.target)||o.target<=0||
       !Number.isFinite(o.value)||o.value<0||!str(o.unit,24)||
-      (o.deadline!==null&&!/^\d{4}-\d{2}-\d{2}$/.test(o.deadline)))
+      (o.deadline!==null&&!validCalendarDay(o.deadline)))
       throw Error('Invalid measurable outcome');
   }
   const bosses=array(p.bosses,10000,'bosses') as BossBattle[];
@@ -172,7 +172,7 @@ export async function shareBackupFile():Promise<void>{
   await Sharing.shareAsync(path,{mimeType:'application/json',dialogTitle:'Save ASCEND backup outside the app'});
 }
 export async function chooseBackupFile():Promise<string|null>{
-  const result=await DocumentPicker.getDocumentAsync({type:'application/json',copyToCacheDirectory:true});
+  const result=await DocumentPicker.getDocumentAsync({type:'*/*',copyToCacheDirectory:true});
   if(result.canceled)return null;
   const file=result.assets[0];
   if(!file)return null;
