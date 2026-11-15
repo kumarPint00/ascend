@@ -349,7 +349,7 @@ export default function App() {
         {text:'Cancel',style:'cancel'}, {text:'Delete everything',style:'destructive',onPress:()=>run(wipeAllData)},
       ])}>RESET PROFILE</Action></View>
     </Panel>
-    <T color={C.dim} size={11}>ASCEND v0.1 · Local-first · No advertisements or paid APIs</T>
+    <T color={C.dim} size={11}>ASCEND v{Application.nativeApplicationVersion ?? '0.3.0'} · Local-first · No advertisements or paid APIs</T>
   </>;
 
   if(loading) return <View style={[s.root,{justifyContent:'center',alignItems:'center'}]}><ActivityIndicator color={C.energy} size="large"/><T color={C.sub} style={{marginTop:16}}>Initializing the System…</T></View>;
