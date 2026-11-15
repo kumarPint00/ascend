@@ -49,11 +49,11 @@ jobs:
           "$tools/apksigner" verify --print-certs "$apk"
           "$tools/aapt" dump badging "$apk" | grep -E "^package:|^application-label:"
           mkdir -p out
-          cp "$apk" out/ascend-v0.4.0-test.apk
+          cp "$apk" out/ascend-v0.8.0-test.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: ascend-v0.4.0-test-apk
-          path: out/ascend-v0.4.0-test.apk
+          name: ascend-v0.8.0-test-apk
+          path: out/ascend-v0.8.0-test.apk
           retention-days: 30
           if-no-files-found: error
