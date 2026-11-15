@@ -185,3 +185,13 @@ export async function chooseBackupFile():Promise<string|null>{
     throw Error('Not a recognized ASCEND backup');
   return source;
 }
+
+/** On-device read-only health scan; does not modify personal data. */
+export async function verifyLocalDatabase():Promise<{tables:number;foreignKeyErrors:number;integrity:string}>{
+  const db=await getDb();
+  const integrity=await db.getFirstAsync<{integrity_check:string}>('PRAGMA integrity_check');
+  const links=await db.getAllAsync<{table:string;rowid:number;parent:string;fkid:number}>('PRAGMA foreign_key_check');
+  const tables=await db.getFirstAsync<{n:number}>(
+    "SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+  return {tables:tables?.n??0,foreignKeyErrors:links.length,integrity:integrity?.integrity_check??'unknown'};
+}
