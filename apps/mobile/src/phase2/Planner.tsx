@@ -1,5 +1,5 @@
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
-import {ActivityIndicator,Alert,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,
+import React,{useCallback,useEffect,useRef,useState} from 'react';
+import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,
   StyleSheet,TextInput,View} from 'react-native';
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
   ChevronRight,ShieldCheck,Lock,CheckCircle2} from 'lucide-react-native';
@@ -41,6 +41,19 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
   const [prefs,setPrefs]=useState<SchedulePreferences>(EMPTY_PHASE_TWO.preferences);
   const [backupText,setBackupText]=useState<string|null>(null);
   const [notificationsCount,setNotificationsCount]=useState<number|null>(null);
+  const [reduceMotion,setReduceMotion]=useState(false);
+  const entrance=useRef(new Animated.Value(1)).current;
+  useEffect(()=>{
+    let live=true;
+    AccessibilityInfo.isReduceMotionEnabled().then(enabled=>{if(live)setReduceMotion(enabled);}).catch(()=>{});
+    const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);
+    return ()=>{live=false;sub.remove();};
+  },[]);
+  useEffect(()=>{
+    entrance.stopAnimation();
+    entrance.setValue(0);
+    Animated.timing(entrance,{toValue:1,duration:reduceMotion?0:210,useNativeDriver:true}).start();
+  },[area,reduceMotion,entrance]);
 
   const refresh=useCallback(async()=>{
     const p=await loadPhaseTwoSnapshot();
@@ -193,6 +206,7 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
       contentContainerStyle={{paddingBottom:6}} style={{marginBottom:12}}>
       {AREAS.map(a=><Chip key={a} active={area===a} onPress={()=>setArea(a)}>{a}</Chip>)}
     </ScrollView>
+    <Animated.View style={{opacity:entrance,transform:[{translateY:entrance.interpolate({inputRange:[0,1],outputRange:[reduceMotion?0:8,0]})}]}}>
 
     {area==='Today'&&<>
       {heading('Today’s focused missions','Only the highest-priority, currently active tasks appear here.')}
@@ -425,6 +439,7 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
       </Panel>
     </>}
 
+    </Animated.View>
     <Modal visible={!!editControl&&!!selectedQuest} animationType="slide" transparent
       onRequestClose={()=>{setSelectedQuest(null);setEditControl(null);}}>
       <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
