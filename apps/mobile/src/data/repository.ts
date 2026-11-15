@@ -30,7 +30,7 @@ type XPRow = {
 let handle: SQLite.SQLiteDatabase | null = null;
 const newId = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
 
-async function getDb(): Promise<SQLite.SQLiteDatabase> {
+export async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!handle) handle = await SQLite.openDatabaseAsync('ascend.db');
   return handle;
 }
@@ -40,7 +40,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 1) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 2) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -70,6 +70,57 @@ export async function initialize(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_completions_quest ON completions(quest_id);
       PRAGMA user_version = 1;
     `);
+  }
+  if ((version?.user_version ?? 0) < 2) {
+    // Additive v1→v2 migration; never rewrite the original quests, XP or completions.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        CREATE TABLE IF NOT EXISTS quest_state (
+          quest_id TEXT PRIMARY KEY REFERENCES quests(id) ON DELETE CASCADE,
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','backlog','paused')),
+          priority INTEGER NOT NULL DEFAULT 2 CHECK(priority BETWEEN 1 AND 3),
+          weekdays TEXT NOT NULL DEFAULT '[]', due_on TEXT, time_of_day TEXT,
+          snoozed_until TEXT, estimate_minutes INTEGER NOT NULL DEFAULT 25,
+          reminder INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS quest_dependencies (
+          quest_id TEXT NOT NULL REFERENCES quests(id) ON DELETE CASCADE,
+          requires_quest_id TEXT NOT NULL REFERENCES quests(id) ON DELETE CASCADE,
+          PRIMARY KEY(quest_id, requires_quest_id),
+          CHECK(quest_id <> requires_quest_id)
+        );
+        CREATE TABLE IF NOT EXISTS goal_outcomes (
+          goal_id TEXT PRIMARY KEY REFERENCES goals(id) ON DELETE CASCADE,
+          target REAL NOT NULL CHECK(target>0), value REAL NOT NULL DEFAULT 0 CHECK(value>=0),
+          unit TEXT NOT NULL DEFAULT 'units', deadline TEXT
+        );
+        CREATE TABLE IF NOT EXISTS boss_battles (
+          id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL,
+          goal_id TEXT REFERENCES goals(id) ON DELETE SET NULL,
+          quest_id TEXT REFERENCES quests(id) ON DELETE SET NULL,
+          won_at TEXT, created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS focus_sessions (
+          id TEXT PRIMARY KEY,
+          quest_id TEXT REFERENCES quests(id) ON DELETE SET NULL,
+          minutes INTEGER NOT NULL CHECK(minutes BETWEEN 1 AND 480),
+          created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS weekly_reviews (
+          week_key TEXT PRIMARY KEY, wins TEXT NOT NULL DEFAULT '',
+          blockers TEXT NOT NULL DEFAULT '', next_focus TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS preferences (
+          key TEXT PRIMARY KEY, value TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_quest_state_status ON quest_state(status);
+        CREATE INDEX IF NOT EXISTS idx_focus_sessions_created ON focus_sessions(created_at);
+      `);
+      await tx.execAsync(`INSERT OR IGNORE INTO quest_state(quest_id,status)
+          SELECT id, CASE WHEN repeat_rule='once' THEN 'backlog' ELSE 'active' END FROM quests;
+        PRAGMA user_version = 2;`);
+    });
   }
   const seedFlag = await db.getFirstAsync<{ value: string }>(
     "SELECT value FROM app_state WHERE key = 'starter_seeded'"
