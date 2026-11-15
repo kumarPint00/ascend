@@ -1,4 +1,4 @@
-# ASCEND Phase 2 · Integrated v0.8.1 (Android)
+# ASCEND Phase 2 · Feature-depth upgrade v0.9.0 (Android)
 
 This is a local-first implementation for **personal use**, not a claim that device QA is complete.
 See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring device review.
@@ -67,3 +67,28 @@ Keep private personal details in the user-imported JSON on their device, never i
 ### Personal acceptance gate
 
 The signed APK is a **candidate**, not proof of runtime correctness. Verify a v0.3→v0.8.1 in-place update on a device with a disposable backup, and verify Android notification permissions and full backup restoration before publishing as the latest GitHub Release. Existing v0.3.0 remains the latest release until that gate is passed.
+
+## Phase 2 depth improvements (v0.9.0)
+
+The following close the functionality gaps highlighted after v0.8.1. Implemented in source; real-device acceptance remains outstanding.
+
+| Earlier limitation | New behavior | Remaining platform reality |
+|---|---|---|
+| Only a rolling 14-day planner | 14/30/90-day calendar selector; indefinitely repeating Android local daily/weekly notifications for stable recurring quests; one-off reminders target their actual date, including overdue catch-up | Native Android Doze, battery policies and exact-alarm restrictions can delay delivery; WorkManager is best-effort, not a clock |
+| No goal metric history | Additive SQLite v3 `goal_measurements` ledger, values/units/timestamps, goal timeline and direction-aware progress | Earlier v2 data can supply only one baseline; no historical values are invented |
+| Forecasts based on quest activity | Three or more consistent-unit measurements spread over at least 7 days produce conservative outcome trends; insufficient/contradictory data yields no ETA | No model can guarantee personal, financial, or medical results |
+| Only manual backups | Opt-in selected external Android Storage Access Framework folder; 12/24/72 hour interval, 2–30 copy retention, readback and JSON validation, automatic catch-up on foreground and WorkManager maintenance | User grants folder access; background execution is OS-controlled; files are plaintext and remain private only if the selected folder is private |
+| Basic deterministic recommendation | Offline explainable scoring from priority, due date, last completion, difficulty/effort, available minutes and diversity of life areas | No online AI/LLM or automatic knowledge of actual availability |
+| Generic progression visuals | Distinctive gradient boss-gate cards, skill-level progress meters, verified victory reveal and OS reduced-motion support | Full 3D avatars, elaborate animation scenes and all 30 physical-device checks are not implied |
+
+### Operational notes
+
+- **Database v3 migration** preserves all prior XP, quests, goals and v2 planner data.
+- **JSON backup schema v3** stores goal measurements; v1/v2 imports are supported with carefully bounded history (a single existing-baseline record rather than invented older measurements).
+- **External-folder backups** are explicitly opted into. They are not added to GitHub, Firebase, Supabase or Vercel. ASCEND only prunes automatically named `ASCEND-AUTO-...` files and leaves other files alone.
+- **No automatic cloud backup:** if your phone's storage fails and your chosen folder is on that same storage, the backup can be lost too. You can choose a cloud-synced folder if its Android document provider supports persisted write access, but this is a third-party capability and not promised by ASCEND.
+- **Auto background worker:** `expo-background-task` uses Android WorkManager at a minimum interval; it is not guaranteed to run exactly every 12/24/72 hours, particularly if the app is force-stopped or battery-restricted. The app attempts overdue backups on foreground as well.
+- **Android in-place upgrades** still require the identical package ID and original keystore. This is a platform rule, not an ASCEND design choice.
+- **Security:** external JSON is unencrypted; never select a publicly shared folder. Verify backup/restore on a disposable profile before entrusting it with personal data.
+
+Do not publish a new GitHub Release to the in-app update feed until signed APK validation and device acceptance are complete.
