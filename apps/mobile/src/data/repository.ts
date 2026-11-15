@@ -2,7 +2,8 @@ import * as SQLite from 'expo-sqlite';
 import {
   type Attribute, type Quest, type Goal, type Completion, type XPEvent,
   type Difficulty, type RepeatRule, ATTRIBUTES, cleanQuestInput, periodKey,
-  localDayKey, awardForCompletion,
+  localDayKey, awardForCompletion, parseQuestPack, importGoalId, importQuestId,
+  importedQuestTitle, importedQuestDescription,
 } from '@ascend/game-engine';
 
 export interface Snapshot {
@@ -142,6 +143,31 @@ export async function saveQuest(input: QuestInput, id?: string): Promise<void> {
       valid.repeatRule, valid.goalId, new Date().toISOString()
     );
   }
+}
+
+/** Import a private goal/quest/milestone pack without replacing or duplicating progress. */
+export async function importQuestPack(source: string): Promise<{goalsAdded:number;questsAdded:number;milestonesAdded:number}> {
+  const pack=parseQuestPack(source);
+  const db=await getDb();
+  const now=new Date().toISOString();
+  let goalsAdded=0,questsAdded=0,milestonesAdded=0;
+  await db.withExclusiveTransactionAsync(async tx=>{
+    for(const goal of pack.goals){
+      const r=await tx.runAsync(
+        'INSERT OR IGNORE INTO goals (id,title,attribute,target_count,created_at,archived) VALUES (?,?,?,?,?,0)',
+        importGoalId(pack.packId,goal.key),goal.title,goal.attribute,goal.targetCount,now);
+      goalsAdded+=r.changes;
+    }
+    for(const quest of pack.quests){
+      const r=await tx.runAsync(
+        'INSERT OR IGNORE INTO quests (id,title,description,attribute,difficulty,repeat_rule,goal_id,created_at,archived) VALUES (?,?,?,?,?,?,?,?,0)',
+        importQuestId(pack.packId,quest.key),importedQuestTitle(quest),importedQuestDescription(quest),
+        quest.attribute,quest.difficulty,quest.repeatRule,importGoalId(pack.packId,quest.goalKey),now);
+      if(quest.kind==='milestone')milestonesAdded+=r.changes;
+      else questsAdded+=r.changes;
+    }
+  });
+  return {goalsAdded,questsAdded,milestonesAdded};
 }
 
 export async function archiveQuest(id: string): Promise<void> {
