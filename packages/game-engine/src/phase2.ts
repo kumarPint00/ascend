@@ -19,7 +19,12 @@ export interface SchedulePreferences {
 export const DEFAULT_PREFERENCES:SchedulePreferences={
   remindersEnabled:false,quietStart:'22:00',quietEnd:'07:00',dailyMissionLimit:4
 };
-const validDay=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00'));
+export function validCalendarDay(v:string):boolean {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+  const date=new Date(v+'T00:00:00.000Z');
+  return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===v;
+}
+const validDay=validCalendarDay;
 export const validTime=(v:string)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 export function defaultQuestControl(q:Pick<Quest,'id'|'repeatRule'>):QuestControl {
   return {questId:q.id,status:q.repeatRule==='once'?'backlog':'active',
