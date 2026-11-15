@@ -85,8 +85,14 @@ export function occurrencesForDays(quests:readonly Quest[],controls:Readonly<Rec
   {date:string;quests:Quest[]}[] {
   return Array.from({length:Math.min(31,Math.max(1,days))},(_,i)=>{
     const date=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i,12);
-    const eligible=quests.filter(q=>questDueOn(q,controls[q.id]??defaultQuestControl(q),date)
-      &&!isCompleted(q,completions,date)&&!blockedByDependencies(q,deps,completions));
+    const eligible=quests.filter(q=>{
+      const c=controls[q.id]??defaultQuestControl(q);
+      // A one-time milestone belongs on its due date (or today's overdue lane),
+      // never on every future calendar day.
+      if(q.repeatRule==='once'&&i>0&&(!c.dueOn||c.dueOn!==localDayKey(date)))return false;
+      return questDueOn(q,c,date)&&!isCompleted(q,completions,date)&&
+        !blockedByDependencies(q,deps,completions);
+    });
     return {date:localDayKey(date),quests:eligible};
   });
 }
