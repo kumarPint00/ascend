@@ -2,16 +2,18 @@
   "expo": {
     "name": "ASCEND",
     "slug": "ascend-real-life-rpg",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "orientation": "portrait",
     "scheme": "ascendrpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#090F1D",
     "android": {
       "package": "com.ascendrpg.personal",
-      "versionCode": 3,
+      "versionCode": 4,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-foreground.png",
+        "monochromeImage": "./assets/adaptive-monochrome.png",
         "backgroundColor": "#090F1D"
       },
       "permissions": [
@@ -24,10 +26,23 @@
       "supportsTablet": false
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#090F1D",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#060B16"
+          }
+        }
+      ]
     ],
     "experiments": {
       "tsconfigPaths": true
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }
