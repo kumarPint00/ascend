@@ -1,5 +1,5 @@
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,BossBattle,
-  FocusSession,WeeklyReview,SchedulePreferences} from '@ascend/game-engine';
+  FocusSession,WeeklyReview,SchedulePreferences,MeasurementPoint} from '@ascend/game-engine';
 import {defaultQuestControl,validateControl,introducesCycle,DEFAULT_PREFERENCES,isoWeekKey,
   completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill,validCalendarDay} from '@ascend/game-engine';
 import {getDb,loadSnapshot} from './repository';
@@ -8,10 +8,11 @@ export interface PhaseTwoSnapshot {
   controls:Record<string,QuestControl>;dependencies:QuestDependency[];
   outcomes:Record<string,GoalOutcome>;bosses:BossBattle[];
   focusSessions:FocusSession[];weeklyReviews:WeeklyReview[];skillUnlocks:string[];
+  goalMeasurements:MeasurementPoint[];
   preferences:SchedulePreferences;
 }
 export const EMPTY_PHASE_TWO:PhaseTwoSnapshot={
-  controls:{},dependencies:[],outcomes:{},bosses:[],focusSessions:[],weeklyReviews:[],skillUnlocks:[],
+  controls:{},dependencies:[],outcomes:{},bosses:[],focusSessions:[],weeklyReviews:[],skillUnlocks:[],goalMeasurements:[],
   preferences:DEFAULT_PREFERENCES
 };
 const newId=()=>Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);
@@ -26,7 +27,7 @@ function decodeControl(row:StateRow):QuestControl{
 }
 export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSnapshot>{
   const db=await getDb();
-  const [states,deps,results,bosses,sessions,reviews,prefs,unlocks]=await Promise.all([
+  const [states,deps,results,bosses,sessions,reviews,prefs,unlocks,measurements]=await Promise.all([
     db.getAllAsync<StateRow>('SELECT * FROM quest_state'),
     db.getAllAsync<{quest_id:string;requires_quest_id:string}>('SELECT * FROM quest_dependencies'),
     db.getAllAsync<{goal_id:string;target:number;value:number;unit:string;deadline:string|null}>('SELECT * FROM goal_outcomes'),
@@ -37,6 +38,8 @@ export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSn
       'SELECT * FROM weekly_reviews ORDER BY week_key DESC'+(fullHistory?'':' LIMIT 100')),
     db.getAllAsync<{key:string;value:string}>('SELECT * FROM preferences'),
     db.getAllAsync<{node_id:string}>('SELECT node_id FROM skill_unlocks'),
+    db.getAllAsync<{id:string;goal_id:string;value:number;unit:string;recorded_at:string}>(
+      'SELECT * FROM goal_measurements ORDER BY recorded_at DESC'+(fullHistory?'':' LIMIT 1200')),
   ]);
   const controls:Record<string,QuestControl>={};
   for(const row of states){const c=decodeControl(row);controls[c.questId]=c;}
@@ -56,7 +59,9 @@ export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSn
     focusSessions:sessions.map(s=>({id:s.id,questId:s.quest_id,minutes:s.minutes,createdAt:s.created_at})),
     weeklyReviews:reviews.map(r=>({weekKey:r.week_key,wins:r.wins,blockers:r.blockers,
       nextFocus:r.next_focus,createdAt:r.created_at})),
-    skillUnlocks:unlocks.map(u=>u.node_id),preferences,
+    skillUnlocks:unlocks.map(u=>u.node_id),
+    goalMeasurements:measurements.map(m=>({id:m.id,goalId:m.goal_id,value:m.value,
+      unit:m.unit,recordedAt:m.recorded_at})),preferences,
   };
 }
 export async function updateQuestControl(quest:Quest,patch:Partial<Omit<QuestControl,'questId'>>):Promise<void>{
@@ -95,10 +100,19 @@ export async function saveGoalOutcome(goalId:string,input:{target:number;value:n
      unit.trim().length<1||unit.length>24||
      (deadline!==null&&!validCalendarDay(deadline)))
     throw Error('Invalid measurable goal values');
-  const db=await getDb();
-  await db.runAsync(`INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline) VALUES(?,?,?,?,?)
-    ON CONFLICT(goal_id) DO UPDATE SET target=excluded.target,value=excluded.value,
-    unit=excluded.unit,deadline=excluded.deadline`,goalId,target,value,unit.trim(),deadline);
+  const db=await getDb(),recordedAt=new Date().toISOString();
+  await db.withExclusiveTransactionAsync(async tx=>{
+    const previous=await tx.getFirstAsync<{value:number;unit:string}>(
+      'SELECT value,unit FROM goal_outcomes WHERE goal_id=?',goalId);
+    await tx.runAsync(`INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline) VALUES(?,?,?,?,?)
+      ON CONFLICT(goal_id) DO UPDATE SET target=excluded.target,value=excluded.value,
+      unit=excluded.unit,deadline=excluded.deadline`,goalId,target,value,unit.trim(),deadline);
+    if(!previous||previous.value!==value||previous.unit!==unit.trim()){
+      await tx.runAsync(
+        'INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)',
+        newId(),goalId,value,unit.trim(),recordedAt);
+    }
+  });
 }
 export async function createBoss(input:{title:string;description:string;goalId:string|null;questId:string|null}):Promise<void>{
   const title=input.title.trim(),description=input.description.trim();
