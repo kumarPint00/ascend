@@ -2,24 +2,32 @@
   "expo": {
     "name": "ASCEND",
     "slug": "ascend-real-life-rpg",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "scheme": "ascendrpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#090F1D",
     "android": {
       "package": "com.ascendrpg.personal",
-      "versionCode": 1,
+      "versionCode": 2,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#090F1D"
-      }
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES"
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.ascendrpg.personal",
       "supportsTablet": false
     },
-    "plugins": ["expo-sqlite"],
-    "experiments": { "tsconfigPaths": true }
+    "plugins": [
+      "expo-sqlite"
+    ],
+    "experiments": {
+      "tsconfigPaths": true
+    }
   }
 }
