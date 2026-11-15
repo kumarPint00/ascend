@@ -29,3 +29,16 @@ test('rejects recurring milestones and oversized data',()=>{
   const r=fixture();r.quests[1].repeatRule='daily';assert.throws(()=>parseQuestPack(JSON.stringify(r)));
   assert.throws(()=>parseQuestPack('x'.repeat(100001)));
 });
+
+test('supports maximum 30 goals and 180 quests, rejecting excessive packs',()=>{
+  const g=Array.from({length:30},(_,i)=>({key:'goal-'+i,title:'Goal '+i,attribute:'discipline',targetCount:10}));
+  const q=Array.from({length:180},(_,i)=>({key:'quest-'+i,goalKey:'goal-'+(i%30),
+    title:'Review '+i,description:'User-controlled task',attribute:'discipline',
+    difficulty:'medium',repeatRule:'once',kind:i%2?'milestone':'quest'}));
+  const p={format:'ascend-quest-pack',schemaVersion:1,packId:'large-pack',title:'Stress test',goals:g,quests:q};
+  const parsed=parseQuestPack(JSON.stringify(p));
+  assert.equal(parsed.goals.length,30);
+  assert.equal(parsed.quests.length,180);
+  p.quests.push({...q[0],key:'overflow'});
+  assert.throws(()=>parseQuestPack(JSON.stringify(p)));
+});
