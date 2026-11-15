@@ -164,6 +164,7 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
   </View>;
   const QuestRow=({quest,compact=false}:{quest:Quest;compact?:boolean})=>{
     const c=controlFor(quest);
+    const dueToday=questDueOn(quest,c,today);
     const done=isCompleted(quest,base.completions,today);
     const blocked=blockedByDependencies(quest,phase.dependencies,base.completions);
     return <Panel style={{padding:14}}>
@@ -179,7 +180,7 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
         </View>
         <View style={{alignItems:'flex-end',gap:6}}>
           <T color={done?C.green:c.status==='active'?C.energy:C.dim} bold size={11}>
-            {done?'CLEARED':c.status.toUpperCase()}
+            {done?'CLEARED':c.status==='active'&&!dueToday?'SCHEDULED':c.status.toUpperCase()}
           </T>
           <Pressable onPress={()=>openPlan(quest)} accessibilityRole="button"
             accessibilityLabel={'Plan '+quest.title} style={ss.smallButton}>
@@ -187,11 +188,12 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
           </Pressable>
         </View>
       </View>
-      {c.status==='active'&&!done&&!blocked&&
+      {dueToday&&!done&&!blocked&&
         <View style={{marginTop:9}}>
           <Action secondary disabled={busy} onPress={()=>complete(quest)}>COMPLETE MISSION</Action>
         </View>}
       {blocked&&<T size={11} color={C.gold} style={{marginTop:8}}>Finish the prerequisite quest to unlock this mission.</T>}
+      {!done&&c.status==='active'&&!dueToday&&<T size={11} color={C.dim} style={{marginTop:8}}>This mission is not due today. Change its plan to reschedule.</T>}
     </Panel>;
   };
 
