@@ -1,4 +1,4 @@
-# ASCEND Phase 2 · Integrated v0.8.0 (Android)
+# ASCEND Phase 2 · Integrated v0.8.1 (Android)
 
 This is a local-first implementation for **personal use**, not a claim that device QA is complete.
 See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring device review.
@@ -54,3 +54,16 @@ See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring dev
 `apps/mobile/src/phase2/Planner.tsx` owns the interactive Phase 2 interface.
 
 Keep private personal details in the user-imported JSON on their device, never in public source, workflows, logs or screenshots.
+
+## v0.8.1 release-candidate fixes
+
+- Completing a quest now checks its persisted lifecycle, selected weekdays, snooze and due date **inside the same SQLite transaction as XP**. UI and database behavior agree.
+- Home, Quests, Goals and Planner no longer offer the completion action for an off-schedule or blocked quest.
+- The PLAN action on a quest or imported milestone opens that exact quest's editor; no searching through 180 entries.
+- Android's document picker can select JSON backup files that are advertised as a generic MIME type; file content is validated before replacement.
+- Due dates and snoozes reject impossible dates such as February 30.
+- GitHub's signed Android build workflow produces an APK using the configured permanent JKS, but doesn't publish a GitHub Release unless explicitly enabled.
+
+### Personal acceptance gate
+
+The signed APK is a **candidate**, not proof of runtime correctness. Verify a v0.3→v0.8.1 in-place update on a device with a disposable backup, and verify Android notification permissions and full backup restoration before publishing as the latest GitHub Release. Existing v0.3.0 remains the latest release until that gate is passed.
