@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import {
   type Attribute, type Quest, type Goal, type Completion, type XPEvent,
-  type Difficulty, type RepeatRule, cleanQuestInput, periodKey,
+  type Difficulty, type RepeatRule, ATTRIBUTES, cleanQuestInput, periodKey,
   localDayKey, awardForCompletion,
 } from '@ascend/game-engine';
 
@@ -221,6 +221,80 @@ export async function wipeAllData(): Promise<void> {
     await tx.runAsync('DELETE FROM completions');
     await tx.runAsync('DELETE FROM quests');
     await tx.runAsync('DELETE FROM goals');
+    await tx.runAsync("INSERT OR REPLACE INTO app_state (key,value) VALUES ('starter_seeded','1')");
+  });
+}
+
+/**
+ * Import a user-controlled V0.1 backup after a one-time signing-key migration.
+ * Validate completely before deleting anything; replacement is atomic.
+ */
+export async function restoreJSON(source: string): Promise<void> {
+  if (source.length > 8_000_000) throw new Error('Backup exceeds 8 MB');
+  const value: unknown = JSON.parse(source);
+  const obj = value as Record<string, unknown>;
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj) ||
+      obj.format !== 'ascend-backup' || obj.schemaVersion !== 1) {
+    throw new Error('Not an ASCEND schema v1 backup');
+  }
+  const names: (keyof Snapshot)[] = ['goals','quests','completions','xpEvents'];
+  for (const name of names) {
+    if (!Array.isArray(obj[name]) || (obj[name] as unknown[]).length > 50000) {
+      throw new Error('Invalid ' + name + ' in backup');
+    }
+  }
+  const goals=obj.goals as Goal[], quests=obj.quests as Quest[];
+  const completions=obj.completions as Completion[], xpEvents=obj.xpEvents as XPEvent[];
+  const isObject=(x: unknown): x is Record<string,unknown> =>
+    !!x && typeof x === 'object' && !Array.isArray(x);
+  const isId=(x:unknown): x is string => typeof x === 'string' && x.length > 0 && x.length <= 128;
+  const isDate=(x:unknown): x is string => typeof x === 'string' && x.length <= 40 && Number.isFinite(Date.parse(x));
+  const isAttr=(x:unknown)=>ATTRIBUTES.includes(x as Attribute);
+  const unique=(rows:{id:string}[])=>new Set(rows.map(x=>x.id)).size === rows.length;
+  if (!goals.every(g=>isObject(g) && isId(g.id) && typeof g.title==='string' &&
+    g.title.length>0 && g.title.length<=100 && isAttr(g.attribute) &&
+    Number.isInteger(g.targetCount) && g.targetCount>=1 && g.targetCount<=10000 &&
+    isDate(g.createdAt) && typeof g.archived==='boolean')) throw new Error('Invalid goal records');
+  const goalIds=new Set(goals.map(g=>g.id));
+  if (!quests.every(q=>isObject(q) && isId(q.id) && typeof q.title==='string' &&
+    q.title.length>0 && q.title.length<=100 && typeof q.description==='string' &&
+    q.description.length<=500 && isAttr(q.attribute) &&
+    ['easy','medium','hard'].includes(q.difficulty) &&
+    ['daily','weekly','once'].includes(q.repeatRule) &&
+    (q.goalId===null || goalIds.has(q.goalId)) && isDate(q.createdAt) &&
+    typeof q.archived==='boolean')) throw new Error('Invalid quest records');
+  const questIds=new Set(quests.map(q=>q.id));
+  if (!completions.every(c=>isObject(c) && isId(c.id) && questIds.has(c.questId) &&
+    typeof c.periodKey==='string' && c.periodKey.length>0 && c.periodKey.length<=40 &&
+    isDate(c.completedAt))) throw new Error('Invalid completion records');
+  const completionIds=new Set(completions.map(c=>c.id));
+  if (!xpEvents.every(e=>isObject(e) && isId(e.id) && completionIds.has(e.completionId) &&
+    typeof e.dayKey==='string' && /^\d{4}-\d{2}-\d{2}$/.test(e.dayKey) &&
+    Number.isInteger(e.amount) && e.amount>=0 && e.amount<=50 &&
+    isAttr(e.attribute) && isDate(e.createdAt))) throw new Error('Invalid XP records');
+  if (!unique(goals)||!unique(quests)||!unique(completions)||!unique(xpEvents)||
+    new Set(completions.map(c=>c.questId+'|'+c.periodKey)).size!==completions.length ||
+    new Set(xpEvents.map(e=>e.completionId)).size!==xpEvents.length) {
+    throw new Error('Backup contains duplicate records');
+  }
+  const db=await getDb();
+  await db.withExclusiveTransactionAsync(async tx=>{
+    await tx.runAsync('DELETE FROM xp_events');
+    await tx.runAsync('DELETE FROM completions');
+    await tx.runAsync('DELETE FROM quests');
+    await tx.runAsync('DELETE FROM goals');
+    for(const g of goals) await tx.runAsync(
+      'INSERT INTO goals (id,title,attribute,target_count,created_at,archived) VALUES (?,?,?,?,?,?)',
+      g.id,g.title,g.attribute,g.targetCount,g.createdAt,g.archived?1:0);
+    for(const q of quests) await tx.runAsync(
+      'INSERT INTO quests (id,title,description,attribute,difficulty,repeat_rule,goal_id,created_at,archived) VALUES (?,?,?,?,?,?,?,?,?)',
+      q.id,q.title,q.description,q.attribute,q.difficulty,q.repeatRule,q.goalId,q.createdAt,q.archived?1:0);
+    for(const c of completions) await tx.runAsync(
+      'INSERT INTO completions (id,quest_id,period_key,completed_at) VALUES (?,?,?,?)',
+      c.id,c.questId,c.periodKey,c.completedAt);
+    for(const e of xpEvents) await tx.runAsync(
+      'INSERT INTO xp_events (id,completion_id,day_key,amount,attribute,created_at) VALUES (?,?,?,?,?,?)',
+      e.id,e.completionId,e.dayKey,e.amount,e.attribute,e.createdAt);
     await tx.runAsync("INSERT OR REPLACE INTO app_state (key,value) VALUES ('starter_seeded','1')");
   });
 }
