@@ -9,12 +9,13 @@
   "scripts": {
     "start": "npm run start --workspace @ascend/mobile",
     "android": "npm run android --workspace @ascend/mobile",
-    "test": "npm run test --workspace @ascend/game-engine && npm run test:updates",
+    "test": "npm run test --workspace @ascend/game-engine && npm run test:updates && npm run test:db",
     "build:preview": "npm run test --workspace @ascend/game-engine && node scripts/build-preview.cjs",
     "typecheck": "npm run check --workspace @ascend/game-engine && npm run check --workspace @ascend/mobile",
     "test:updates": "node scripts/test-update-logic.cjs",
     "prepare": "node scripts/generate-brand-assets.cjs",
-    "brand:assets": "node scripts/generate-brand-assets.cjs"
+    "brand:assets": "node scripts/generate-brand-assets.cjs",
+    "test:db": "node --experimental-sqlite scripts/test-phase2-sql.cjs"
   },
   "engines": {
     "node": ">=22.13"
