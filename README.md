@@ -66,3 +66,11 @@ npm run build:preview
 If you prefer a hosted test URL, `web-preview/index.html` can be served as a static file on any host, including the free Vercel Hobby plan for *non-commercial* personal testing; do not treat the Hobby tier as free commercial hosting.
 
 See `docs/COST_POLICY.md` for no-spend operating rules and `docs/ROADMAP.md` for missing capabilities.
+
+## In-app Android updates (V0.2)
+
+ASCEND checks [official GitHub Releases](https://github.com/kumarPint00/ascend/releases) and offers **More → Check for updates → Download & update**. Android still asks for installation consent; compatible upgrades preserve local SQLite data without uninstalling the app.
+
+**Before publishing APKs, configure a persistent private signing key in GitHub Actions secrets.** The old V0.1 test APKs used temporary debug signing and may require a one-time migration; back up your existing data before uninstalling an old build. Full instructions: [Android updates and signing](docs/ANDROID_UPDATES.md).
+
+No paid update backend is required. An APK release still requires device verification, and no signed release is published automatically by a source commit.

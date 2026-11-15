@@ -1,17 +1,22 @@
-name: Build Android APK (manual, no EAS required)
+name: Build signed updatable Android APK
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/android-apk.yml']
+    inputs:
+      publish_release:
+        description: 'Publish GitHub Release for in-app updates'
+        required: true
+        type: boolean
+        default: false
 permissions:
-  contents: read
+  contents: write
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -19,25 +24,81 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      # GitHub Ubuntu runners already ship Android SDK cmdline tools.
-      - name: Check installed Android SDK
-        run: test -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}" && echo "SDK available"
+      - name: Verify Android SDK
+        run: test -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Validate before building
+      - name: Test and typecheck
         run: npm test && npm run typecheck
-      - name: Generate Android project
+      - name: Read Android version
+        id: version
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const app=require('./apps/mobile/app.json').expo;
+          if(app.android.package!=='com.ascendrpg.personal') throw Error('Package ID cannot change');
+          if(!/^\d+\.\d+\.\d+$/.test(app.version)) throw Error('Invalid version');
+          if(!Number.isSafeInteger(app.android.versionCode)||app.android.versionCode<2) throw Error('Invalid build code');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'version='+app.version+'\ncode='+app.android.versionCode+'\npackage='+app.android.package+'\n');
+          NODE
+      - name: Load stable signing keystore
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ASCEND_ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ASCEND_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_B64" || -z "$STORE_PASSWORD" || -z "$KEY_ALIAS" || -z "$KEY_PASSWORD" ]]; then
+            echo 'Signing secrets missing; see docs/ANDROID_UPDATES.md.' >&2
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ascend-release.jks"
+          chmod 600 "$RUNNER_TEMP/ascend-release.jks"
+          echo "ASCEND_KEYSTORE_FILE=$RUNNER_TEMP/ascend-release.jks" >> "$GITHUB_ENV"
+      - name: Generate Android native project
         run: npx expo prebuild --platform android --clean --no-install
         working-directory: apps/mobile
-      - name: Build standalone release APK
-        run: ./gradlew :app:assembleRelease --no-daemon
+      - name: Configure release signing
+        run: node scripts/configure-android-signing.cjs
+      - name: Build signed release APK
         working-directory: apps/mobile/android
-      - name: Upload APK
+        env:
+          ASCEND_KEYSTORE_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEYSTORE_PASSWORD }}
+          ASCEND_KEY_ALIAS: ${{ secrets.ASCEND_ANDROID_KEY_ALIAS }}
+          ASCEND_KEY_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --no-daemon
+      - name: Validate signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='apps/mobile/android/app/build/outputs/apk/release/app-release.apk'
+          test -s "$apk"
+          "${ANDROID_HOME}/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs "$apk"
+          cp "$apk" ascend-android.apk
+      - name: Upload signed test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ascend-android-v0.1
-          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
-          retention-days: 3
+          name: ascend-android-v${{ steps.version.outputs.version }}-build${{ steps.version.outputs.code }}
+          path: ascend-android.apk
+          retention-days: 30
           if-no-files-found: error
-# Caution: default generated signing is for development/testing only.
-# Do not distribute this build as a signed production Play Store release.
+      - name: Publish update
+        if: ${{ inputs.publish_release == true }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          APP_PACKAGE: ${{ steps.version.outputs.package }}
+        run: |
+          set -euo pipefail
+          tag="v${VERSION}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release already exists; increment version and versionCode." >&2
+            exit 1
+          fi
+          notes=$(printf 'ASCEND Android %s (build %s)\n\nSigned update preserves existing app data when the key matches.\n\n<!-- ASCEND_ANDROID_RELEASE {"packageName":"%s","versionCode":%s} -->' "$VERSION" "$VERSION_CODE" "$APP_PACKAGE" "$VERSION_CODE")
+          gh release create "$tag" 'ascend-android.apk#ascend-android.apk' --target "$GITHUB_SHA" --title "ASCEND v${VERSION}" --notes "$notes" --latest
