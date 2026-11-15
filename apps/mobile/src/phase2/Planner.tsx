@@ -246,13 +246,29 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     <Animated.View style={{opacity:entrance,transform:[{translateY:entrance.interpolate({inputRange:[0,1],outputRange:[reduceMotion?0:8,0]})}]}}>
 
     {area==='Today'&&<>
-      {heading('Today’s focused missions','Only the highest-priority, currently active tasks appear here.')}
+      {heading('Today’s focused missions','Prioritized from deadlines, effort, your real history and available time. No cloud AI.')}
       <View style={ss.metrics}>
         <View style={ss.metric}><T color={C.sub} size={10}>TODAY</T><T size={24} bold color={C.energy}>{due.length}</T></View>
         <View style={ss.metric}><T color={C.sub} size={10}>ACTIVE</T><T size={24} bold>{active.length}</T></View>
         <View style={ss.metric}><T color={C.sub} size={10}>BACKLOG</T><T size={24} bold>{backlog.length}</T></View>
       </View>
-      {due.length?due.map(q=><QuestRow key={q.id} quest={q} compact/>):
+      <Panel style={{backgroundColor:C.elevated,borderColor:C.borderActive}}>
+        <View style={ss.between}>
+          <View><T color={C.energy} size={10} bold style={{letterSpacing:1.5}}>ADAPTIVE FOCUS</T>
+            <T bold size={18}>{phase.preferences.availableMinutes} minutes available</T></View>
+          <Sparkles size={23} color={C.energy}/>
+        </View>
+        <T color={C.sub} size={12} style={{marginTop:7}}>
+          Recommendations are explainable rules, not paid AI. Change your time budget in Settings.
+        </T>
+      </Panel>
+      {due.length?due.map(q=><View key={q.id}>
+        <T color={C.gold} size={11} style={{marginLeft:6,marginBottom:4}}>
+          ✦ {recommendations.find(item=>item.quest.id===q.id)?.reason??'Planned'} ·
+          {recommendations.find(item=>item.quest.id===q.id)?.minutes??25} min estimated
+        </T>
+        <QuestRow quest={q} compact/>
+      </View>):
         <Panel><T color={C.green} bold>No missions demanding attention.</T>
           <T size={12} color={C.sub} style={{marginTop:6}}>Activate a task from Library when you're ready.</T></Panel>}
       <Action secondary onPress={()=>setArea('Library')}>MANAGE QUEST LIBRARY</Action>
@@ -264,7 +280,10 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     </>}
 
     {area==='Calendar'&&<>
-      {heading('Mission calendar','A rolling 14-day offline plan. Dates are local to your phone.')}
+      {heading('Mission calendar','Rolling 14/30/90-day offline plan, with recurring reminders beyond the calendar window.')}
+      <View style={ss.chips}>{([14,30,90] as const).map(days=>
+        <Chip key={days} active={calendarDays===days}
+          onPress={()=>{setCalendarDays(days);setChosenDay(localDayKey(new Date()));}}>{days} days</Chip>)}</View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom:15}}>
         {calendar.map(day=><Pressable key={day.date}
           accessibilityRole="button" accessibilityState={{selected:chosenDay===day.date}}
@@ -466,7 +485,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         <TextInput style={ss.input} value={prefs.quietEnd}
           onChangeText={quietEnd=>setPrefs(p=>({...p,quietEnd}))} placeholder="07:00" placeholderTextColor={C.dim}/>
         <Action disabled={busy} onPress={saveSettings}>SAVE & SYNC REMINDERS</Action>
-        {notificationsCount!==null&&<T color={C.green} size={11} style={{marginTop:10}}>{notificationsCount} local reminders scheduled for the next 14 days.</T>}
+        {notificationsCount!==null&&<T color={C.green} size={11} style={{marginTop:10}}>{notificationsCount} local reminder schedules active (some repeat indefinitely).</T>}
       </Panel>
       <Panel>
         <T bold size={16}>Verified file backups</T>
