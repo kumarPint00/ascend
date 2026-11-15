@@ -97,3 +97,16 @@ export function autoBackupPruneCandidates(fileNames:readonly string[],keep:numbe
   const sorted=fileNames.filter(n=>re.test(n)).slice().sort().reverse();
   return sorted.slice(safe);
 }
+
+// Direction-aware measured progress. For decreasing targets, the first
+// recorded baseline defines 0% instead of falsely showing 100% at 70/64 kg.
+export function measuredGoalProgress(points:readonly MeasurementPoint[],current:number,target:number):number {
+  if(!Number.isFinite(current)||!Number.isFinite(target)||target<=0)return 0;
+  const ordered=points.slice().sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));
+  const baseline=ordered.length?ordered[0].value:current;
+  if(baseline>target){
+    if(baseline<=target)return 1;
+    return Math.max(0,Math.min(1,(baseline-current)/(baseline-target)));
+  }
+  return Math.max(0,Math.min(1,current/target));
+}
