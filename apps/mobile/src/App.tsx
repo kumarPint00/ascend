@@ -412,14 +412,25 @@ export default function App() {
     <T color={C.dim} size={11}>ASCEND v{Application.nativeApplicationVersion ?? '0.3.0'} · Local-first · No advertisements or paid APIs</T>
   </>;
 
-  if(loading) return <View style={[s.root,{justifyContent:'center',alignItems:'center'}]}><ActivityIndicator color={C.energy} size="large"/><T color={C.sub} style={{marginTop:16}}>Initializing the System…</T></View>;
+  if(loading) return <View style={[s.root,{justifyContent:'center',alignItems:'center'}]}>
+    <Image source={require('../assets/icon.png')} style={{width:112,height:112,borderRadius:27,marginBottom:20}}/>
+    <T size={25} bold style={{letterSpacing:4}}>ASCEND</T>
+    <T size={12} color={C.sub} style={{marginTop:7,letterSpacing:1}}>A REAL-LIFE LEVELING SYSTEM</T>
+    <ActivityIndicator color={C.energy} size="small" style={{marginTop:26}}/>
+  </View>;
   return <View style={s.root}>
     <StatusBar barStyle="light-content"/>
     <View style={s.top}>
-      <View><T color={C.energy} size={10} bold>▰ ASCEND / SYSTEM ONLINE</T><T color={C.sub} size={12} style={{marginTop:5}}>{fmt(clock)}</T></View>
-      <Pressable onPress={()=>updates.available&&setTab('More')} style={s.levelPill}>
-        <T color={updates.available?C.green:C.gold} bold size={12}>
-          {updates.available?'↑ UPDATE AVAILABLE':'RANK '+player.rank+' • LV '+player.level}
+      <View style={{flexDirection:'row',alignItems:'center',gap:11}}>
+        <Image source={require('../assets/icon.png')} style={{width:40,height:40,borderRadius:11}}/>
+        <View><T color={C.frost} size={17} bold style={{letterSpacing:2}}>ASCEND</T>
+          <T color={C.sub} size={11}>{fmt(clock)}</T></View>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={updates.available?'Update available, open settings':'Open hunter profile'}
+        onPress={()=>setTab(updates.available?'More':tab==='Hunter'?'Home':'Hunter')} style={s.levelPill}>
+        <Shield color={C.gold} size={15}/>
+        <T color={updates.available?C.green:C.gold} bold size={11}>
+          {updates.available?'UPDATE':'LV '+player.level}
         </T>
       </Pressable>
     </View>
@@ -431,11 +442,12 @@ export default function App() {
       <T color={C.gold} bold size={23}>{reward.xp>0?`+${reward.xp} XP`:'XP CAP REACHED'}</T>
     </Animated.View>}
     <View style={s.nav}>
-      {TABS.map(t=><Pressable accessibilityRole="tab" accessibilityState={{selected:tab===t.tab}} key={t.tab}
-        style={[s.navTab,tab===t.tab&&{backgroundColor:C.elevated}]} onPress={()=>setTab(t.tab)}>
-        <T size={22} color={tab===t.tab?C.energy:C.dim}>{t.glyph}</T>
-        <T size={10} color={tab===t.tab?C.ink:C.sub}>{t.tab}</T>
-      </Pressable>)}
+      {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable accessibilityRole="tab"
+        accessibilityLabel={t.tab} accessibilityState={{selected:active}} key={t.tab}
+        style={[s.navTab,active&&{backgroundColor:'#1B3653',borderColor:'#345F83'}]} onPress={()=>setTab(t.tab)}>
+        <NavIcon size={21} color={active?C.energy:C.sub} strokeWidth={active?2.35:1.7}/>
+        <T size={10} bold={active} color={active?C.frost:C.sub}>{t.tab}</T>
+      </Pressable>;})}
     </View>
 
     <Modal visible={questModal} animationType="slide" transparent onRequestClose={()=>setQuestModal(false)}>
@@ -544,10 +556,13 @@ export default function App() {
 
 const s=StyleSheet.create({
   root:{flex:1,backgroundColor:C.bg},
-  top:{paddingTop:Platform.OS==='android'?(StatusBar.currentHeight??26)+15:52,paddingHorizontal:18,paddingBottom:17,
+  top:{paddingTop:Platform.OS==='android'?(StatusBar.currentHeight??26)+12:52,paddingHorizontal:17,paddingBottom:13,
     flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderColor:C.border},
-  levelPill:{paddingHorizontal:10,paddingVertical:9,borderColor:'#7F6541',borderWidth:1,borderRadius:14,backgroundColor:'#2B2730'},
-  content:{padding:16,paddingBottom:40},
+  levelPill:{paddingHorizontal:12,paddingVertical:10,borderColor:'#907443',borderWidth:1,borderRadius:14,backgroundColor:'#292738',flexDirection:'row',alignItems:'center',gap:6,minHeight:44},
+  content:{padding:16,paddingBottom:42},
+  hero:{borderRadius:23,borderWidth:1,borderColor:'#416D98',padding:19,marginBottom:15,overflow:'hidden'},
+  searchRow:{flexDirection:'row',gap:10,alignItems:'center',backgroundColor:C.elevated,borderColor:C.border,borderWidth:1,borderRadius:13,paddingHorizontal:13,marginBottom:13,minHeight:48},
+  searchInput:{flex:1,color:C.ink,fontSize:14,minHeight:47,paddingVertical:10},
   between:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   statRow:{flexDirection:'row',justifyContent:'space-between'},
   miniPanel:{flex:1,minHeight:85,justifyContent:'space-between'},
@@ -560,9 +575,9 @@ const s=StyleSheet.create({
   barCell:{flex:1,height:150,alignItems:'center',justifyContent:'flex-end',gap:6},
   bar:{width:'62%',borderRadius:5,minHeight:3},
   rewardToast:{position:'absolute',zIndex:10,top:125,alignSelf:'center',alignItems:'center',backgroundColor:'#1C2948',borderWidth:1,borderColor:C.energy,borderRadius:17,paddingHorizontal:25,paddingVertical:16,shadowColor:C.energy,shadowRadius:14,shadowOpacity:.5,elevation:12},
-  nav:{flexDirection:'row',borderTopWidth:1,borderColor:C.border,backgroundColor:C.surface,
+  nav:{flexDirection:'row',borderTopWidth:1,borderColor:C.border,backgroundColor:'#0D182A',
     paddingBottom:Platform.OS==='ios'?20:12,paddingTop:8,paddingHorizontal:5},
-  navTab:{flex:1,alignItems:'center',gap:3,paddingVertical:5,borderRadius:11,minHeight:49},
+  navTab:{flex:1,alignItems:'center',justifyContent:'center',gap:4,paddingVertical:5,borderWidth:1,borderColor:'transparent',borderRadius:13,minHeight:53},
   modalBackdrop:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
   modalSheet:{backgroundColor:C.surface,borderTopLeftRadius:24,borderTopRightRadius:24,padding:20,maxHeight:'92%'},
   input:{borderWidth:1,borderColor:C.border,borderRadius:12,backgroundColor:C.elevated,color:C.ink,
