@@ -108,7 +108,9 @@ export function parseFullBackup(source:string):FullBackup{
       focusSessions,weeklyReviews,skillUnlocks,preferences:pref}};
 }
 export async function restoreFullBackup(source:string):Promise<void>{
-  const summary:unknown=JSON.parse(source);
+  if(source.length>10_000_000)throw Error('Backup exceeds 10 MB');
+  let summary:unknown;
+  try{summary=JSON.parse(source);}catch{throw Error('Backup is not valid JSON');}
   // Legacy backup remains supported with its existing validated restoration.
   if(obj(summary)&&summary.schemaVersion===1){await restoreJSON(source);return;}
   const data=parseFullBackup(source);
