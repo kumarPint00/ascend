@@ -25,7 +25,7 @@ const DAYS=['Su','Mo','Tu','We','Th','Fr','Sa'];
 const nextDate=(offset:number)=>{
   const date=new Date();date.setDate(date.getDate()+offset);return localDayKey(date);
 };
-export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<void>}){
+export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:Snapshot;onRefresh:()=>Promise<void>;initialQuestId?:string|null;onTargetConsumed?:()=>void}){
   const [phase,setPhase]=useState<PhaseTwoSnapshot>(EMPTY_PHASE_TWO);
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [area,setArea]=useState<Area>('Today');
@@ -79,6 +79,17 @@ export function Planner({base,onRefresh}:{base:Snapshot;onRefresh:()=>Promise<vo
       .finally(()=>{if(live)setLoading(false);});
     return ()=>{live=false;};
   },[]);
+  useEffect(()=>{
+    if(loading||!initialQuestId)return;
+    const q=base.quests.find(item=>item.id===initialQuestId);
+    if(q){
+      const control=phase.controls[q.id]??defaultQuestControl(q);
+      setSelectedQuest(q);
+      setEditControl({...control,weekdays:[...control.weekdays]});
+      setArea('Library');
+    }
+    onTargetConsumed?.();
+  },[loading,initialQuestId]);
   const run=async(work:()=>Promise<void>,success?:string)=>{
     if(busy)return;
     setBusy(true);
