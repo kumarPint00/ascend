@@ -1,40 +1,36 @@
-# ASCEND Roadmap
+# ASCEND Product Roadmap (as of 2026-11-16)
 
-## V0.1 — Offline single-player prototype (this package)
-- [x] Deterministic leveling/XP, rank boundaries, attribute XP
-- [x] Daily, weekly, one-time quests with unique completion periods
-- [x] Daily XP cap and append-only ledger logic
-- [x] Offline SQLite database, seed quests, CRUD/archive
-- [x] Create/edit goals; progress by linked quest completions
-- [x] Dashboard, quest board, hunter stats, progress charts, settings
-- [x] Human-copyable JSON export (NOT automatic backup)
-- [x] Platform-independent game engine tests
-- [x] Manual GitHub Actions Android APK build workflow
-- [ ] First device APK build / smoke test (needs online CI after repository import)
+## Phase 1 · MVP foundation (v0.1–v0.4)
+- [x] React Native / Expo Android-first, offline SQLite
+- [x] Quests, goals, milestones, XP ledger, level/rank/attributes
+- [x] Private JSON pack import with repeat-safe IDs
+- [x] Original launcher/splash assets, improved five-tab UX
+- [x] GitHub Actions builds and permanent Android keystore workflow
+- [ ] Device UX/accessibility and backup/restore migration acceptance test
+- [ ] Confirm in-place upgrade on the user's phone before broadening the release
 
-## V0.2 — Personal daily driver
-- [ ] Review behavior on-device and balance quest difficulty
-- [ ] Proper export/import backup files, restore tests, optional Android Auto Backup
-- [ ] Calendar-based quest scheduling and rescheduling
-- [ ] Reliable reminder notifications with opt-in and quiet hours
-- [ ] Midnight refresh on foreground, analytics improvements
-- [ ] Skill trees and non-quantitative real-world milestones
-- [ ] Accessibility audit and animation preferences
+## Phase 2 · Full personal progression engine (v0.8 source)
+- [x] Quest lifecycle (active, backlog, paused), priority, snooze, focused day selection
+- [x] 14-day calendar, weekdays/date/time scheduling and local opt-in reminders with quiet hours
+- [x] Measurable goal metrics and prerequisite milestone graph with cycle checks
+- [x] 18 skill-tree nodes, achievements, evidence-gated boss challenges
+- [x] XP/activity/focus trends, conservative goal forecast and weekly reviews
+- [x] Planner UI with search, section transitions, OS reduced-motion support
+- [x] Additive SQLite v2 migration, complete v2 backup file and transactional restore
+- [x] Automated game rule, SQLite migration and TypeScript CI checks
+- [ ] Install and test v0.8 on actual Android devices; sign off notifications, migration and the 30-point UX checklist
+- [ ] Publish signed v0.8 to the live update feed only after acceptance
 
-## V0.3 — Optional cloud
-- [ ] Supabase Auth and RLS-secured schema
-- [ ] Outbox sync with idempotent server awards, conflict policy, offline retries
-- [ ] Data export / delete account, security testing
-- [ ] Monitor free limits and avoid adding billing/payment method
+## Phase 3 · Future public beta (not part of personal Phase 2)
+- [ ] Opt-in Supabase login and RLS multi-tenant authorization
+- [ ] Offline sync/outbox, conflict resolution, device recovery
+- [ ] Accessible onboarding, privacy policy, terms, deletion/export and consent
+- [ ] Public app store compliant update flow, abuse protection and telemetry opt-in
+- [ ] Performance/a11y/security audits and explicit free-tier budget monitoring
+- [ ] Only then consider paid AI features, community, guilds or monetization
 
-## Public beta (only after personal validation)
-- [ ] Onboarding, privacy policy, terms, account recovery
-- [ ] Server-authoritative ranking and anti-abuse, analytics/observability
-- [ ] Load testing, penetration testing, backups, paid-service budget guardrails
-- [ ] Original art assets, subscriptions only if justified
-
-## Constraints
-- No paid API, mandatory subscription, account, or telemetry in V0.1.
-- XP is a participation score, not a medical/psychometric assessment.
-- Offline data is not automatically recoverable after uninstall/device loss.
-- Public distribution may incur app-store registration costs.
+## Costs and privacy
+- Personal-use build requires no recurring paid services; local notifications need no push server.
+- Never commit the private personal quest pack, signing credentials or user backup to public GitHub.
+- Android in-place updates require the SAME package ID and private signing key.
+- XP represents participation, not medical fitness, income, professional ability or self-worth.
