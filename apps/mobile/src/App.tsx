@@ -186,32 +186,41 @@ export default function App() {
   };
 
   const Home=()=> <>
-    <Panel style={{backgroundColor:'#13233C',borderColor:'#4264A0',padding:20}}>
-      <View style={s.between}>
-        <View>
-          <T color={C.energy} bold size={10}>AWAKENED HUNTER</T>
-          <T size={29} bold style={{marginTop:5}}>LVL {String(player.level).padStart(2,'0')}</T>
-          <T color={C.sub} size={13}>Rank {player.rank} · The Architect</T>
+    <LinearGradient colors={['#183456','#102541','#0A172B']} start={{x:0,y:0}} end={{x:1,y:1}} style={s.hero}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open your hunter profile" onPress={()=>setTab('Hunter')}>
+        <View style={[s.between,{alignItems:'flex-start'}]}>
+          <View style={{flex:1}}>
+            <View style={{flexDirection:'row',alignItems:'center',gap:7,marginBottom:7}}>
+              <Sparkles color={C.energy} size={14}/>
+              <T color={C.energy} size={10} bold style={{letterSpacing:1.7}}>YOUR ASCENSION</T>
+            </View>
+            <T size={34} bold style={{letterSpacing:-.9}}>LEVEL {player.level}</T>
+            <T color={C.sub} size={13}>The Architect · {player.rank}-Rank</T>
+          </View>
+          <Image source={require('../assets/icon.png')} style={{height:90,width:90,borderRadius:20,marginLeft:8}} accessible accessibilityLabel="ASCEND crystalline sigil"/>
         </View>
-        <View style={s.rankEmblem}><T size={39} color={C.gold} bold>{player.rank}</T><T size={9} color={C.gold}>RANK</T></View>
-      </View>
-      <View style={[s.between,{marginTop:22,marginBottom:9}]}>
-        <T color={C.sub} size={12}>LEVEL PROGRESS</T>
-        <T color={C.energy} size={12} bold>{player.currentLevelXP} / {player.xpForNextLevel} XP</T>
-      </View>
-      <Meter value={player.progress} height={10}/>
-      <View style={[s.between,{marginTop:13}]}>
-        <T color={C.sub} size={11}>Total XP {player.totalXP}</T>
-        <T color={C.green} size={11}>+{todayXP} XP today</T>
-      </View>
-    </Panel>
+        <View style={[s.between,{marginTop:22,marginBottom:9}]}>
+          <T color={C.sub} size={11} bold style={{letterSpacing:.8}}>NEXT LEVEL</T>
+          <T color={C.energy} size={12} bold>{player.currentLevelXP} / {player.xpForNextLevel} XP</T>
+        </View>
+        <Meter value={player.progress} height={9}/>
+        <View style={[s.between,{marginTop:13}]}>
+          <T color={C.sub} size={11}>{player.totalXP.toLocaleString()} lifetime XP</T>
+          <T color={C.green} size={11}>+{todayXP} today</T>
+        </View>
+        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',marginTop:13,gap:4}}>
+          <T color={C.energy} size={11} bold>VIEW CHARACTER</T><ChevronRight color={C.energy} size={14}/>
+        </View>
+      </Pressable>
+    </LinearGradient>
     <View style={s.statRow}>
       <Panel style={[s.miniPanel,{marginRight:5}]}><T color={C.sub} size={11}>TODAY'S QUESTS</T><T bold size={25}>{completedToday.length}<T size={15} color={C.dim}> completed</T></T></Panel>
       <Panel style={[s.miniPanel,{marginLeft:5}]}><T color={C.sub} size={11}>PENDING</T><T color={C.energy} bold size={25}>{todayBoard.length}</T></Panel>
     </View>
-    <Section title="Daily Quest Board" right={<Pressable onPress={()=>setTab('Quests')}><T color={C.energy} size={12}>View all →</T></Pressable>}/>
+    <Section title="Today's Missions" right={<Pressable accessibilityRole="button" onPress={()=>{setQuestFilter('Today');setTab('Quests');}}><T color={C.energy} size={12}>VIEW BOARD →</T></Pressable>}/>
     {todayBoard.length===0?<Panel><T color={C.green} bold>All daily quests cleared ✦</T><T color={C.sub} size={13}>Enjoy your progress. More quests can wait until tomorrow.</T></Panel>:
       todayBoard.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
+    <T color={C.dim} size={11} style={{marginBottom:13}}>Small, repeatable actions win. You can review weekly and milestone quests separately.</T>
     <Action onPress={()=>openQuest()} secondary style={{marginBottom:10}}>+ CREATE NEW QUEST</Action>
     <Section title="Main Questlines" right={<Pressable onPress={()=>setTab('Goals')}><T color={C.energy} size={12}>All goals →</T></Pressable>}/>
     {goals.length===0 ? <Panel><T color={C.sub}>Create a long-term goal and link quests to it.</T>
