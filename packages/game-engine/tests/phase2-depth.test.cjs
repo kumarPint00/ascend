@@ -34,3 +34,12 @@ test('auto backup retention only removes well-formed managed files',()=>{
   assert.ok(stale.every(x=>x.startsWith('ASCEND-AUTO-')));
   assert.equal(stale.includes('bank-account.json'),false);
 });
+
+test('downward-goal progress uses recorded baseline and ignores mixed units',()=>{
+ const {measuredGoalProgress,metricForecast}=require('../dist/index.js');
+ const h=[{id:'a',goalId:'g',value:70,unit:'kg',recordedAt:'2026-10-01T08:00:00Z'},
+  {id:'b',goalId:'g',value:69,unit:'kg',recordedAt:'2026-10-10T08:00:00Z'},
+  {id:'c',goalId:'g',value:68,unit:'lb',recordedAt:'2026-11-01T08:00:00Z'}];
+ assert.equal(measuredGoalProgress(h.slice(0,2),69,64),1/6);
+ assert.equal(metricForecast(h,64,new Date(2026,10,16,12)),null);
+});
