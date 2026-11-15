@@ -154,3 +154,37 @@ export function canUnlockSkill(node:SkillNode,events:readonly XPEvent[],already:
   const skills=derivedSkills(events);
   return skills[node.attribute].level>=node.requiredLevel;
 }
+
+/** A conservative projection from recorded completions over the last 28 days.
+ * Returns null when no recent evidence exists; it is never a guarantee. */
+export function forecastGoalCompletion(goal:{id:string;targetCount:number},
+  quests:readonly Quest[],completions:readonly Completion[],today:Date):
+  {done:number;target:number;weeklyRate:number;weeksRemaining:number;projectedDate:string}|null {
+  const goalQuests=new Set(quests.filter(q=>q.goalId===goal.id).map(q=>q.id));
+  const completed=completions.filter(c=>goalQuests.has(c.questId));
+  const done=completed.length;
+  if(done>=goal.targetCount)return {done,target:goal.targetCount,weeklyRate:0,
+    weeksRemaining:0,projectedDate:localDayKey(today)};
+  const windowStart=new Date(today.getFullYear(),today.getMonth(),today.getDate()-28,0);
+  const recent=completed.filter(c=>new Date(c.completedAt)>=windowStart&&new Date(c.completedAt)<=today).length;
+  if(!recent)return null;
+  const weeklyRate=recent/4;
+  const weeksRemaining=Math.ceil((goal.targetCount-done)/weeklyRate);
+  if(weeksRemaining>52)return null; // insufficient pace for an actionable forecast
+  const eta=new Date(today.getFullYear(),today.getMonth(),today.getDate()+weeksRemaining*7,12);
+  return {done,target:goal.targetCount,weeklyRate,weeksRemaining,projectedDate:localDayKey(eta)};
+}
+export function attributeWeekBreakdown(events:readonly XPEvent[],end:Date):Record<Attribute,number>{
+  const start=new Date(end.getFullYear(),end.getMonth(),end.getDate()-6,0);
+  const keys=new Set(Array.from({length:7},(_,i)=>localDayKey(new Date(
+    start.getFullYear(),start.getMonth(),start.getDate()+i,12))));
+  const attrs:Attribute[]=['strength','intelligence','discipline','finance','relationships','recovery'];
+  return Object.fromEntries(attrs.map(a=>[a,events.filter(e=>e.attribute===a&&keys.has(e.dayKey))
+    .reduce((n,e)=>n+e.amount,0)])) as Record<Attribute,number>;
+}
+export function activeDaysInWindow(completions:readonly Completion[],end:Date,days=7):number{
+  const keys=new Set(Array.from({length:days},(_,i)=>localDayKey(new Date(
+    end.getFullYear(),end.getMonth(),end.getDate()-i,12))));
+  return new Set(completions.filter(c=>keys.has(localDayKey(new Date(c.completedAt))))
+    .map(c=>localDayKey(new Date(c.completedAt)))).size;
+}
