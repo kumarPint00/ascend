@@ -13,6 +13,7 @@ import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
 import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
 import {Planner} from './phase2/Planner';
+import {syncLocalReminders} from './phase2/reminders';
 import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './data/phase2';
 import {C, LABELS} from './theme';
 import * as Application from 'expo-application';
@@ -109,6 +110,15 @@ export default function App() {
     catch(e){Alert.alert('Action failed',e instanceof Error?e.message:String(e));}
     finally{setBusy(false);}
   };
+  useEffect(()=>{
+    if(loading||!phaseSummary.preferences.remindersEnabled)return;
+    // Reconcile only after real data changes; this also removes reminders
+    // for quests completed through the Home or Quests tabs.
+    void syncLocalReminders({
+      quests:data.quests,completions:data.completions,controls:phaseSummary.controls,
+      dependencies:phaseSummary.dependencies,preferences:phaseSummary.preferences,
+    }).catch(()=>{});
+  },[loading,data,phaseSummary]);
   const player = useMemo(()=>derivePlayer(data.xpEvents),[data.xpEvents]);
   const quests = data.quests.filter(q=>!q.archived);
   const goals = data.goals.filter(g=>!g.archived);
