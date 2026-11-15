@@ -11,7 +11,7 @@ Android-first, offline-first, Solo Leveling-*inspired* (not affiliated) personal
 - Data export as selectable JSON text.
 - Automated game-engine tests and manual GitHub Actions APK workflow.
 
-> **Current state:** Android source v0.4.0. CI validates the game engine and TypeScript. Android APK builds run in GitHub Actions; device-level accessibility, layout and update testing remains necessary.
+> **Current state:** Android source **v0.8.0 (Phase 2)** with offline planner, schedules, goals, skills, bosses, analytics, local reminders and complete backup. CI validates game rules, SQLite schema migration and TypeScript. Android release builds run through GitHub Actions. Real-device acceptance testing remains necessary.
 
 ## Run it
 
@@ -34,7 +34,7 @@ If you want to run a phone-specific release build locally, install Android Studi
 
 ## Cost policy
 
-**V0.4 has zero required recurring cloud costs:** no Supabase, Firebase, Vercel, paid AI API, push service, remote database or analytics needed. Your device is the primary database. GitHub-hosted Actions are free without metered runner compute for standard public repositories; private repositories have included monthly quotas and may incur charges if billing permits overages. Configure billing spending limits to prevent surprises.
+**V0.8 has zero required recurring cloud costs:** no Supabase, Firebase, Vercel, paid AI API, push service, remote database or analytics needed. Your device is the primary database. GitHub-hosted Actions are free without metered runner compute for standard public repositories; private repositories have included monthly quotas and may incur charges if billing permits overages. Configure billing spending limits to prevent surprises.
 
 A future public app cannot be guaranteed zero infrastructure cost indefinitely, and store registration may have separate one-time costs. Plan paid upgrades only after proving retention and having actual revenue.
 
@@ -92,3 +92,13 @@ ASCEND imports private JSON goal, quest and milestone packs from a local file th
 - [30-point UX and motion audit](docs/UX_30_POINT_AUDIT.md) — implemented and pending checks are explicitly distinguished.
 
 **Personal data is not bundled.** Download the user's private quest pack in the conversation, then import locally from More → Personal quest pack. The public repository must never contain it.
+
+## Integrated Phase 2 (v0.8.0)
+
+The **Planner** tab provides active/backlog/paused quest management, priority-based daily missions, a rolling 14-day calendar, custom weekdays/due dates/snoozes, optional quiet-hour local reminders, measurable goal outcomes, prerequisite milestones, an 18-node skill tree, achievements, boss challenges, focus logs, goal forecasts, weekly reviews, and an on-device database integrity check.
+
+The schema migrates existing v1 SQLite data additively to v2 and keeps original XP events and completions. **Planner → Settings** exports a full v2 JSON file outside the app and validates/restores backups; v1 backup import remains supported.
+
+See [Phase 2 architecture and limitations](docs/PHASE2.md) and [30-point UX audit](docs/UX_30_POINT_AUDIT.md). No personal quest packs or financial/health information are committed to this public repository.
+
+**Important:** Temporary-key APKs cannot replace signed installations. Use the permanently signed GitHub Actions workflow with the existing keystore for in-place upgrades; do not delete your current installation without an external backup. Newly introduced data flows still require device-level verification before wider release.
