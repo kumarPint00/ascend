@@ -153,3 +153,5 @@ export type {QuestLifecycle,QuestControl,GoalOutcome,QuestDependency,WeeklyRevie
 
 export {SKILL_NODES,canUnlockSkill} from './phase2';
 export type {SkillNode} from './phase2';
+
+export {forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow} from './phase2';
