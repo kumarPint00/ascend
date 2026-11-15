@@ -148,7 +148,7 @@ export function cleanQuestInput(input: {
 export { parseQuestPack, importGoalId, importQuestId, isMilestoneQuest, importedQuestTitle, importedQuestDescription, MILESTONE_PREFIX } from './quest-pack';
 export type { QuestPack, PackGoal, PackQuest } from './quest-pack';
 
-export {DEFAULT_PREFERENCES,defaultQuestControl,validateControl,validTime,isQuietTime,questDueOn,blockedByDependencies,introducesCycle,activeMissionList,occurrencesForDays,skillLevel,derivedSkills,derivedAchievements,outcomeProgress,xpTrend,focusMinutesForWeek} from './phase2';
+export {DEFAULT_PREFERENCES,defaultQuestControl,validateControl,validCalendarDay,validTime,isQuietTime,questDueOn,blockedByDependencies,introducesCycle,activeMissionList,occurrencesForDays,skillLevel,derivedSkills,derivedAchievements,outcomeProgress,xpTrend,focusMinutesForWeek} from './phase2';
 export type {QuestLifecycle,QuestControl,GoalOutcome,QuestDependency,WeeklyReview,FocusSession,BossBattle,SchedulePreferences} from './phase2';
 
 export {SKILL_NODES,canUnlockSkill} from './phase2';
