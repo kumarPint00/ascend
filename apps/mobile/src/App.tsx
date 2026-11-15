@@ -331,6 +331,12 @@ export default function App() {
       {updates.error && <T color={C.danger} size={11} style={{marginTop:9}}>{updates.error}</T>}
     </Panel>
     <Panel>
+      <T bold>Personal quest pack</T>
+      <T color={C.sub} size={13} style={{marginTop:8}}>Add private goals, recurring quests and milestones. Import is additive, safe to retry, and never awards XP automatically. Keep personal JSON outside public repositories.</T>
+      <View style={{marginTop:13}}><Action secondary onPress={()=>{void selectQuestPackFile();}}>CHOOSE QUEST PACK FILE</Action></View>
+      <View style={{marginTop:9}}><Action secondary onPress={()=>setQuestPackText('')}>PASTE QUEST PACK JSON</Action></View>
+    </Panel>
+    <Panel>
       <T bold>Export your data</T>
       <T color={C.sub} size={13} style={{marginTop:8}}>Generate a text backup. Copy it to a safe location outside this device. Cloud restore is not yet implemented.</T>
       <View style={{marginTop:13}}><Action secondary onPress={()=>run(async()=>setBackup(await exportJSON()))}>VIEW BACKUP JSON</Action></View>
@@ -422,6 +428,27 @@ export default function App() {
           })}>SAVE QUESTLINE</Action>
         </ScrollView>
       </KeyboardAvoidingView>
+    </Modal>
+    <Modal visible={questPackText!==null} animationType="slide" transparent onRequestClose={()=>setQuestPackText(null)}>
+      <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
+        <View style={s.between}><T size={19} bold>Import private quest pack</T><Pressable onPress={()=>setQuestPackText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
+        <T color={C.sub} size={12} style={{marginVertical:12}}>Review the selected ASCEND quest-pack JSON. You can also paste JSON here. Check dates and statuses before importing.</T>
+        <TextInput multiline value={questPackText??''} onChangeText={setQuestPackText} placeholder="Paste quest-pack JSON here" placeholderTextColor={C.dim} style={[s.input,{height:250,fontSize:11,textAlignVertical:'top'}]} />
+        <View style={{marginTop:13}}><Action disabled={busy||!questPackText?.trim()} onPress={()=>{
+          try{
+            const pack=parseQuestPack(questPackText!);
+            const count=pack.quests.filter(q=>q.kind==='milestone').length;
+            Alert.alert('Import '+pack.title+'?',`${pack.goals.length} goals, ${count} milestones and ${pack.quests.length-count} quests. This import is additive and safe to repeat.`,[
+              {text:'Cancel',style:'cancel'},
+              {text:'Import',onPress:()=>run(async()=>{
+                const result=await importQuestPack(questPackText!);
+                setQuestPackText(null);
+                Alert.alert('Quest pack imported',`${result.goalsAdded} goals, ${result.milestonesAdded} milestones and ${result.questsAdded} quests added. Existing progress preserved.`);
+              })},
+            ]);
+          }catch(e){Alert.alert('Invalid quest pack',e instanceof Error?e.message:String(e));}
+        }}>PREVIEW & IMPORT</Action></View>
+      </View></View>
     </Modal>
     <Modal visible={restoreText!==null} animationType="slide" transparent onRequestClose={()=>setRestoreText(null)}>
       <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
