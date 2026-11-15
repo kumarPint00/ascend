@@ -67,6 +67,13 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     entrance.setValue(0);
     Animated.timing(entrance,{toValue:1,duration:reduceMotion?0:210,useNativeDriver:true}).start();
   },[area,reduceMotion,entrance]);
+  useEffect(()=>{
+    if(!victoryMessage)return;
+    victoryPulse.stopAnimation();
+    victoryPulse.setValue(reduceMotion?1:0);
+    Animated.spring(victoryPulse,{toValue:1,tension:40,friction:7,
+      useNativeDriver:true}).start();
+  },[victoryMessage,reduceMotion,victoryPulse]);
 
   const refresh=useCallback(async()=>{
     const p=await loadPhaseTwoSnapshot();
@@ -386,6 +393,10 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <View style={ss.between}><T size={15} bold>{LABELS[a].label}</T>
             <T color={LABELS[a].tint} size={13} bold>LV {skill.level}</T></View>
           <T color={C.sub} size={11} style={{marginTop:4}}>{skill.xp} attribute XP</T>
+          <View style={{marginTop:10}}><Meter tint={LABELS[a].tint}
+            value={(skill.xp-75*(skill.level-1)**2)/
+              Math.max(1,75*skill.level**2-75*(skill.level-1)**2)}/></View>
+          <T color={C.dim} size={10} style={{marginTop:5}}>Build your skill through recorded quest completions.</T>
           {nodes.map(n=>{
             const unlocked=phase.skillUnlocks.includes(n.id),available=canUnlockSkill(n,base.xpEvents,phase.skillUnlocks);
             return <View key={n.id} style={[ss.between,{paddingVertical:12,borderBottomWidth:1,borderColor:C.border}]}>
@@ -410,14 +421,26 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         </View>
       </Panel>)}
       <Section title="Boss battles"/>
-      {phase.bosses.length?phase.bosses.map(b=><Panel key={b.id}>
-        <View style={ss.between}><T size={14} bold style={{flex:1}}>{b.title}</T>
-          <T color={b.wonAt?C.green:C.gold} size={11} bold>{b.wonAt?'DEFEATED':'ACTIVE'}</T></View>
-        <T color={C.sub} size={12} style={{marginVertical:8}}>{b.description}</T>
-        {!b.wonAt&&<Action secondary disabled={busy} onPress={()=>void run(()=>winBoss(b.id),'Boss defeated, victory verified against your goal or quest evidence.')}>
-          VERIFY VICTORY
-        </Action>}
-      </Panel>):<Panel><T color={C.sub}>Create a boss battle from a goal to track a major outcome.</T></Panel>}
+      {phase.bosses.length?phase.bosses.map(b=><LinearGradient
+        key={b.id} colors={b.wonAt?['#183B35','#102724']:['#3E284A','#181B3A','#0C1529']}
+        style={{padding:17,borderRadius:22,borderWidth:1,borderColor:b.wonAt?C.green:C.gold,marginBottom:13}}>
+        <View style={[ss.between,{marginBottom:10}]}>
+          <View style={{backgroundColor:'#131F37',borderWidth:1,borderColor:C.borderActive,
+            width:54,height:54,borderRadius:17,justifyContent:'center',alignItems:'center'}}>
+            {b.wonAt?<Trophy size={27} color={C.gold}/>:<Swords size={27} color={C.gold}/>}
+          </View>
+          <View style={{alignItems:'flex-end'}}>
+            <T color={C.gold} size={10} bold style={{letterSpacing:2}}>EPIC CHALLENGE</T>
+            <T color={b.wonAt?C.green:C.frost} bold size={12}>{b.wonAt?'GATE CLEARED':'GATE ACTIVE'}</T>
+          </View>
+        </View>
+        <T size={20} bold>{b.title}</T>
+        <T color={C.sub} size={12} style={{marginVertical:10}}>{b.description}</T>
+        {!b.wonAt&&<Action disabled={busy} onPress={()=>void run(async()=>{
+          await winBoss(b.id);setVictoryMessage(b.title);
+        })}>VERIFY BOSS VICTORY</Action>}
+        {b.wonAt&&<T color={C.green} size={11}>Victory verified · {b.wonAt.slice(0,10)}</T>}
+      </LinearGradient>):<Panel><T color={C.sub}>Create a boss battle from a goal to track a major outcome.</T></Panel>}
     </>}
 
     {area==='Insights'&&<>
