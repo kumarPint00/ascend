@@ -1,0 +1,12 @@
+{
+  "name": "@ascend/game-engine",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit --project tsconfig.json",
+    "test": "tsc --project tsconfig.build.json && node --test tests/*.test.cjs"
+  },
+  "devDependencies": { "typescript": "~5.9.3" }
+}

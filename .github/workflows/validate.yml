@@ -1,0 +1,32 @@
+name: Validate game engine
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/game-engine/**'
+      - 'apps/mobile/**'
+      - 'package.json'
+      - '.github/workflows/validate.yml'
+  pull_request:
+    paths:
+      - 'packages/game-engine/**'
+      - 'apps/mobile/**'
+      - 'package.json'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run game rules tests
+        run: npm test
+      - name: Check TypeScript
+        run: npm run typecheck

@@ -1,0 +1,14 @@
+{
+  "name": "ascend-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/mobile", "packages/game-engine"],
+  "scripts": {
+    "start": "npm run start --workspace @ascend/mobile",
+    "android": "npm run android --workspace @ascend/mobile",
+    "test": "npm run test --workspace @ascend/game-engine",
+    "build:preview": "npm run test --workspace @ascend/game-engine && node scripts/build-preview.cjs",
+    "typecheck": "npm run check --workspace @ascend/game-engine && npm run check --workspace @ascend/mobile"
+  },
+  "engines": { "node": ">=22.13" }
+}
