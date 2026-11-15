@@ -155,3 +155,6 @@ export {SKILL_NODES,canUnlockSkill} from './phase2';
 export type {SkillNode} from './phase2';
 
 export {forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow} from './phase2';
+
+export {metricForecast,milestoneHistoryStatus,adaptiveMissionRecommendations,autoBackupFilename,autoBackupPruneCandidates,AUTOMATIC_BACKUP_PREFIX} from './phase2-depth';
+export type {MeasurementPoint,MeasurementForecast,SuggestedMission} from './phase2-depth';
