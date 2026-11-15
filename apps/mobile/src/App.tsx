@@ -7,7 +7,7 @@ import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
   completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
-  activeMissionList,defaultQuestControl,blockedByDependencies,
+  activeMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -178,6 +178,7 @@ export default function App() {
     const done=completed(quest);
     const status=phaseSummary.controls[quest.id]?.status??defaultQuestControl(quest).status;
     const blocked=blockedByDependencies(quest,phaseSummary.dependencies,data.completions);
+    const due=questDueOn(quest,phaseSummary.controls[quest.id]??defaultQuestControl(quest),clock);
     return <Panel style={{padding:13,opacity:done ? 0.8 : 1}}>
       <View style={s.between}>
         <View style={{flex:1,marginRight:10}}>
@@ -198,11 +199,11 @@ export default function App() {
           {editable&& <Pressable accessibilityRole="button" onPress={()=>Alert.alert('Archive quest?', 'Your XP history stays intact.',[
             {text:'Cancel',style:'cancel'}, {text:'Archive',style:'destructive',onPress:()=>run(()=>archiveQuest(quest.id))},
           ])}><T color={C.danger} size={12}>Archive</T></Pressable>}
-          {!done&&status==='active'&&!blocked&&<Pressable accessibilityRole="button" disabled={busy} style={s.finish} onPress={()=>finish(quest)}>
+          {!done&&due&&!blocked&&<Pressable accessibilityRole="button" disabled={busy} style={s.finish} onPress={()=>finish(quest)}>
             <T color={C.bg} bold size={12}>COMPLETE</T>
           </Pressable>}
-          {!done&&(status!=='active'||blocked)&&<Pressable accessibilityRole="button" onPress={()=>setTab('Planner')}>
-            <T color={blocked?C.gold:C.sub} size={11}>{blocked?'LOCKED':'PLAN / ACTIVATE'}</T>
+          {!done&&(!due||blocked)&&<Pressable accessibilityRole="button" onPress={()=>setTab('Planner')}>
+            <T color={blocked?C.gold:C.sub} size={11}>{blocked?'LOCKED':status==='active'?'SCHEDULED':'PLAN / ACTIVATE'}</T>
           </Pressable>}
         </View>
       </View>
@@ -300,7 +301,15 @@ export default function App() {
             <T size={13} color={completed(m)?C.green:C.ink}>{completed(m)?'✓ ':'○ '}{m.title.slice(MILESTONE_PREFIX.length)}</T>
             {!!m.description&&<T size={11} color={C.dim} style={{marginTop:3}}>{m.description}</T>}
           </View>
-          {!completed(m)&&<Pressable disabled={busy} accessibilityRole="button" onPress={()=>finish(m)} style={s.finish}><T size={11} color={C.bg} bold>Done</T></Pressable>}
+          {!completed(m)&&
+            (questDueOn(m,phaseSummary.controls[m.id]??defaultQuestControl(m),clock)&&
+             !blockedByDependencies(m,phaseSummary.dependencies,data.completions)
+              ?<Pressable disabled={busy} accessibilityRole="button" onPress={()=>finish(m)}
+                 style={s.finish}><T size={11} color={C.bg} bold>Done</T></Pressable>
+              :<Pressable accessibilityRole="button" onPress={()=>setTab('Planner')}
+                 style={{paddingHorizontal:10,paddingVertical:9,minHeight:42,justifyContent:'center'}}>
+                 <T size={11} color={C.energy} bold>PLAN</T>
+               </Pressable>)}
         </View>)}
       </View>}
       <View style={[s.between,{marginTop:13}]}>
