@@ -45,6 +45,7 @@ export default function App() {
   const updates = useAppUpdates();
   const [data,setData] = useState<Snapshot>(EMPTY);
   const [phaseSummary,setPhaseSummary] = useState<PhaseTwoSnapshot>(EMPTY_PHASE_TWO);
+  const [plannerTarget,setPlannerTarget] = useState<string|null>(null);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
   const [tab,setTab] = useState<Tab>('Home');
@@ -202,7 +203,7 @@ export default function App() {
           {!done&&due&&!blocked&&<Pressable accessibilityRole="button" disabled={busy} style={s.finish} onPress={()=>finish(quest)}>
             <T color={C.bg} bold size={12}>COMPLETE</T>
           </Pressable>}
-          {!done&&(!due||blocked)&&<Pressable accessibilityRole="button" onPress={()=>setTab('Planner')}>
+          {!done&&(!due||blocked)&&<Pressable accessibilityRole="button" onPress={()=>{setPlannerTarget(quest.id);setTab('Planner');}}>
             <T color={blocked?C.gold:C.sub} size={11}>{blocked?'LOCKED':status==='active'?'SCHEDULED':'PLAN / ACTIVATE'}</T>
           </Pressable>}
         </View>
@@ -306,7 +307,7 @@ export default function App() {
              !blockedByDependencies(m,phaseSummary.dependencies,data.completions)
               ?<Pressable disabled={busy} accessibilityRole="button" onPress={()=>finish(m)}
                  style={s.finish}><T size={11} color={C.bg} bold>Done</T></Pressable>
-              :<Pressable accessibilityRole="button" onPress={()=>setTab('Planner')}
+              :<Pressable accessibilityRole="button" onPress={()=>{setPlannerTarget(m.id);setTab('Planner');}}
                  style={{paddingHorizontal:10,paddingVertical:9,minHeight:42,justifyContent:'center'}}>
                  <T size={11} color={C.energy} bold>PLAN</T>
                </Pressable>)}
@@ -468,7 +469,7 @@ export default function App() {
       </Pressable>
     </View>
     <ScrollView style={{flex:1}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh}/>:<More/>}
+      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:<More/>}
     </ScrollView>
     {reward&&<Animated.View pointerEvents="none" style={[s.rewardToast,{opacity:rewardPulse,transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[0.85,1]})}]}]}>
       <T color={C.energy} bold size={12}>{reward.levelUp?'✦ LEVEL UP ✦':'QUEST CLEARED'}</T>
