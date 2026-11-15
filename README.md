@@ -11,7 +11,7 @@ Android-first, offline-first, Solo Leveling-*inspired* (not affiliated) personal
 - Data export as selectable JSON text.
 - Automated game-engine tests and manual GitHub Actions APK workflow.
 
-> **Current state:** Android source **v0.8.0 (Phase 2)** with offline planner, schedules, goals, skills, bosses, analytics, local reminders and complete backup. CI validates game rules, SQLite schema migration and TypeScript. Android release builds run through GitHub Actions. Real-device acceptance testing remains necessary.
+> **Current state:** Android source **v0.9.0 (Phase 2 depth)** with offline planner, schedules, goals, skills, bosses, analytics, local reminders and complete backup. CI validates game rules, SQLite schema migration and TypeScript. Android release builds run through GitHub Actions. Real-device acceptance testing remains necessary.
 
 ## Run it
 
@@ -34,13 +34,13 @@ If you want to run a phone-specific release build locally, install Android Studi
 
 ## Cost policy
 
-**V0.8 has zero required recurring cloud costs:** no Supabase, Firebase, Vercel, paid AI API, push service, remote database or analytics needed. Your device is the primary database. GitHub-hosted Actions are free without metered runner compute for standard public repositories; private repositories have included monthly quotas and may incur charges if billing permits overages. Configure billing spending limits to prevent surprises.
+**V0.9 has zero required recurring cloud costs:** no Supabase, Firebase, Vercel, paid AI API, push service, remote database or analytics needed. Your device is the primary database. GitHub-hosted Actions are free without metered runner compute for standard public repositories; private repositories have included monthly quotas and may incur charges if billing permits overages. Configure billing spending limits to prevent surprises.
 
 A future public app cannot be guaranteed zero infrastructure cost indefinitely, and store registration may have separate one-time costs. Plan paid upgrades only after proving retention and having actual revenue.
 
 ## Protect your data
 
-**There is no cloud backup in this version.** Before uninstalling, resetting the device, or replacing a phone, use **More → View Backup JSON**, copy all JSON and save it securely. **More → Restore Saved JSON** supports a validated manual restore that replaces local records. Verify your export before a signing-key migration. Do not store personal health or financial secrets in public GitHub issues or repository files.
+**No automatic cloud backup is used.** ASCEND v0.9 supports opt-in automatic local backups to an Android folder you choose: Planner → Settings → Automatic verified backups. Backups are unencrypted JSON, reread/validated before old ASCEND-managed copies are pruned, with a best-effort WorkManager schedule and foreground catch-up. Manual full backup sharing/restore remains available. Never uninstall without an independently accessible backup, and never post private JSON in public repositories.
 
 ## Repository layout
 
@@ -102,3 +102,14 @@ The schema migrates existing v1 SQLite data additively to v2 and keeps original 
 See [Phase 2 architecture and limitations](docs/PHASE2.md) and [30-point UX audit](docs/UX_30_POINT_AUDIT.md). No personal quest packs or financial/health information are committed to this public repository.
 
 **Important:** Temporary-key APKs cannot replace signed installations. Use the permanently signed GitHub Actions workflow with the existing keystore for in-place upgrades; do not delete your current installation without an external backup. Newly introduced data flows still require device-level verification before wider release.
+
+## Phase 2 depth · v0.9.0
+
+- Explainable offline quest prioritization based on time budget, priority, deadlines and real completion history.
+- 14, 30 or 90-day planning, native repeating Android reminders and one-off overdue alerts.
+- SQLite v3 metric timeline, downward and upward goal progress, and cautious outcome-based forecasts.
+- Selected Android Storage Access Framework folder for automatic backups with 12/24/72-hour interval, 2–30 copy retention and readback verification. Background timing depends on Android.
+- Expanded original RPG interface with boss encounters, skill progress and reduced-motion victory effects.
+- v3 full-data JSON backup; older v1/v2 restore formats remain recognized.
+
+The repository's [Phase 2 implementation guide](docs/PHASE2.md) and [Android acceptance checklist](docs/DEVICE_ACCEPTANCE_PHASE2.md) distinguish code completion from physical-device validation.
