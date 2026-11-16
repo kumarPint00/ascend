@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,
   StyleSheet,TextInput,View} from 'react-native';
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
@@ -14,7 +14,7 @@ import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuest
 import {Action,Chip,Meter,Panel,Section,T} from '../components/Elements';
 import {C,LABELS} from '../theme';
 import type {Snapshot} from '../data/repository';
-import {completeQuest} from '../data/repository';
+import {completeQuest,undoRecentCompletion} from '../data/repository';
 import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,updateQuestControl,addQuestDependency,
   removeQuestDependency,saveGoalOutcome,createBoss,winBoss,logFocusSession,saveWeeklyReview,
   savePreferences,unlockSkill,type PhaseTwoSnapshot} from '../data/phase2';
@@ -127,27 +127,43 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     finally{setBusy(false);}
   };
   const controlFor=(q:Quest)=>phase.controls[q.id]??defaultQuestControl(q);
-  const allQuests=base.quests.filter(q=>!q.archived);
-  const allGoals=base.goals.filter(g=>!g.archived);
-  const today=new Date();
-  const recommendations=adaptiveMissionRecommendations(
+  const allQuests=useMemo(()=>base.quests.filter(q=>!q.archived),[base.quests]);
+  const allGoals=useMemo(()=>base.goals.filter(g=>!g.archived),[base.goals]);
+  // Recalculate daily planning when fresh data arrives, not on every keystroke
+  // in an unrelated settings or search field.
+  const today=useMemo(()=>new Date(),[base,phase]);
+  const recommendations=useMemo(()=>adaptiveMissionRecommendations(
     allQuests,phase.controls,base.completions,phase.dependencies,today,
-    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit);
-  const due=recommendations.map(r=>r.quest);
-  const active=allQuests.filter(q=>controlFor(q).status==='active');
-  const backlog=allQuests.filter(q=>controlFor(q).status==='backlog');
-  const paused=allQuests.filter(q=>controlFor(q).status==='paused');
-  const calendar=occurrencesForDays(allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays);
-  const shown=allQuests.filter(q=>libraryStatus==='All'||controlFor(q).status===libraryStatus)
-    .filter(q=>(q.title+' '+q.description).toLowerCase().includes(search.toLowerCase()));
-  const skills=derivedSkills(base.xpEvents),achievements=derivedAchievements(
-    base.quests,base.completions,base.xpEvents,phase.bosses);
-  const trend=xpTrend(base.xpEvents,today,7);
+    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit),
+    [allQuests,phase.controls,base.completions,phase.dependencies,today,
+      phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit]);
+  const due=useMemo(()=>recommendations.map(r=>r.quest),[recommendations]);
+  const active=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='active'),
+    [allQuests,phase.controls]);
+  const backlog=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='backlog'),
+    [allQuests,phase.controls]);
+  const paused=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='paused'),
+    [allQuests,phase.controls]);
+  const calendar=useMemo(()=>occurrencesForDays(
+    allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays),
+    [allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays]);
+  const shown=useMemo(()=>allQuests.filter(q=>libraryStatus==='All'||
+    (phase.controls[q.id]??defaultQuestControl(q)).status===libraryStatus)
+    .filter(q=>(q.title+' '+q.description).toLowerCase().includes(search.toLowerCase())),
+    [allQuests,libraryStatus,phase.controls,search]);
+  const skills=useMemo(()=>derivedSkills(base.xpEvents),[base.xpEvents]);
+  const achievements=useMemo(()=>derivedAchievements(base.quests,base.completions,
+    base.xpEvents,phase.bosses),[base.quests,base.completions,base.xpEvents,phase.bosses]);
+  const trend=useMemo(()=>xpTrend(base.xpEvents,today,7),[base.xpEvents,today]);
   const trendMax=Math.max(25,...trend.map(x=>x.xp));
-  const totalWeekFocus=focusMinutesForWeek(phase.focusSessions,today);
-  const weekAttributes=attributeWeekBreakdown(base.xpEvents,today);
-  const activeDays=activeDaysInWindow(base.completions,today,7);
-  const completedThisWeek=base.completions.filter(c=>isoWeekKey(new Date(c.completedAt))===isoWeekKey(today)).length;
+  const totalWeekFocus=useMemo(()=>focusMinutesForWeek(phase.focusSessions,today),
+    [phase.focusSessions,today]);
+  const weekAttributes=useMemo(()=>attributeWeekBreakdown(base.xpEvents,today),
+    [base.xpEvents,today]);
+  const activeDays=useMemo(()=>activeDaysInWindow(base.completions,today,7),
+    [base.completions,today]);
+  const completedThisWeek=useMemo(()=>base.completions.filter(c=>
+    isoWeekKey(new Date(c.completedAt))===isoWeekKey(today)).length,[base.completions,today]);
 
   const openPlan=(q:Quest)=>{
     setSelectedQuest(q);
@@ -232,6 +248,16 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       {dueToday&&!done&&!blocked&&
         <View style={{marginTop:9}}>
           <Action secondary disabled={busy} onPress={()=>complete(quest)}>COMPLETE MISSION</Action>
+        </View>}
+      {done&&base.completions.some(c=>c.questId===quest.id&&
+        Date.now()-Date.parse(c.completedAt)>=0&&Date.now()-Date.parse(c.completedAt)<600_000)&&
+        <View style={{marginTop:9}}>
+          <Action secondary disabled={busy} onPress={()=>Alert.alert('Undo this completion?',
+            'This removes the completion and its XP from your local history.',[
+              {text:'Cancel',style:'cancel'},
+              {text:'Undo',style:'destructive',onPress:()=>void run(
+                async()=>{await undoRecentCompletion(quest.id);},'Completion and XP reversed')},
+            ])}>UNDO LAST COMPLETION</Action>
         </View>}
       {blocked&&<T size={11} color={C.gold} style={{marginTop:8}}>Finish the prerequisite quest to unlock this mission.</T>}
       {!done&&c.status==='active'&&!dueToday&&<T size={11} color={C.dim} style={{marginTop:8}}>This mission is not due today. Change its plan to reschedule.</T>}
