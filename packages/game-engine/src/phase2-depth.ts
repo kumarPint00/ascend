@@ -11,8 +11,12 @@ export interface MeasurementForecast {
 export function metricForecast(
   history:readonly MeasurementPoint[],target:number,now:Date=new Date(),
 ):MeasurementForecast|null {
-  const sorted=history.filter(p=>Number.isFinite(p.value)&&Number.isFinite(Date.parse(p.recordedAt)))
-    .slice().sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));
+  // Imported v2 baselines have no known observation time; never treat their
+  // migration timestamp as a measured data point in forecasting.
+  const sorted=history.filter(p=>!p.id.startsWith('baseline:')&&
+    Number.isFinite(p.value)&&Number.isFinite(Date.parse(p.recordedAt))&&
+    Date.parse(p.recordedAt)<=now.getTime()).slice()
+    .sort((a,b)=>Date.parse(a.recordedAt)-Date.parse(b.recordedAt));
   if(!Number.isFinite(target)||sorted.length<3)return null;
   // Reject mixed measurement units, e.g. kg and lb, until the user
   // explicitly converts or re-records them in one consistent unit.
@@ -102,15 +106,46 @@ export function autoBackupPruneCandidates(fileNames:readonly string[],keep:numbe
   return sorted.slice(safe);
 }
 
-// Direction-aware measured progress. For decreasing targets, the first
-// recorded baseline defines 0% instead of falsely showing 100% at 70/64 kg.
-export function measuredGoalProgress(points:readonly MeasurementPoint[],current:number,target:number):number {
+/**
+ * The earliest observation in the *current unit* anchors the direction.
+ * Changing from kg to lb begins a new segment, never a nonsensical average.
+ *
+ * Legacy imported baselines retain the user's recorded value, but have no
+ * trustworthy timestamp. They may define the baseline, never a forecast.
+ */
+export function currentMeasurementSeries(points:readonly MeasurementPoint[]):MeasurementPoint[]{
+  const ordered=points.filter(p=>Number.isFinite(p.value)&&Number.isFinite(Date.parse(p.recordedAt)))
+    .slice().sort((a,b)=>Date.parse(a.recordedAt)-Date.parse(b.recordedAt));
+  if(!ordered.length)return [];
+  const unit=ordered[ordered.length-1].unit;
+  let start=ordered.length-1;
+  while(start>0&&ordered[start-1].unit===unit)start--;
+  return ordered.slice(start);
+}
+export type MetricDirection='increase'|'decrease';
+export function measuredGoalDirection(
+  points:readonly MeasurementPoint[],target:number,current:number
+):MetricDirection {
+  const series=currentMeasurementSeries(points);
+  const baseline=series.length?series[0].value:current;
+  return baseline>target?'decrease':'increase';
+}
+export function isMeasuredGoalReached(
+  points:readonly MeasurementPoint[],current:number,target:number
+):boolean {
+  if(!Number.isFinite(current)||!Number.isFinite(target)||target<=0)return false;
+  const direction=measuredGoalDirection(points,target,current);
+  return direction==='decrease'?current<=target:current>=target;
+}
+export function measuredGoalProgress(
+  points:readonly MeasurementPoint[],current:number,target:number
+):number {
   if(!Number.isFinite(current)||!Number.isFinite(target)||target<=0)return 0;
-  const ordered=points.slice().sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));
-  const baseline=ordered.length?ordered[0].value:current;
-  if(baseline>target){
-    if(baseline<=target)return 1;
+  const series=currentMeasurementSeries(points);
+  const baseline=series.length?series[0].value:current;
+  if(baseline>target)
     return Math.max(0,Math.min(1,(baseline-current)/(baseline-target)));
-  }
-  return Math.max(0,Math.min(1,current/target));
+  if(baseline<target)
+    return Math.max(0,Math.min(1,(current-baseline)/(target-baseline)));
+  return current===target?1:0;
 }
