@@ -127,8 +127,15 @@ export async function winBoss(id:string):Promise<void>{
   const boss=p2.bosses.find(b=>b.id===id);
   if(!boss||boss.wonAt)throw Error('Challenge not available');
   if(!boss.questId&&!boss.goalId)throw Error('Link a quest or goal as verifiable evidence first');
-  if(boss.questId&&!base.completions.some(c=>c.questId===boss.questId))
-    throw Error('Complete the linked proof quest before claiming victory');
+  if(boss.questId){
+    // Lite completion is a valid smaller habit, but not boss-proof evidence.
+    const evidence=await db.getFirstAsync<{id:string}>(`
+      SELECT c.id FROM completions c
+      LEFT JOIN completion_modes m ON m.completion_id=c.id
+      WHERE c.quest_id=? AND COALESCE(m.mode,'standard')='standard'
+      LIMIT 1`,boss.questId);
+    if(!evidence)throw Error('Complete the normal linked proof quest before claiming victory');
+  }
   if(boss.goalId){
     const goal=base.goals.find(g=>g.id===boss.goalId);
     if(!goal)throw Error('Linked goal missing');
