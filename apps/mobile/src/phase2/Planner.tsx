@@ -21,7 +21,8 @@ import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,updateQuestControl,addQuestDependen
 import {shareBackupFile,chooseBackupFile,restoreFullBackup,verifyLocalDatabase} from '../data/backup';
 import {askReminderPermission,syncLocalReminders} from './reminders';
 import {readBackupSettings,selectExternalBackupFolder,configureAutoBackup,
-  runAutomaticBackup,type AutomaticBackupSettings} from '../data/autoBackup';
+  runAutomaticBackup,confirmRecoveryKeySaved,type AutomaticBackupSettings} from '../data/autoBackup';
+import {getOrCreateRecoveryKey} from '../data/backupCrypto';
 import {syncMaintenanceRegistration} from './maintenance';
 
 type Area='Today'|'Calendar'|'Library'|'Goals'|'Skills'|'Insights'|'Settings';
@@ -49,6 +50,8 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [notificationsCount,setNotificationsCount]=useState<number|null>(null);
   const [calendarDays,setCalendarDays]=useState<14|30|90>(30);
   const [backupSettings,setBackupSettings]=useState<AutomaticBackupSettings|null>(null);
+  const [backupKeyShown,setBackupKeyShown]=useState<string|null>(null);
+  const [restoreRecoveryKey,setRestoreRecoveryKey]=useState('');
   const [backupRetention,setBackupRetention]=useState(7);
   const [backupInterval,setBackupInterval]=useState<12|24|72>(24);
   const [backupEnabled,setBackupEnabled]=useState(false);
@@ -586,9 +589,9 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         <View style={ss.between}><T bold size={17}>Automatic verified backups</T>
           <ShieldCheck size={22} color={C.energy}/></View>
         <T color={C.sub} size={12} style={{marginVertical:9}}>
-          Choose a private folder outside ASCEND. Backups are unencrypted JSON,
-          so don't select a shared folder. Android's background maintenance is best-effort;
-          backups also run when you reopen the app.
+          Automatic backups use AES-256-GCM encryption. Store your 64-character recovery key
+          outside this phone or encrypted backups cannot be restored after uninstall.
+          Android background scheduling is best-effort; ASCEND also catches up when opened.
         </T>
         <T color={backupSettings?.directoryUri?C.green:C.gold} size={12}>
           {backupSettings?.directoryUri?'External folder selected':'No external folder selected'}
@@ -597,11 +600,18 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <Action secondary disabled={busy} onPress={()=>void run(async()=>{
             await selectExternalBackupFolder();
             await syncMaintenanceRegistration();
-            const result=await runAutomaticBackup(true);
-            Alert.alert('Backup verified',result.message);
+            Alert.alert('Folder selected','Save and confirm your recovery key, then enable automatic backups.');
           })}>SELECT / CHANGE BACKUP FOLDER</Action>
         </View>
-        <T color={C.sub} size={12}>Automatic backup</T>
+        <T color={backupSettings?.recoveryConfirmed?C.green:C.gold} size={12} style={{marginBottom:10}}>
+          {backupSettings?.recoveryConfirmed?'Recovery key acknowledged':'Recovery key not yet saved'}
+        </T>
+        <Action secondary disabled={busy} onPress={()=>void run(async()=>{
+          const key=await getOrCreateRecoveryKey();
+          setBackupKeyShown(key);
+        })}>SHOW / SAVE RECOVERY KEY</Action>
+        <View style={{height:12}}/>
+        <T color={C.sub} size={12}>Automatic encrypted backup</T>
         <View style={ss.chips}>
           <Chip active={backupEnabled} onPress={()=>setBackupEnabled(true)}>Enabled</Chip>
           <Chip active={!backupEnabled} onPress={()=>setBackupEnabled(false)}>Disabled</Chip>
@@ -630,9 +640,10 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         </T>}
       </Panel>
       <Panel>
-        <T bold size={16}>Verified file backups</T>
+        <T bold size={16}>Manual backup and restore</T>
         <T color={C.sub} size={12} style={{marginVertical:10}}>
-          Export quests, XP, goals, planner states, skills, bosses, reviews and focus sessions to an actual JSON file. Save it outside this app.
+          Manual exports are currently UNENCRYPTED JSON for compatibility. Keep them in private storage.
+          Automatic folder backups above are encrypted and independently recoverable with your saved key.
         </T>
         <Action secondary disabled={busy} onPress={()=>void run(shareBackupFile)}>EXPORT & SHARE BACKUP</Action>
         <View style={{height:10}}/>
@@ -757,17 +768,47 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         </Animated.View>
       </View>
     </Modal>
+    <Modal visible={backupKeyShown!==null} animationType="fade" transparent
+      onRequestClose={()=>setBackupKeyShown(null)}>
+      <View style={[ss.overlay,{justifyContent:'center',padding:20}]}>
+        <View style={ss.sheet}>
+          <T color={C.gold} size={19} bold>Save your backup recovery key</T>
+          <T color={C.sub} size={12} style={{marginVertical:12}}>
+            Copy this 64-character key to your password manager or write it down. It is the ONLY way to
+            restore encrypted backups after uninstall, device replacement or app storage loss.
+            Never share it publicly.
+          </T>
+          <TextInput style={[ss.input,{fontSize:12,minHeight:100,textAlignVertical:'center'}]}
+            value={backupKeyShown??''} multiline selectTextOnFocus
+            autoCapitalize="none" editable={false}/>
+          <View style={{height:12}}/>
+          <Action disabled={busy} onPress={()=>void run(async()=>{
+            await confirmRecoveryKeySaved();setBackupKeyShown(null);
+          },'Recovery key acknowledged. You may now enable automatic encrypted backups.')}>
+            I SAVED THE RECOVERY KEY
+          </Action>
+          <View style={{height:10}}/>
+          <Action secondary onPress={()=>setBackupKeyShown(null)}>CLOSE WITHOUT CONFIRMING</Action>
+        </View>
+      </View>
+    </Modal>
     <Modal visible={backupText!==null} animationType="fade" transparent onRequestClose={()=>setBackupText(null)}>
       <View style={ss.overlay}><View style={ss.sheet}>
         <T bold size={19}>Restore from backup?</T>
         <T color={C.sub} size={13} style={{marginVertical:14}}>
-          This replaces ALL quests, XP, goals, planner settings, skills, bosses and reviews on this phone. Make a backup of current data before proceeding.
+          This replaces ALL local quests, XP, goals and planner data. Encrypted files require your recovery key, especially on a replacement phone.
         </T>
+        <T color={C.sub} size={11} style={{marginBottom:8}}>Recovery key (for encrypted backups on another phone)</T>
+        <TextInput style={ss.input} autoCapitalize="none" autoCorrect={false}
+          value={restoreRecoveryKey} maxLength={64} secureTextEntry
+          placeholder="Optional 64-character recovery key" placeholderTextColor={C.dim}
+          onChangeText={setRestoreRecoveryKey}/>
         <Action danger disabled={busy} onPress={()=>Alert.alert('Final confirmation',
           'Are you sure? Existing local data will be replaced.',[
           {text:'Cancel',style:'cancel'},
           {text:'Restore',style:'destructive',onPress:()=>void run(async()=>{
-            await restoreFullBackup(backupText!);setBackupText(null);
+            await restoreFullBackup(backupText!,restoreRecoveryKey||undefined);
+            setBackupText(null);setRestoreRecoveryKey('');
           },'Backup restored successfully')},
         ])}>REPLACE DATA FROM FILE</Action>
         <View style={{height:11}}/><Action secondary onPress={()=>setBackupText(null)}>CANCEL</Action>
