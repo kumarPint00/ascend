@@ -163,6 +163,8 @@ export async function initialize(): Promise<void> {
       await tx.execAsync(`
         ALTER TABLE goal_outcomes ADD COLUMN direction TEXT NOT NULL DEFAULT 'increase'
           CHECK(direction IN ('increase','decrease'));
+        ALTER TABLE backup_settings ADD COLUMN recovery_confirmed INTEGER NOT NULL DEFAULT 0
+          CHECK(recovery_confirmed IN (0,1));
         UPDATE goal_outcomes SET direction='decrease' WHERE value>target;
         DELETE FROM goal_measurements WHERE id LIKE 'baseline:%';
         PRAGMA user_version = 4;
