@@ -368,6 +368,45 @@ export async function completeQuest(quest: Quest, now = new Date()): Promise<{ a
   return resultForCaller;
 }
 
+/**
+ * Undo only a recent completion, in the same SQLite transaction as its XP.
+ * The undo is rejected when a dependent quest has already been completed;
+ * undoing evidence otherwise creates inconsistent milestone states.
+ */
+export async function undoRecentCompletion(
+  questId:string,now=new Date(),windowMinutes=10
+):Promise<{xpRemoved:number;completionId:string}>{
+  if(!questId||!Number.isFinite(now.getTime())||windowMinutes<1||windowMinutes>60)
+    throw Error('Invalid undo request');
+  const db=await getDb();
+  let removed:{xpRemoved:number;completionId:string}|null=null;
+  await db.withExclusiveTransactionAsync(async tx=>{
+    const c=await tx.getFirstAsync<{id:string;completed_at:string}>(
+      'SELECT id,completed_at FROM completions WHERE quest_id=? ORDER BY completed_at DESC LIMIT 1',
+      questId);
+    if(!c)throw Error('There is no completion to undo');
+    const elapsed=now.getTime()-Date.parse(c.completed_at);
+    if(!Number.isFinite(elapsed)||elapsed<0||elapsed>windowMinutes*60_000)
+      throw Error('Undo is available for 10 minutes after completion');
+    const dependent=await tx.getFirstAsync<{quest_id:string}>(`
+      SELECT d.quest_id FROM quest_dependencies d
+      WHERE d.requires_quest_id=? AND EXISTS
+      (SELECT 1 FROM completions completed WHERE completed.quest_id=d.quest_id)
+      LIMIT 1`,questId);
+    if(dependent)throw Error('Cannot undo: a dependent milestone has already been completed');
+    const xp=await tx.getFirstAsync<{amount:number}>(
+      'SELECT amount FROM xp_events WHERE completion_id=?',c.id);
+    await tx.runAsync('DELETE FROM xp_events WHERE completion_id=?',c.id);
+    await tx.runAsync('DELETE FROM completions WHERE id=?',c.id);
+    // A claimed boss victory based solely on this quest is no longer valid.
+    await tx.runAsync(`UPDATE boss_battles SET won_at=NULL WHERE quest_id=?
+      AND NOT EXISTS (SELECT 1 FROM completions WHERE quest_id=?)`,questId,questId);
+    removed={xpRemoved:xp?.amount??0,completionId:c.id};
+  });
+  if(!removed)throw Error('Unable to undo completion');
+  return removed;
+}
+
 /** Human-controlled, copyable data snapshot. Not a cloud backup. */
 export async function exportJSON(): Promise<string> {
   const snapshot = await loadSnapshot();
