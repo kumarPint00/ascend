@@ -1,0 +1,12 @@
+ASCEND Android release authorization
+Release tag: v0.9.1
+Version code: 11
+Android package: com.ascendrpg.personal
+Source of signed APK: GitHub Actions run 43780164463
+Signed build source commit: bdd7fadc4b8ee579734626799404feb14ad74ea1
+Emulator cold-start verification: run 43781182287 (3/3, passed)
+Signing certificate SHA-256: 60b4aef9ee10d6f696063ddd45601216e277be0771fe967db156ad6dd6ec5521
+
+Publication requested by repository owner in ChatGPT. This marker triggers the
+one-time version-specific release workflow. The workflow must not rebuild or
+replace the verified APK and must refuse to overwrite an existing release.
