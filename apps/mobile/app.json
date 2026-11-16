@@ -2,14 +2,14 @@
   "expo": {
     "name": "ASCEND",
     "slug": "ascend-real-life-rpg",
-    "version": "0.9.1",
+    "version": "0.9.2",
     "orientation": "portrait",
     "scheme": "ascendrpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#090F1D",
     "android": {
       "package": "com.ascendrpg.personal",
-      "versionCode": 11,
+      "versionCode": 12,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
