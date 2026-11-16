@@ -66,7 +66,10 @@ jobs:
         working-directory: apps/mobile
       - name: Assert native startup-safe R8 setting
         run: |
-          grep -q '^android.enableMinifyInReleaseBuilds=false
+          grep -q '^android.enableMinifyInReleaseBuilds=false$' apps/mobile/android/gradle.properties
+          echo 'R8 disabled for expo-background-task native startup safety'
+      - name: Configure release signing
+        run: node scripts/configure-android-signing.cjs
       - name: Build signed release APK
         working-directory: apps/mobile/android
         env:
