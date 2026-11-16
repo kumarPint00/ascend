@@ -1,5 +1,6 @@
 /** Phase 2 depth: offline, deterministic prioritization, meaningful measurement and safe backup retention. */
 import {type Quest,type Completion, type Attribute, isCompleted,localDayKey} from './index';
+import {type OutcomeDirection} from './phase2';
 import {type QuestControl,type QuestDependency,defaultQuestControl,questDueOn,blockedByDependencies} from './phase2';
 
 export interface MeasurementPoint {id:string;goalId:string;value:number;unit:string;recordedAt:string;}
@@ -10,6 +11,7 @@ export interface MeasurementForecast {
 }
 export function metricForecast(
   history:readonly MeasurementPoint[],target:number,now:Date=new Date(),
+  direction?:OutcomeDirection,
 ):MeasurementForecast|null {
   const sorted=history.filter(p=>Number.isFinite(p.value)&&Number.isFinite(Date.parse(p.recordedAt)))
     .slice().sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));
@@ -18,17 +20,22 @@ export function metricForecast(
   // explicitly converts or re-records them in one consistent unit.
   const currentUnit=sorted[sorted.length-1].unit;
   const recent=sorted.filter(p=>p.unit===currentUnit&&
-    new Date(p.recordedAt).getTime()>=now.getTime()-90*86400000);
+    new Date(p.recordedAt).getTime()>=now.getTime()-90*86400000&&
+    new Date(p.recordedAt).getTime()<=now.getTime());
   if(recent.length<3)return null;
   const first=recent[0],last=recent[recent.length-1],span=
     (Date.parse(last.recordedAt)-Date.parse(first.recordedAt))/86400000;
   if(span<7)return null;
   const diff=last.value-first.value;
-  const outstanding=target-last.value;
-  if(Math.abs(outstanding)<1e-8)return {direction:'increase',current:last.value,target,
+  const directionToUse=direction??(first.value>target?'decrease':'increase');
+  const alreadyReached=directionToUse==='decrease'?last.value<=target:last.value>=target;
+  if(alreadyReached)return {direction:directionToUse,current:last.value,target,
     changePerWeek:0,estimatedWeeks:0,estimatedDate:localDayKey(now),sampleCount:recent.length,
-    caveat:'Target reached in the latest self-reported measurement'};
-  if(diff*outstanding<=0||Math.abs(diff)<1e-8)return null;
+    caveat:'Target reached according to the latest self-reported measurement'};
+  const outstanding=target-last.value;
+  if((directionToUse==='decrease'&&diff>=0)||
+     (directionToUse==='increase'&&diff<=0)||
+     diff*outstanding<=0||Math.abs(diff)<1e-8)return null;
   const perWeek=diff/span*7,needed=Math.abs(outstanding/perWeek);
   if(!Number.isFinite(needed)||needed>52||needed<=0)return null;
   const weeks=Math.max(1,Math.ceil(needed));
@@ -104,12 +111,22 @@ export function autoBackupPruneCandidates(fileNames:readonly string[],keep:numbe
 
 // Direction-aware measured progress. For decreasing targets, the first
 // recorded baseline defines 0% instead of falsely showing 100% at 70/64 kg.
-export function measuredGoalProgress(points:readonly MeasurementPoint[],current:number,target:number):number {
+export function measuredGoalProgress(
+  points:readonly MeasurementPoint[],current:number,target:number,
+  direction?:OutcomeDirection,
+):number {
   if(!Number.isFinite(current)||!Number.isFinite(target)||target<=0)return 0;
-  const ordered=points.slice().sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));
-  const baseline=ordered.length?ordered[0].value:current;
-  if(baseline>target){
-    if(baseline<=target)return 1;
+  const sorted=points.slice().filter(p=>Number.isFinite(p.value)&&Number.isFinite(Date.parse(p.recordedAt)))
+    .sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));
+  // A unit change represents a new measurement series. Mixing lb and kg
+  // without conversion would be a false statement of progress.
+  const unit=sorted[sorted.length-1]?.unit;
+  const comparable=sorted.filter(p=>p.unit===unit);
+  const baseline=comparable.length?comparable[0].value:current;
+  const actual=direction??(baseline>target?'decrease':'increase');
+  if(actual==='decrease'){
+    if(current<=target)return 1;
+    if(baseline<=target)return 0;
     return Math.max(0,Math.min(1,(baseline-current)/(baseline-target)));
   }
   return Math.max(0,Math.min(1,current/target));
