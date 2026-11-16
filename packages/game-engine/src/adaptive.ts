@@ -59,7 +59,7 @@ export function liteMinutes(estimated:number):number{
 }
 export function liteQuestIsAllowed(quest:Quest):boolean{
   // A one-off/boss proof cannot be fulfilled with a different, easier task.
-  return !quest.archived&&quest.repeatRule!=='once';
+  return !quest.archived&&quest.repeatRule!=='once'&&quest.difficulty!=='easy';
 }
 export function liteCompletionDifficulty(_:Difficulty):Difficulty {
   // A lighter alternative can never award more than the easiest XP.
@@ -105,7 +105,7 @@ export function buildAdaptiveProposals(input:{
   settings:AdaptiveSettings;
   now:Date;
 }):AdaptiveProposal[]{
-  const {quests,goals,controls,completions,decisions,settings,now}=input;
+  const {quests,goals,controls,completions,focusSessions,decisions,settings,now}=input;
   validateAdaptiveSettings(settings);
   if(!settings.enabled||!Number.isFinite(now.getTime())||
     (settings.pauseUntil&&settings.pauseUntil>=localDayKey(now)))return [];
@@ -127,13 +127,19 @@ export function buildAdaptiveProposals(input:{
     const c=controls[q.id]??defaultQuestControl(q);
     const evidence=countScheduledOpportunities(q,c,completions,now,14);
     if(evidence.opportunities<5)continue;
-    if(evidence.ratio<=0.45||settings.energy<=2){
+    const relatedFocus=focusSessions.filter(f=>f.questId===q.id&&
+      Number.isFinite(parse(f.createdAt))&&
+      parse(f.createdAt)>now.getTime()-14*86400000&&parse(f.createdAt)<=now.getTime());
+    const meanFocus=relatedFocus.length?relatedFocus.reduce((n,f)=>n+f.minutes,0)/relatedFocus.length:0;
+    const shorterObservedEffort=relatedFocus.length>=3&&meanFocus<c.estimateMinutes*0.6;
+    if(evidence.ratio<=0.45||settings.energy<=2||shorterObservedEffort){
       if(c.estimateMinutes<=5)continue;
       const mins=liteMinutes(c.estimateMinutes);
       add({id:'ease:'+q.id,kind:'ease',sourceId:q.id,
         title:'Make '+q.title+' easier',
         description:'Try a '+mins+'-minute version instead of '+c.estimateMinutes+' minutes.',
         reason:settings.energy<=2?'You reported low energy. Rest and smaller steps are valid.':
+          shorterObservedEffort?'Your recorded focus sessions tend to be shorter than planned.':
           'The last two weeks show fewer recorded completions than planned; this may simply reflect missing logs.',
         attribute:q.attribute,goalId:q.goalId,difficulty:'easy',repeatRule:q.repeatRule,
         estimateMinutes:mins,status:'active',evidence});
