@@ -28,13 +28,28 @@
 - [ ] Sign off outstanding 30-point UX/accessibility checks on both Samsung and smaller Android screens; tests must not assume physical-device success
 - [ ] Publish v0.9.2 to the live update feed **only after** stabilization acceptance
 
-## Phase 3 · Future public beta (not part of personal Phase 2)
-- [ ] Opt-in Supabase login and RLS multi-tenant authorization
-- [ ] Offline sync/outbox, conflict resolution, device recovery
-- [ ] Accessible onboarding, privacy policy, terms, deletion/export and consent
-- [ ] Public app store compliant update flow, abuse protection and telemetry opt-in
-- [ ] Performance/a11y/security audits and explicit free-tier budget monitoring
-- [ ] Only then consider paid AI features, community, guilds or monetization
+## Phase 3 · Adaptive Personal RPG & Life OS (v0.10.0 signed candidate)
+
+- [x] Offline explainable habit learning from real completions and focus minutes, no invented skip/failure claims
+- [x] Bounded adaptive suggestions: easier routines, small stretch challenges and editable draft quests, milestones and goals
+- [x] Safety: explicit approval, no autonomous goal activation, energy and workload budgets, limited suggestions and cooldowns
+- [x] Lite recurring quest completions with reduced XP, no duplicate rewards and no boss-proof substitution
+- [x] SQLite v5 local feedback storage, schema v4 backup/restore for adaptive preferences, decisions and Lite evidence
+- [x] Planner Adapt section with editable approval/dismissal, quick Lite action and reduced-motion-aware UI
+- [x] Automated TypeScript, adaptive engine and SQLite migration tests
+- [ ] On-device generative AI (Gemini Nano or another supported local model) after runtime capability and safety testing
+- [ ] Expand original character animation / narrative presentation and optional deep personalization
+- [ ] Complete Samsung physical-device in-place migration, v4 backup/restore and accessibility acceptance
+- [ ] Publish signed v0.10.0 as latest GitHub release only after acceptance
+
+See [Phase 3 design](PHASE3_ADAPTIVE.md) and [device acceptance checklist](DEVICE_ACCEPTANCE_PHASE3.md).
+
+## Future public beta (not in personal Phase 3)
+
+- [ ] Opt-in multi-user authentication and RLS, reliable multi-device sync and recovery
+- [ ] Public onboarding, privacy policy, consent, deletion/export and app-store compliance
+- [ ] Abuse protection, server-validated scoring, quotas, performance/security audits
+- [ ] Public community, guilds, monetization and paid AI only after a separate decision
 
 ## Costs and privacy
 - Personal-use build requires no recurring paid services; local notifications need no push server.
