@@ -38,23 +38,42 @@ export function syncLocalReminders(input:ReminderInput,now=new Date()):Promise<n
 }
 async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
   const pending=await Notifications.getAllScheduledNotificationsAsync();
-  for(const scheduled of pending){
-    if(scheduled.content.data?.ascendQuest===true)
-      await Notifications.cancelScheduledNotificationAsync(scheduled.identifier);
+  const managed=pending.filter(item=>item.content.data?.ascendQuest===true);
+  const cancelStale=async(keep:ReadonlySet<string>)=>{
+    for(const item of managed){
+      const key=item.content.data?.ascendScheduleKey;
+      if(typeof key!=='string'||!keep.has(key))
+        await Notifications.cancelScheduledNotificationAsync(item.identifier);
+    }
+  };
+  if(!input.preferences.remindersEnabled){
+    await cancelStale(new Set());
+    return 0;
   }
-  if(!input.preferences.remindersEnabled)return 0;
   const permission=await Notifications.getPermissionsAsync();
-  if(!permission.granted)return 0;
+  if(!permission.granted)return managed.length; // Never delete reminders if permission lookup fails.
+  const oldKeys=new Set(managed.map(i=>i.content.data?.ascendScheduleKey)
+    .filter((x):x is string=>typeof x==='string'));
+  const desired=new Set<string>();
+  const staged:string[]=[];
   let count=0;
+  // Native notifications aren't transactional. Create replacements first,
+  // and on any scheduling error roll back new IDs, retaining prior alarms.
   const schedule=async(quest:Quest,trigger:Notifications.NotificationTriggerInput)=>{
     if(count>=MAX_REMINDERS)return;
-    await Notifications.scheduleNotificationAsync({
+    const key=quest.id+':'+JSON.stringify(trigger);
+    if(desired.has(key))return;
+    desired.add(key);
+    if(oldKeys.has(key)){count++;return;}
+    const id=await Notifications.scheduleNotificationAsync({
       content:{title:'ASCEND · Mission reminder',body:quest.title.replace(/^◆ /,''),
-        data:{ascendQuest:true,questId:quest.id}},
+        data:{ascendQuest:true,questId:quest.id,ascendScheduleKey:key}},
       trigger,
     });
+    staged.push(id);
     count++;
   };
+  try{
   // Stable recurring quests use native repeating wall-clock triggers.
   // These remain registered when ASCEND isn't opened for weeks.
   const selected=input.quests.filter(q=>{
@@ -114,5 +133,14 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
       await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DATE,date,channelId:CHANNEL});
     }
   }
-  return count;
+    // Never delete a previously scheduled reminder until every new schedule
+    // has succeeded. Unchanged fingerprints are preserved without rescheduling.
+    await cancelStale(desired);
+    return count;
+  }catch(error){
+    for(const id of staged){
+      try{await Notifications.cancelScheduledNotificationAsync(id);}catch{}
+    }
+    throw error;
+  }
 }
