@@ -3,13 +3,17 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,
   BossBattle,FocusSession,WeeklyReview,SchedulePreferences,MeasurementPoint} from '@ascend/game-engine';
-import {ATTRIBUTES,validateControl,introducesCycle,validTime,validCalendarDay} from '@ascend/game-engine';
+import {ATTRIBUTES,validateControl,introducesCycle,validTime,validCalendarDay,
+  DEFAULT_ADAPTIVE_SETTINGS,validateAdaptiveSettings,type AdaptiveSettings,
+  type AdaptiveDecisionRecord} from '@ascend/game-engine';
 import {getDb,loadSnapshot,restoreJSON} from './repository';
 import {loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './phase2';
+import {loadAdaptiveState,type AdaptiveState} from './adaptive';
 
 type Core={quests:Quest[];goals:Goal[];completions:Completion[];xpEvents:XPEvent[]};
 export interface FullBackup extends Core {
-  format:'ascend-backup';schemaVersion:2|3;exportedAt:string;phase2:PhaseTwoSnapshot;
+  format:'ascend-backup';schemaVersion:2|3|4;exportedAt:string;phase2:PhaseTwoSnapshot;
+  adaptive:AdaptiveState;
 }
 const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const str=(v:unknown,max=128):v is string=>typeof v==='string'&&v.length>0&&v.length<=max;
@@ -21,17 +25,18 @@ const array=(v:unknown,max:number,field:string):unknown[]=>{
   return v;
 };
 export async function exportFullBackup():Promise<string>{
-  const base=await loadSnapshot(),phase2=await loadPhaseTwoSnapshot(true);
-  return JSON.stringify({format:'ascend-backup',schemaVersion:3,
-    exportedAt:new Date().toISOString(),...base,phase2},null,2);
+  const [base,phase2,adaptive]=await Promise.all([
+    loadSnapshot(),loadPhaseTwoSnapshot(true),loadAdaptiveState()]);
+  return JSON.stringify({format:'ascend-backup',schemaVersion:4,
+    exportedAt:new Date().toISOString(),...base,phase2,adaptive},null,2);
 }
 /** Strict validation before entering the single replacement transaction. */
 export function parseFullBackup(source:string):FullBackup{
   if(source.length>10_000_000)throw Error('Backup exceeds 10 MB');
   let raw:unknown;
   try{raw=JSON.parse(source);}catch{throw Error('Backup is not valid JSON');}
-  if(!obj(raw)||raw.format!=='ascend-backup'||![2,3].includes(Number(raw.schemaVersion))||!obj(raw.phase2))
-    throw Error('Unsupported ASCEND v2/v3 backup');
+  if(!obj(raw)||raw.format!=='ascend-backup'||![2,3,4].includes(Number(raw.schemaVersion))||!obj(raw.phase2))
+    throw Error('Unsupported ASCEND v2/v3/v4 backup');
   const goals=array(raw.goals,50000,'goals') as Goal[],quests=array(raw.quests,50000,'quests') as Quest[];
   const completions=array(raw.completions,100000,'completions') as Completion[];
   const xpEvents=array(raw.xpEvents,100000,'xpEvents') as XPEvent[];
@@ -97,7 +102,7 @@ export function parseFullBackup(source:string):FullBackup{
   const skillUnlocks=array(p.skillUnlocks,100,'skill unlocks') as string[];
   if(!skillUnlocks.every(x=>typeof x==='string'&&/^(strength|intelligence|discipline|finance|relationships|recovery)-[123]$/.test(x))||
     new Set(skillUnlocks).size!==skillUnlocks.length)throw Error('Invalid skill unlocks');
-  const goalMeasurements=(raw.schemaVersion===3
+  const goalMeasurements=(Number(raw.schemaVersion)>=3
     ?array(p.goalMeasurements,50000,'goal measurements'):[]
   ) as MeasurementPoint[];
   if(!goalMeasurements.every(m=>obj(m)&&str(m.id)&&gIds.has(m.goalId)&&
@@ -111,9 +116,30 @@ export function parseFullBackup(source:string):FullBackup{
     (pref.availableMinutes!==undefined&&(!Number.isInteger(pref.availableMinutes)||
       pref.availableMinutes<10||pref.availableMinutes>480)))
     throw Error('Invalid reminder preferences');
-  return {format:'ascend-backup',schemaVersion:raw.schemaVersion as 2|3,exportedAt:date(raw.exportedAt)?raw.exportedAt as string:new Date().toISOString(),
+  let adaptive:AdaptiveState={settings:DEFAULT_ADAPTIVE_SETTINGS,decisions:[],completionModes:[]};
+  if(raw.schemaVersion===4){
+    if(!obj(raw.adaptive)||!obj(raw.adaptive.settings))throw Error('Missing adaptive backup data');
+    let settings:AdaptiveSettings;
+    try{settings=validateAdaptiveSettings(raw.adaptive.settings as unknown as AdaptiveSettings);}
+    catch{throw Error('Invalid adaptive settings');}
+    const decisions=array(raw.adaptive.decisions,2000,'adaptive decisions') as AdaptiveDecisionRecord[];
+    if(!decisions.every(d=>obj(d)&&str(d.id,180)&&
+      ['ease','stretch','quest','milestone','goal'].includes(d.kind)&&
+      str(d.sourceId,140)&&['accepted','dismissed'].includes(d.decision)&&date(d.decidedAt))||
+      !unique(decisions))throw Error('Invalid adaptive history');
+    const completionModes=array(raw.adaptive.completionModes,100000,'completion modes') as
+      {completionId:string;mode:'standard'|'lite'}[];
+    if(!completionModes.every(m=>obj(m)&&cIds.has(m.completionId)&&
+      ['standard','lite'].includes(m.mode))||
+      new Set(completionModes.map(x=>x.completionId)).size!==completionModes.length)
+      throw Error('Invalid completion variant history');
+    adaptive={settings,decisions,completionModes};
+  }
+  return {format:'ascend-backup',schemaVersion:raw.schemaVersion as 2|3|4,
+    exportedAt:date(raw.exportedAt)?raw.exportedAt as string:new Date().toISOString(),
     goals,quests,completions,xpEvents,phase2:{controls,dependencies:chain,outcomes,bosses,
-      focusSessions,weeklyReviews,skillUnlocks,goalMeasurements,preferences:{...pref,availableMinutes:pref.availableMinutes??90}}};
+      focusSessions,weeklyReviews,skillUnlocks,goalMeasurements,preferences:{...pref,availableMinutes:pref.availableMinutes??90}},
+    adaptive};
 }
 export async function restoreFullBackup(source:string):Promise<void>{
   if(source.length>10_000_000)throw Error('Backup exceeds 10 MB');
@@ -124,6 +150,8 @@ export async function restoreFullBackup(source:string):Promise<void>{
   const data=parseFullBackup(source);
   const db=await getDb(),p=data.phase2;
   await db.withExclusiveTransactionAsync(async tx=>{
+    await tx.runAsync('DELETE FROM adaptive_decisions');
+    await tx.runAsync('DELETE FROM completion_modes');
     await tx.runAsync('DELETE FROM xp_events');
     await tx.runAsync('DELETE FROM completions');
     await tx.runAsync('DELETE FROM quest_dependencies');
@@ -146,6 +174,8 @@ export async function restoreFullBackup(source:string):Promise<void>{
     for(const e of data.xpEvents)await tx.runAsync(
       'INSERT INTO xp_events(id,completion_id,day_key,amount,attribute,created_at) VALUES(?,?,?,?,?,?)',
       e.id,e.completionId,e.dayKey,e.amount,e.attribute,e.createdAt);
+    for(const cm of data.adaptive.completionModes)await tx.runAsync(
+      'INSERT INTO completion_modes(completion_id,mode) VALUES(?,?)',cm.completionId,cm.mode);
     for(const control of Object.values(p.controls))await tx.runAsync(
       'INSERT INTO quest_state(quest_id,status,priority,weekdays,due_on,time_of_day,snoozed_until,estimate_minutes,reminder) VALUES(?,?,?,?,?,?,?,?,?)',
       control.questId,control.status,control.priority,JSON.stringify(control.weekdays),
@@ -177,6 +207,11 @@ export async function restoreFullBackup(source:string):Promise<void>{
       'INSERT INTO skill_unlocks(node_id,unlocked_at) VALUES(?,?)',node,new Date().toISOString());
     for(const [key,value] of Object.entries(p.preferences))await tx.runAsync(
       'INSERT OR REPLACE INTO preferences(key,value) VALUES(?,?)',key,String(value));
+    await tx.runAsync(`INSERT INTO adaptive_settings(id,payload) VALUES(1,?)
+      ON CONFLICT(id) DO UPDATE SET payload=excluded.payload`,JSON.stringify(data.adaptive.settings));
+    for(const item of data.adaptive.decisions)await tx.runAsync(
+      'INSERT INTO adaptive_decisions(id,kind,source_id,decision,decided_at) VALUES(?,?,?,?,?)',
+      item.id,item.kind,item.sourceId,item.decision,item.decidedAt);
     await tx.runAsync("INSERT OR REPLACE INTO app_state(key,value) VALUES('starter_seeded','1')");
   });
 }
@@ -198,7 +233,7 @@ export async function chooseBackupFile():Promise<string|null>{
   const source=await FileSystem.readAsStringAsync(file.uri);
   // Validate without touching the database.
   let raw:unknown;try{raw=JSON.parse(source);}catch{throw Error('Not valid JSON');}
-  if(obj(raw)&&(raw.schemaVersion===2||raw.schemaVersion===3))parseFullBackup(source);
+  if(obj(raw)&&(raw.schemaVersion===2||raw.schemaVersion===3||raw.schemaVersion===4))parseFullBackup(source);
   else if(!obj(raw)||raw.format!=='ascend-backup'||raw.schemaVersion!==1)
     throw Error('Not a recognized ASCEND backup');
   return source;
