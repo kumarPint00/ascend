@@ -14,7 +14,7 @@ import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuest
 import {Action,Chip,Meter,Panel,Section,T} from '../components/Elements';
 import {C,LABELS} from '../theme';
 import type {Snapshot} from '../data/repository';
-import {completeQuest} from '../data/repository';
+import {completeQuest,undoQuestCompletion} from '../data/repository';
 import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,updateQuestControl,addQuestDependency,
   removeQuestDependency,saveGoalOutcome,createBoss,winBoss,logFocusSession,saveWeeklyReview,
   savePreferences,unlockSkill,type PhaseTwoSnapshot} from '../data/phase2';
@@ -53,9 +53,15 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [backupInterval,setBackupInterval]=useState<12|24|72>(24);
   const [backupEnabled,setBackupEnabled]=useState(false);
   const [victoryMessage,setVictoryMessage]=useState<string|null>(null);
+  const [undo,setUndo]=useState<{completionId:string;xp:number}|null>(null);
   const victoryPulse=useRef(new Animated.Value(0)).current;
   const [reduceMotion,setReduceMotion]=useState(false);
   const entrance=useRef(new Animated.Value(1)).current;
+  useEffect(()=>{
+    if(!undo)return;
+    const timer=setTimeout(()=>setUndo(null),120_000);
+    return ()=>clearTimeout(timer);
+  },[undo]);
   useEffect(()=>{
     let live=true;
     AccessibilityInfo.isReduceMotionEnabled().then(enabled=>{if(live)setReduceMotion(enabled);}).catch(()=>{});
@@ -194,7 +200,8 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const complete=(q:Quest)=>void run(async()=>{
     const result=await completeQuest(q);
     if(!result.applied)throw Error('Already completed in this period');
-  },'Quest cleared. XP recorded without duplicates.');
+    if(result.completionId)setUndo({completionId:result.completionId,xp:result.xp});
+  });
   const openMetric=(g:Goal)=>{
     setSelectedGoal(g);
     const m=phase.outcomes[g.id];
@@ -282,6 +289,15 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
 
     {area==='Today'&&<>
       {heading('Today’s focused missions','Prioritized from deadlines, effort, your real history and available time. No cloud AI.')}
+      {undo&&<Panel style={{borderColor:C.gold}}>
+        <T color={C.gold} size={12} bold>Quest cleared · +{undo.xp} XP</T>
+        <T color={C.sub} size={11} style={{marginTop:5,marginBottom:10}}>
+          Accidental completion? Undo within two minutes. Verified boss victories cannot be reversed.
+        </T>
+        <Action secondary disabled={busy} onPress={()=>void run(async()=>{
+          await undoQuestCompletion(undo.completionId);setUndo(null);
+        },'Quest completion and XP restored')}>UNDO LAST COMPLETION</Action>
+      </Panel>}
       <View style={ss.metrics}>
         <View style={ss.metric}><T color={C.sub} size={10}>TODAY</T><T size={24} bold color={C.energy}>{due.length}</T></View>
         <View style={ss.metric}><T color={C.sub} size={10}>ACTIVE</T><T size={24} bold>{active.length}</T></View>
