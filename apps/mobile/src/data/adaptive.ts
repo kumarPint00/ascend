@@ -80,7 +80,9 @@ export async function decideAdaptiveProposal(
       throw Error('Adaptive suggestions are paused');
     const prior=await tx.getFirstAsync<{decision:string;decided_at:string}>(
       'SELECT decision,decided_at FROM adaptive_decisions WHERE id=?',proposal.id);
-    if(prior?.decision==='accepted')throw Error('Already accepted; no duplicate goal or quest created');
+    if(prior?.decision==='accepted'&&
+      !['ease','stretch'].includes(proposal.kind))
+      throw Error('Already accepted; no duplicate goal or quest created');
     if(prior&&now.getTime()-Date.parse(prior.decided_at)<21*86400000)
       throw Error('Suggestion is in its cooldown period');
     if(decision==='accepted'){
