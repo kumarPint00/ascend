@@ -2,6 +2,14 @@
 
 Android-first, offline-first, Solo Leveling-*inspired* (not affiliated) personal growth RPG. Original identity; no copyrighted art, logos or music.
 
+## Download ASCEND for Android
+
+**Latest official release: [ASCEND v0.9.1 signed APK](https://github.com/kumarPint00/ascend/releases/download/v0.9.1/ascend-android.apk)**
+
+[GitHub Releases](https://github.com/kumarPint00/ascend/releases/latest) · [Signed build verification](https://github.com/kumarPint00/ascend/actions/runs/43782629911) · [Three Android emulator cold launches passed](https://github.com/kumarPint00/ascend/actions/runs/43781182287)
+
+**Update in place:** If ASCEND is already installed, do not uninstall or clear app data. Installing a permanently signed APK with the same certificate preserves the existing app data. The v0.9.1 release addresses an Android cold-start crash present in v0.9.0. A real-device upgrade test is still recommended.
+
 ## What's already implemented
 - Dashboard: XP, level, E–S rank, today's quests and primary goals.
 - Quest board: create, edit, archive and complete quests with daily / weekly / one-off recurrence.
@@ -11,7 +19,7 @@ Android-first, offline-first, Solo Leveling-*inspired* (not affiliated) personal
 - Data export as selectable JSON text.
 - Automated game-engine tests and manual GitHub Actions APK workflow.
 
-> **Current state:** Android source **v0.9.0 (Phase 2 depth)** with offline planner, schedules, goals, skills, bosses, analytics, local reminders and complete backup. CI validates game rules, SQLite schema migration and TypeScript. Android release builds run through GitHub Actions. Real-device acceptance testing remains necessary.
+> **Current state:** Android source **v0.9.1 (Phase 2 crash hotfix)** with offline planner, schedules, goals, skills, bosses, analytics, local reminders and complete backup. CI validates game rules, SQLite schema migration and TypeScript. Android release builds run through GitHub Actions. Real-device acceptance testing remains necessary.
 
 ## Run it
 
