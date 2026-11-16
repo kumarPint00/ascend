@@ -129,31 +129,38 @@ export default function App() {
     }).catch(()=>{});
   },[loading,data,phaseSummary]);
   const player = useMemo(()=>derivePlayer(data.xpEvents),[data.xpEvents]);
-  const quests = data.quests.filter(q=>!q.archived);
-  const goals = data.goals.filter(g=>!g.archived);
-  const day = localDayKey(clock);
-  const completedToday = data.completions.filter(c=>localDayKey(new Date(c.completedAt))===day);
-  const todayXP = data.xpEvents.filter(e=>e.dayKey===day).reduce((a,e)=>a+e.amount,0);
-  const completed = (q:Quest)=>isCompleted(q,data.completions,clock);
-  const activeQuests = quests.filter(q=>
+  const quests=useMemo(()=>data.quests.filter(q=>!q.archived),[data.quests]);
+  const goals=useMemo(()=>data.goals.filter(g=>!g.archived),[data.goals]);
+  const day=localDayKey(clock);
+  const completedToday=useMemo(()=>data.completions.filter(c=>
+    localDayKey(new Date(c.completedAt))===day),[data.completions,day]);
+  const todayXP=useMemo(()=>data.xpEvents.filter(e=>e.dayKey===day)
+    .reduce((a,e)=>a+e.amount,0),[data.xpEvents,day]);
+  const completed=(q:Quest)=>isCompleted(q,data.completions,clock);
+  const activeQuests=useMemo(()=>quests.filter(q=>
     (phaseSummary.controls[q.id]?.status??defaultQuestControl(q).status)==='active'&&
-    (q.repeatRule!=='once'||!completed(q)));
-  const pending = activeQuests.filter(q=>!completed(q));
-  const todayBoard = activeMissionList(quests,phaseSummary.controls,data.completions,
-    phaseSummary.dependencies,clock,phaseSummary.preferences.dailyMissionLimit);
-  const filteredQuests = quests.filter(q=>{
-    const match = (q.title+' '+q.description).toLowerCase().includes(questSearch.trim().toLowerCase());
+    (q.repeatRule!=='once'||!isCompleted(q,data.completions,clock))),
+    [quests,phaseSummary.controls,data.completions,clock]);
+  const pending=useMemo(()=>activeQuests.filter(q=>!isCompleted(q,data.completions,clock)),
+    [activeQuests,data.completions,clock]);
+  const todayBoard=useMemo(()=>activeMissionList(quests,phaseSummary.controls,data.completions,
+    phaseSummary.dependencies,clock,phaseSummary.preferences.dailyMissionLimit),
+    [quests,phaseSummary.controls,data.completions,phaseSummary.dependencies,clock,
+      phaseSummary.preferences.dailyMissionLimit]);
+  const filteredQuests=useMemo(()=>quests.filter(q=>{
+    const match=(q.title+' '+q.description).toLowerCase().includes(questSearch.trim().toLowerCase());
     if(!match)return false;
-    const done=completed(q);
-    if(questFilter==='Today') return todayBoard.some(x=>x.id===q.id);
-    if(questFilter==='Weekly') return q.repeatRule==='weekly'&&!done&&
+    const done=isCompleted(q,data.completions,clock);
+    if(questFilter==='Today')return todayBoard.some(x=>x.id===q.id);
+    if(questFilter==='Weekly')return q.repeatRule==='weekly'&&!done&&
       (phaseSummary.controls[q.id]?.status??defaultQuestControl(q).status)==='active';
     if(questFilter==='Milestones')return isMilestoneQuest(q)&&!done;
     if(questFilter==='Pending')return !done;
     if(questFilter==='Done')return done;
     return true;
-  });
-  const filteredGoals=goals.filter(g=>g.title.toLowerCase().includes(goalSearch.trim().toLowerCase()));
+  }),[quests,questSearch,questFilter,data.completions,clock,todayBoard,phaseSummary.controls]);
+  const filteredGoals=useMemo(()=>goals.filter(g=>g.title.toLowerCase()
+    .includes(goalSearch.trim().toLowerCase())),[goals,goalSearch]);
 
   const openQuest = (q?:Quest,goalId?:string) => {
     setEditingQuest(q??null);
