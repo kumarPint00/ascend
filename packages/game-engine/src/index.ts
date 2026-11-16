@@ -159,4 +159,4 @@ export {forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow} from '
 export {metricForecast,milestoneHistoryStatus,adaptiveMissionRecommendations,autoBackupFilename,autoBackupPruneCandidates,AUTOMATIC_BACKUP_PREFIX} from './phase2-depth';
 export type {MeasurementPoint,MeasurementForecast,SuggestedMission} from './phase2-depth';
 
-export {measuredGoalProgress} from './phase2-depth';
+export {measuredGoalProgress,measuredGoalDirection,isMeasuredGoalReached,currentMeasurementSeries} from './phase2-depth';
