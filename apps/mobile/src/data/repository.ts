@@ -40,7 +40,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 3) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 4) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -151,14 +151,21 @@ export async function initialize(): Promise<void> {
           last_backup_at TEXT, last_verified_at TEXT, last_error TEXT
         );
         INSERT OR IGNORE INTO backup_settings(id) VALUES(1);
-        INSERT OR IGNORE INTO goal_measurements(id,goal_id,value,unit,recorded_at)
-          SELECT 'baseline:'||outcome.goal_id,outcome.goal_id,outcome.value,outcome.unit,
-            COALESCE((SELECT created_at FROM goals WHERE id=outcome.goal_id),
-              '2026-01-01T00:00:00Z')
-          FROM goal_outcomes AS outcome
-          WHERE NOT EXISTS (SELECT 1 FROM goal_measurements m
-            WHERE m.goal_id=outcome.goal_id);
+        -- Do not invent goal measurement dates: old outcomes have no observation history.
         PRAGMA user_version = 3;
+      `);
+    });
+  }
+  if ((version?.user_version ?? 0) < 4) {
+    // Additive v3→v4: explicit outcome direction and removal of legacy
+    // generated 'baseline:' observations that wrongly borrowed goal creation dates.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        ALTER TABLE goal_outcomes ADD COLUMN direction TEXT NOT NULL DEFAULT 'increase'
+          CHECK(direction IN ('increase','decrease'));
+        UPDATE goal_outcomes SET direction='decrease' WHERE value>target;
+        DELETE FROM goal_measurements WHERE id LIKE 'baseline:%';
+        PRAGMA user_version = 4;
       `);
     });
   }
