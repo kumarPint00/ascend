@@ -212,6 +212,9 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       unit:m?.unit??'units',deadline:m?.deadline??'',direction:m?.direction??'increase'});
   };
   const saveMetric=()=>{if(!selectedGoal)return;
+    if(!goalMetric.value.trim()||!goalMetric.target.trim()){
+      Alert.alert('Missing measurement','Enter an actual current value and target');return;
+    }
     void run(async()=>{
       await saveGoalOutcome(selectedGoal.id,{value:Number(goalMetric.value),target:Number(goalMetric.target),
         unit:goalMetric.unit,deadline:goalMetric.deadline.trim()||null,direction:goalMetric.direction});
@@ -389,6 +392,9 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <T size={11} color={C.sub} style={{marginVertical:7}}>
             {m?`${m.value} / ${m.target} ${m.unit}`:'Quest completions used until a real metric is configured'}
           </T>
+          {m&&!m.directionReviewed&&<T color={C.gold} size={12} style={{marginBottom:8}}>
+            Direction not verified after migration. Open SET METRIC and confirm increase/decrease before boss victory.
+          </T>}
           <Meter value={recorded} tint={LABELS[g.attribute].tint}/>
           <T size={11} color={C.dim} style={{marginTop:7}}>
             {milestoneCount} milestones · {Math.round(recorded*100)}% of {m?'measured result':'activity target'}
