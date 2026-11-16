@@ -8,6 +8,8 @@ assert.ok(v1,'Cannot find v1 database schema');
 assert.ok(v2,'Cannot find v2 migration scripts');
 const v3=code.match(/\/\/ Additive v2→v3 migration:[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
 assert.ok(v3,'Cannot find v3 goal/backup migration');
+const v4=code.match(/\/\/ v3 included synthetic baseline IDs[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
+assert.ok(v4,'Cannot find v4 baseline repair/backup ownership migration');
 const db=new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
 db.exec(v1[1]);
@@ -54,4 +56,17 @@ assert.throws(()=>db.prepare('INSERT INTO goal_measurements(id,goal_id,value,uni
   .run('bad','missing',2,'sessions','2026-11-16T10:00:00Z'));
 db.exec('BEGIN EXCLUSIVE');db.exec(v3[1]);db.exec('COMMIT');
 assert.equal(db.prepare("SELECT COUNT(*) AS n FROM goal_measurements").get().n,1);
-console.log('Phase 2 migrations v1→v2→v3: XP preserved, goal history, backup settings and constraints verified');
+db.prepare('INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)')
+  .run('baseline:g1','g1',2,'sessions','2026-01-01T00:00:00Z');
+db.exec('BEGIN EXCLUSIVE');db.exec(v4[1]);db.exec('COMMIT');
+assert.equal(db.prepare('PRAGMA user_version').get().user_version,4);
+const columns=db.prepare('PRAGMA table_info(backup_settings)').all().map(x=>x.name);
+assert.ok(columns.includes('managed_files'),'Backup retention must track owned file URIs');
+assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
+assert.equal(db.prepare("SELECT recorded_at FROM goal_measurements WHERE id='m1'").get().recorded_at,'2026-11-16T10:00:00Z');
+assert.notEqual(db.prepare("SELECT recorded_at FROM goal_measurements WHERE id='baseline:g1'").get().recorded_at,'2026-01-01T00:00:00Z');
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM goal_measurements').get().n,2);
+db.prepare('UPDATE backup_settings SET managed_files=? WHERE id=1')
+  .run(JSON.stringify(['content://provider/document/ASCEND-AUTO-1.json']));
+assert.equal(JSON.parse(db.prepare('SELECT managed_files FROM backup_settings WHERE id=1').get().managed_files).length,1);
+console.log('Phase 2 migrations v1→v2→v3→v4: preserved XP, corrected synthetic dates and backup ownership');
