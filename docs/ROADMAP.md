@@ -23,7 +23,7 @@
 - [x] Two-phase local reminder rescheduling, backup ownership-based pruning, better recovery/error boundaries, accessibility/touch targets, level/rank feedback and memoized planner calculations
 - [x] Commit npm lockfile and adopt reproducible `npm ci`; regression tests for measurable goals, SQLite migrations and undo/data integrity
 - [x] Publish v0.9.1 startup-crash hotfix to GitHub Releases after 3/3 Android emulator cold launches
-- [ ] Verify the **final v0.9.2** signed APK and three emulator cold launches for the final stabilization commit
+- [x] Final v0.9.2 Android build 12 signed and certificate verified ([GitHub Actions](https://github.com/kumarPint00/ascend/actions/runs/43830851005)); three cold launches and 1.4× font startup passed ([emulator run](https://github.com/kumarPint00/ascend/actions/runs/43832468780))
 - [ ] Run real-device in-place upgrade and restore checks on Samsung S25 Ultra, including active notifications, selected-folder backups, undo and large quest-pack performance
 - [ ] Sign off outstanding 30-point UX/accessibility checks on both Samsung and smaller Android screens; tests must not assume physical-device success
 - [ ] Publish v0.9.2 to the live update feed **only after** stabilization acceptance
