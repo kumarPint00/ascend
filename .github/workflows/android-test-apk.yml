@@ -30,7 +30,7 @@ jobs:
       - name: Verify Android SDK
         run: test -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}"
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Test and typecheck
         run: npm test && npm run typecheck
       - name: Generate Android native project
