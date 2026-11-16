@@ -10,6 +10,13 @@ Android-first, offline-first, Solo Leveling-*inspired* (not affiliated) personal
 
 **Update in place:** If ASCEND is already installed, do not uninstall or clear app data. Installing a permanently signed APK with the same certificate preserves the existing app data. The v0.9.1 release addresses an Android cold-start crash present in v0.9.0. A real-device upgrade test is still recommended.
 
+## Next signed build: v0.9.2 stabilization candidate
+
+Development source has advanced to **v0.9.2 / Android build 12**, but the latest public update remains **v0.9.1**.
+The stabilization candidate fixes direction-aware goal/boss checks, synthetic measurement histories, safe reminder rescheduling, backup-owned file pruning, and adds confirmable completion undo, accessibility improvements, memoized planning, and reproducible dependency installation.
+
+**Do not uninstall the existing app** for a candidate update. Validation requires a permanently signed APK, Android emulator cold launches, then actual Samsung in-place upgrade and backup/restore checks. The candidate must not be published until acceptance.
+
 ## What's already implemented
 - Dashboard: XP, level, E–S rank, today's quests and primary goals.
 - Quest board: create, edit, archive and complete quests with daily / weekly / one-off recurrence.
@@ -19,7 +26,7 @@ Android-first, offline-first, Solo Leveling-*inspired* (not affiliated) personal
 - Data export as selectable JSON text.
 - Automated game-engine tests and manual GitHub Actions APK workflow.
 
-> **Current state:** Android source **v0.9.1 (Phase 2 crash hotfix)** with offline planner, schedules, goals, skills, bosses, analytics, local reminders and complete backup. CI validates game rules, SQLite schema migration and TypeScript. Android release builds run through GitHub Actions. Real-device acceptance testing remains necessary.
+> **Current state:** Android source **v0.9.2 (stabilization candidate); public release v0.9.1** with offline planner, schedules, goals, skills, bosses, analytics, local reminders and complete backup. CI validates game rules, SQLite schema migration and TypeScript. Android release builds run through GitHub Actions. Real-device acceptance testing remains necessary.
 
 ## Run it
 
