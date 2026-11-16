@@ -133,14 +133,16 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
       await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DATE,date,channelId:CHANNEL});
     }
   }
-    // Never delete a previously scheduled reminder until every new schedule
-    // has succeeded. Unchanged fingerprints are preserved without rescheduling.
-    await cancelStale(desired);
-    return count;
   }catch(error){
+    // Scheduling failed: roll back only newly created alarms. Existing alerts
+    // stay intact, so a transient OS error doesn't silently remove them.
     for(const id of staged){
       try{await Notifications.cancelScheduledNotificationAsync(id);}catch{}
     }
     throw error;
   }
+  // Retirement is a separate phase: if an old-alarm cancellation fails, do
+  // NOT roll back the successful replacements and leave the user unprotected.
+  await cancelStale(desired);
+  return count;
 }
