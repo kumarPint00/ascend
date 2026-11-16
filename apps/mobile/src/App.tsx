@@ -6,7 +6,7 @@ import {
 import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
-  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
+  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, rankFromLevel, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
   activeMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
@@ -69,7 +69,7 @@ export default function App() {
   const [goalLimit,setGoalLimit] = useState(8);
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
-  const [reward,setReward] = useState<{xp:number;levelUp:boolean;completionId:string|null}|null>(null);
+  const [reward,setReward] = useState<{xp:number;levelUp:boolean;rankUp:boolean;newRank:string;completionId:string|null}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
   useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
 
@@ -171,8 +171,15 @@ export default function App() {
   const finish=(q:Quest)=>run(async()=>{
     const reward=await completeQuest(q,new Date());
     if(reward.applied) {
-      const levelUp=levelFromXP(player.totalXP+reward.xp)>player.level;
-      setReward({xp:reward.xp,levelUp,completionId:reward.completionId});
+      const nextLevel=levelFromXP(player.totalXP+reward.xp);
+      const levelUp=nextLevel>player.level;
+      const newRank=rankFromLevel(nextLevel);
+      const rankUp=newRank!==player.rank;
+      setReward({xp:reward.xp,levelUp,rankUp,newRank,completionId:reward.completionId});
+      AccessibilityInfo.announceForAccessibility(rankUp
+        ?`Rank advancement: ${newRank}. Quest completed, ${reward.xp} XP.`
+        :levelUp?`Level ${nextLevel}. Quest completed, ${reward.xp} XP.`
+        :`Quest completed, ${reward.xp} XP.`);
       rewardPulse.stopAnimation(); rewardPulse.setValue(0);
       Animated.sequence([
         Animated.timing(rewardPulse,{toValue:1,duration:reduceMotion?0:180,useNativeDriver:true}),
@@ -480,7 +487,8 @@ export default function App() {
     </ScrollView>
     {reward&&<Animated.View pointerEvents="box-none" accessibilityLiveRegion="polite"
       style={[s.rewardToast,{opacity:rewardPulse,transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[reduceMotion?1:0.85,1]})}]}]}>
-      <T color={C.energy} bold size={12}>{reward.levelUp?'✦ LEVEL UP ✦':'QUEST CLEARED'}</T>
+      <T color={C.energy} bold size={12}>{reward.rankUp?'✦ RANK ADVANCEMENT ✦':reward.levelUp?'✦ LEVEL UP ✦':'QUEST CLEARED'}</T>
+      {reward.rankUp&&<T size={30} color={C.gold} bold>{reward.newRank} RANK UNLOCKED</T>}
       <T color={C.gold} bold size={23}>{reward.xp>0?`+${reward.xp} XP`:'XP CAP REACHED'}</T>
       {!!reward.completionId&&<Pressable accessibilityRole="button" accessibilityLabel="Undo last quest completion"
         disabled={busy} onPress={()=>{const id=reward.completionId!;rewardPulse.stopAnimation();setReward(null);
@@ -622,7 +630,7 @@ const s=StyleSheet.create({
   chart:{marginTop:14,height:162,flexDirection:'row',alignItems:'flex-end'},
   barCell:{flex:1,height:150,alignItems:'center',justifyContent:'flex-end',gap:6},
   bar:{width:'62%',borderRadius:5,minHeight:3},
-  rewardToast:{position:'absolute',zIndex:10,top:125,alignSelf:'center',alignItems:'center',backgroundColor:'#1C2948',borderWidth:1,borderColor:C.energy,borderRadius:17,paddingHorizontal:25,paddingVertical:16,shadowColor:C.energy,shadowRadius:14,shadowOpacity:.5,elevation:12},
+  rewardToast:{position:'absolute',zIndex:10,top:125,alignSelf:'center',alignItems:'center',backgroundColor:'#1C2948',borderWidth:1,borderColor:C.energy,borderRadius:17,paddingHorizontal:20,paddingVertical:16,maxWidth:'92%',shadowColor:C.energy,shadowRadius:14,shadowOpacity:.5,elevation:12},
   nav:{flexDirection:'row',borderTopWidth:1,borderColor:C.border,backgroundColor:'#0D182A',
     paddingBottom:Platform.OS==='ios'?20:12,paddingTop:8,paddingHorizontal:5},
   navTab:{flex:1,alignItems:'center',justifyContent:'center',gap:4,paddingVertical:5,borderWidth:1,borderColor:'transparent',borderRadius:13,minHeight:53},
