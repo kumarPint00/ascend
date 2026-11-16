@@ -1,7 +1,8 @@
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,BossBattle,
   FocusSession,WeeklyReview,SchedulePreferences,MeasurementPoint} from '@ascend/game-engine';
 import {defaultQuestControl,validateControl,introducesCycle,DEFAULT_PREFERENCES,isoWeekKey,
-  completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill,validCalendarDay} from '@ascend/game-engine';
+  completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill,validCalendarDay,
+  hasReachedOutcome,type OutcomeDirection} from '@ascend/game-engine';
 import {getDb,loadSnapshot} from './repository';
 
 export interface PhaseTwoSnapshot {
@@ -30,7 +31,7 @@ export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSn
   const [states,deps,results,bosses,sessions,reviews,prefs,unlocks,measurements]=await Promise.all([
     db.getAllAsync<StateRow>('SELECT * FROM quest_state'),
     db.getAllAsync<{quest_id:string;requires_quest_id:string}>('SELECT * FROM quest_dependencies'),
-    db.getAllAsync<{goal_id:string;target:number;value:number;unit:string;deadline:string|null}>('SELECT * FROM goal_outcomes'),
+    db.getAllAsync<{goal_id:string;target:number;value:number;unit:string;deadline:string|null;direction:OutcomeDirection}>('SELECT * FROM goal_outcomes'),
     db.getAllAsync<{id:string;title:string;description:string;goal_id:string|null;quest_id:string|null;won_at:string|null;created_at:string}>('SELECT * FROM boss_battles ORDER BY created_at DESC'),
     db.getAllAsync<{id:string;quest_id:string|null;minutes:number;created_at:string}>(
       'SELECT * FROM focus_sessions ORDER BY created_at DESC'+(fullHistory?'':' LIMIT 1000')),
@@ -44,7 +45,7 @@ export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSn
   const controls:Record<string,QuestControl>={};
   for(const row of states){const c=decodeControl(row);controls[c.questId]=c;}
   const outcomes:Record<string,GoalOutcome>={};
-  for(const o of results)outcomes[o.goal_id]={goalId:o.goal_id,target:o.target,value:o.value,unit:o.unit,deadline:o.deadline};
+  for(const o of results)outcomes[o.goal_id]={goalId:o.goal_id,target:o.target,value:o.value,unit:o.unit,deadline:o.deadline,direction:o.direction};
   const preferences={...DEFAULT_PREFERENCES};
   for(const row of prefs){
     if(row.key==='remindersEnabled')preferences.remindersEnabled=row.value==='true';
@@ -95,20 +96,25 @@ export async function removeQuestDependency(questId:string,requiresQuestId:strin
   const db=await getDb();await db.runAsync(
     'DELETE FROM quest_dependencies WHERE quest_id=? AND requires_quest_id=?',questId,requiresQuestId);
 }
-export async function saveGoalOutcome(goalId:string,input:{target:number;value:number;unit:string;deadline:string|null}):Promise<void>{
-  const {target,value,unit,deadline}=input;
+export async function saveGoalOutcome(goalId:string,input:{target:number;value:number;unit:string;deadline:string|null;direction:OutcomeDirection}):Promise<void>{
+  const {target,value,unit,deadline,direction}=input;
   if(!Number.isFinite(target)||target<=0||target>1e9||!Number.isFinite(value)||value<0||value>1e9||
-     unit.trim().length<1||unit.length>24||
+     unit.trim().length<1||unit.length>24||!['increase','decrease'].includes(direction)||
      (deadline!==null&&!validCalendarDay(deadline)))
     throw Error('Invalid measurable goal values');
   const db=await getDb(),recordedAt=new Date().toISOString();
   await db.withExclusiveTransactionAsync(async tx=>{
     const previous=await tx.getFirstAsync<{value:number;unit:string}>(
       'SELECT value,unit FROM goal_outcomes WHERE goal_id=?',goalId);
-    await tx.runAsync(`INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline) VALUES(?,?,?,?,?)
+    await tx.runAsync(`INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline,direction) VALUES(?,?,?,?,?,?)
       ON CONFLICT(goal_id) DO UPDATE SET target=excluded.target,value=excluded.value,
-      unit=excluded.unit,deadline=excluded.deadline`,goalId,target,value,unit.trim(),deadline);
-    if(!previous||previous.value!==value||previous.unit!==unit.trim()){
+      unit=excluded.unit,deadline=excluded.deadline,direction=excluded.direction`,
+      goalId,target,value,unit.trim(),deadline,direction);
+    // A migrated v2/v3 value is not a dated measurement. Recording it here
+    // is legitimate only after the user explicitly confirms it.
+    const recorded=await tx.getFirstAsync<{id:string}>(
+      'SELECT id FROM goal_measurements WHERE goal_id=? LIMIT 1',goalId);
+    if(!previous||previous.value!==value||previous.unit!==unit.trim()||!recorded){
       await tx.runAsync(
         'INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)',
         newId(),goalId,value,unit.trim(),recordedAt);
@@ -123,23 +129,39 @@ export async function createBoss(input:{title:string;description:string;goalId:s
     VALUES(?,?,?,?,?,NULL,?)`,newId(),title,description,input.goalId,input.questId,new Date().toISOString());
 }
 export async function winBoss(id:string):Promise<void>{
-  const db=await getDb(),base=await loadSnapshot(),p2=await loadPhaseTwoSnapshot();
-  const boss=p2.bosses.find(b=>b.id===id);
-  if(!boss||boss.wonAt)throw Error('Challenge not available');
-  if(!boss.questId&&!boss.goalId)throw Error('Link a quest or goal as verifiable evidence first');
-  if(boss.questId&&!base.completions.some(c=>c.questId===boss.questId))
-    throw Error('Complete the linked proof quest before claiming victory');
-  if(boss.goalId){
-    const goal=base.goals.find(g=>g.id===boss.goalId);
-    if(!goal)throw Error('Linked goal missing');
-    const outcome=p2.outcomes[goal.id];
-    if(outcome){
-      if(outcome.value<outcome.target)throw Error('Reach the measurable goal target first');
-    }else if(completedGoalCount(goal.id,base.quests,base.completions)<goal.targetCount){
-      throw Error('Reach the goal completion target first');
+  const db=await getDb();
+  await db.withExclusiveTransactionAsync(async tx=>{
+    const boss=await tx.getFirstAsync<{
+      id:string;quest_id:string|null;goal_id:string|null;won_at:string|null
+    }>('SELECT id,quest_id,goal_id,won_at FROM boss_battles WHERE id=?',id);
+    if(!boss||boss.won_at)throw Error('Challenge not available');
+    if(!boss.quest_id&&!boss.goal_id)throw Error('Link a quest or goal as verifiable evidence first');
+    if(boss.quest_id){
+      const proof=await tx.getFirstAsync<{id:string}>(
+        'SELECT id FROM completions WHERE quest_id=? LIMIT 1',boss.quest_id);
+      if(!proof)throw Error('Complete the linked proof quest before claiming victory');
     }
-  }
-  await db.runAsync('UPDATE boss_battles SET won_at=? WHERE id=? AND won_at IS NULL',new Date().toISOString(),id);
+    if(boss.goal_id){
+      const goal=await tx.getFirstAsync<{target_count:number}>(
+        'SELECT target_count FROM goals WHERE id=?',boss.goal_id);
+      if(!goal)throw Error('Linked goal missing');
+      const outcome=await tx.getFirstAsync<{target:number;value:number;direction:OutcomeDirection}>(
+        'SELECT target,value,direction FROM goal_outcomes WHERE goal_id=?',boss.goal_id);
+      if(outcome&&!hasReachedOutcome(outcome))
+        throw Error(outcome.direction==='decrease'
+          ?'Reduce the measured outcome to its target before claiming victory'
+          :'Reach the measured outcome target before claiming victory');
+      if(!outcome){
+        const progress=await tx.getFirstAsync<{count:number}>(`
+          SELECT COUNT(*) AS count FROM completions c
+          INNER JOIN quests q ON q.id=c.quest_id WHERE q.goal_id=?`,boss.goal_id);
+        if((progress?.count??0)<goal.target_count)
+          throw Error('Reach the goal completion target first');
+      }
+    }
+    await tx.runAsync('UPDATE boss_battles SET won_at=? WHERE id=? AND won_at IS NULL',
+      new Date().toISOString(),id);
+  });
 }
 export async function logFocusSession(questId:string|null,minutes:number):Promise<void>{
   if(!Number.isInteger(minutes)||minutes<1||minutes>480)throw Error('Use 1–480 minutes');
