@@ -31,7 +31,7 @@ export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSn
   const [states,deps,results,bosses,sessions,reviews,prefs,unlocks,measurements]=await Promise.all([
     db.getAllAsync<StateRow>('SELECT * FROM quest_state'),
     db.getAllAsync<{quest_id:string;requires_quest_id:string}>('SELECT * FROM quest_dependencies'),
-    db.getAllAsync<{goal_id:string;target:number;value:number;unit:string;deadline:string|null;direction:OutcomeDirection}>('SELECT * FROM goal_outcomes'),
+    db.getAllAsync<{goal_id:string;target:number;value:number;unit:string;deadline:string|null;direction:OutcomeDirection;direction_reviewed:number}>('SELECT * FROM goal_outcomes'),
     db.getAllAsync<{id:string;title:string;description:string;goal_id:string|null;quest_id:string|null;won_at:string|null;created_at:string}>('SELECT * FROM boss_battles ORDER BY created_at DESC'),
     db.getAllAsync<{id:string;quest_id:string|null;minutes:number;created_at:string}>(
       'SELECT * FROM focus_sessions ORDER BY created_at DESC'+(fullHistory?'':' LIMIT 1000')),
@@ -45,7 +45,7 @@ export async function loadPhaseTwoSnapshot(fullHistory=false):Promise<PhaseTwoSn
   const controls:Record<string,QuestControl>={};
   for(const row of states){const c=decodeControl(row);controls[c.questId]=c;}
   const outcomes:Record<string,GoalOutcome>={};
-  for(const o of results)outcomes[o.goal_id]={goalId:o.goal_id,target:o.target,value:o.value,unit:o.unit,deadline:o.deadline,direction:o.direction};
+  for(const o of results)outcomes[o.goal_id]={goalId:o.goal_id,target:o.target,value:o.value,unit:o.unit,deadline:o.deadline,direction:o.direction,directionReviewed:o.direction_reviewed===1};
   const preferences={...DEFAULT_PREFERENCES};
   for(const row of prefs){
     if(row.key==='remindersEnabled')preferences.remindersEnabled=row.value==='true';
@@ -104,11 +104,15 @@ export async function saveGoalOutcome(goalId:string,input:{target:number;value:n
     throw Error('Invalid measurable goal values');
   const db=await getDb(),recordedAt=new Date().toISOString();
   await db.withExclusiveTransactionAsync(async tx=>{
-    const previous=await tx.getFirstAsync<{value:number;unit:string}>(
-      'SELECT value,unit FROM goal_outcomes WHERE goal_id=?',goalId);
-    await tx.runAsync(`INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline,direction) VALUES(?,?,?,?,?,?)
+    const previous=await tx.getFirstAsync<{value:number;unit:string;target:number}>(
+      'SELECT value,unit,target FROM goal_outcomes WHERE goal_id=?',goalId);
+    if(previous&&previous.unit!==unit.trim()&&target===previous.target)
+      throw Error('Changing measurement units requires updating the target in the new unit');
+    await tx.runAsync(`INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline,direction,direction_reviewed)
+      VALUES(?,?,?,?,?,?,1)
       ON CONFLICT(goal_id) DO UPDATE SET target=excluded.target,value=excluded.value,
-      unit=excluded.unit,deadline=excluded.deadline,direction=excluded.direction`,
+      unit=excluded.unit,deadline=excluded.deadline,direction=excluded.direction,
+      direction_reviewed=1`,
       goalId,target,value,unit.trim(),deadline,direction);
     // A migrated v2/v3 value is not a dated measurement. Recording it here
     // is legitimate only after the user explicitly confirms it.
@@ -145,8 +149,10 @@ export async function winBoss(id:string):Promise<void>{
       const goal=await tx.getFirstAsync<{target_count:number}>(
         'SELECT target_count FROM goals WHERE id=?',boss.goal_id);
       if(!goal)throw Error('Linked goal missing');
-      const outcome=await tx.getFirstAsync<{target:number;value:number;direction:OutcomeDirection}>(
-        'SELECT target,value,direction FROM goal_outcomes WHERE goal_id=?',boss.goal_id);
+      const outcome=await tx.getFirstAsync<{target:number;value:number;direction:OutcomeDirection;direction_reviewed:number}>(
+        'SELECT target,value,direction,direction_reviewed FROM goal_outcomes WHERE goal_id=?',boss.goal_id);
+      if(outcome&&outcome.direction_reviewed!==1)
+        throw Error('Review and save the goal direction before claiming a boss victory');
       if(outcome&&!hasReachedOutcome(outcome))
         throw Error(outcome.direction==='decrease'
           ?'Reduce the measured outcome to its target before claiming victory'
