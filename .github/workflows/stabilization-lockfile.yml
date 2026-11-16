@@ -26,3 +26,4 @@ jobs:
           if git diff --cached --quiet; then echo 'Lockfile already current'; exit 0; fi
           git commit -m 'chore(deps): lock exact Expo and React Native dependency graph'
           git push origin HEAD:stabilization/v0.9.2
+# Re-resolve after v0.9.2 package version bump, then keep the lockfile committed.
