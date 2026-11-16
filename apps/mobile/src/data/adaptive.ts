@@ -59,7 +59,7 @@ export function proposeFromPersonalHistory(input:{
  */
 export async function decideAdaptiveProposal(
   proposal:AdaptiveProposal,decision:AdaptationDecision,
-  edited?:{title?:string;minutes?:number},now=new Date()
+  edited?:{title?:string;minutes?:number;goalTargetCount?:number},now=new Date()
 ):Promise<void>{
   if(!['accepted','dismissed'].includes(decision)||!Number.isFinite(now.getTime()))
     throw Error('Invalid feedback');
@@ -68,7 +68,9 @@ export async function decideAdaptiveProposal(
     throw Error('Invalid proposal');
   const title=(edited?.title??proposal.title).trim();
   const minutes=edited?.minutes??proposal.estimateMinutes;
-  if(!title||title.length>100||!Number.isInteger(minutes)||minutes<5||minutes>480)
+  const goalTargetCount=edited?.goalTargetCount??4;
+  if(!title||title.length>100||!Number.isInteger(minutes)||minutes<5||minutes>480||
+    !Number.isInteger(goalTargetCount)||goalTargetCount<1||goalTargetCount>10000)
     throw Error('Use a title under 100 characters and effort between 5 and 480 minutes');
   const db=await getDb();
   await db.withExclusiveTransactionAsync(async tx=>{
@@ -99,6 +101,15 @@ export async function decideAdaptiveProposal(
         if(proposal.kind==='stretch'&&(minutes<=quest.estimate_minutes||
           minutes>Math.ceil(quest.estimate_minutes*1.25)))
           throw Error('Stretch effort must increase by no more than 25%');
+        if(proposal.kind==='stretch'){
+          const workload=await tx.getFirstAsync<{total:number;missions:number}>(`
+            SELECT COALESCE(SUM(s.estimate_minutes),0) total,COUNT(*) missions
+            FROM quest_state s JOIN quests q ON q.id=s.quest_id
+            WHERE s.status='active' AND q.archived=0`);
+          if((workload?.total??0)+minutes-quest.estimate_minutes>settings.dailyBudgetMinutes||
+            (workload?.missions??0)>settings.maxDailyMissions)
+            throw Error('Stretch exceeds your active workload safety limit');
+        }
         await tx.runAsync('UPDATE quest_state SET estimate_minutes=? WHERE quest_id=?',minutes,proposal.sourceId);
       }else{
         const weekly=await tx.getFirstAsync<{n:number}>(`
@@ -119,7 +130,7 @@ export async function decideAdaptiveProposal(
             'SELECT id FROM goals WHERE archived=0 AND attribute=? LIMIT 1',proposal.attribute);
           if(existing)throw Error('A goal for this attribute already exists; review it instead');
           await tx.runAsync('INSERT INTO goals(id,title,attribute,target_count,created_at,archived) VALUES(?,?,?,?,?,0)',
-            newId(),title,proposal.attribute,4,now.toISOString());
+            newId(),title,proposal.attribute,goalTargetCount,now.toISOString());
         }else{
           const duplicate=await tx.getFirstAsync<{id:string}>(
             'SELECT id FROM quests WHERE archived=0 AND lower(title)=lower(?) LIMIT 1',
