@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import {
   type Attribute, type Quest, type Goal, type Completion, type XPEvent,
   type Difficulty, type RepeatRule, ATTRIBUTES, cleanQuestInput, periodKey,
-  localDayKey, awardForCompletion, parseQuestPack, importGoalId, importQuestId,
+  localDayKey, awardForCompletion, parseQuestPack, importGoalId, importQuestId,SKILL_NODES,skillLevel,
   importedQuestTitle, importedQuestDescription,
 } from '@ascend/game-engine';
 
@@ -302,12 +302,12 @@ export async function archiveGoal(id: string): Promise<void> {
   await db.runAsync('UPDATE goals SET archived=1 WHERE id=?', id);
 }
 
-export async function completeQuest(quest: Quest, now = new Date()): Promise<{ applied: boolean; xp: number }> {
+export async function completeQuest(quest: Quest, now = new Date()): Promise<{ applied: boolean; xp: number; completionId: string|null }> {
   if (quest.archived) throw new Error('Cannot complete an archived quest');
   const db = await getDb();
   const today = localDayKey(now);
   const timestamp = now.toISOString();
-  let resultForCaller: { applied: boolean; xp: number } = { applied: false, xp: 0 };
+  let resultForCaller: { applied: boolean; xp: number; completionId: string|null } = { applied: false, xp: 0, completionId:null };
   await db.withExclusiveTransactionAsync(async tx => {
     // Check the persisted quest, not only a potentially stale UI object.
     const current = await tx.getFirstAsync<{ archived: number; repeat_rule: RepeatRule; difficulty: Difficulty; attribute: Attribute }>(
@@ -358,9 +358,50 @@ export async function completeQuest(quest: Quest, now = new Date()): Promise<{ a
       'INSERT INTO xp_events (id,completion_id,day_key,amount,attribute,created_at) VALUES (?,?,?,?,?,?)',
       newId(), completionId, today, xp, current.attribute, timestamp
     );
-    resultForCaller = { applied: true, xp };
+    resultForCaller = { applied: true, xp, completionId };
   });
   return resultForCaller;
+}
+
+/**
+ * Undo an accidental quest completion only during a short user-visible window.
+ * The XP event, completion and invalidated skill unlocks are rolled back as
+ * one transaction. Already-verified boss evidence cannot be silently erased.
+ */
+export async function undoQuestCompletion(completionId:string,now=new Date()):Promise<number>{
+  if(!completionId||completionId.length>128)throw Error('Invalid completion ID');
+  const db=await getDb();
+  let xpRemoved=0;
+  await db.withExclusiveTransactionAsync(async tx=>{
+    const completed=await tx.getFirstAsync<{
+      quest_id:string;completed_at:string;attribute:Attribute
+    }>(`SELECT c.quest_id,c.completed_at,q.attribute FROM completions c
+       JOIN quests q ON q.id=c.quest_id WHERE c.id=?`,completionId);
+    if(!completed)throw Error('This completion has already been undone');
+    const delta=now.getTime()-Date.parse(completed.completed_at);
+    if(!Number.isFinite(delta)||delta<0||delta>120_000)
+      throw Error('Undo is only available for two minutes after completing a quest');
+    const boss=await tx.getFirstAsync<{id:string}>(`
+      SELECT b.id FROM boss_battles b
+      LEFT JOIN quests q ON q.id=?
+      WHERE b.won_at IS NOT NULL
+        AND (b.quest_id=? OR b.goal_id=q.goal_id) LIMIT 1`,
+      completed.quest_id,completed.quest_id);
+    if(boss)throw Error('Cannot undo: this completion is linked to a verified boss victory');
+    const xp=await tx.getFirstAsync<{amount:number}>(
+      'SELECT amount FROM xp_events WHERE completion_id=?',completionId);
+    if(!xp)throw Error('Completion has no matching XP ledger entry');
+    await tx.runAsync('DELETE FROM xp_events WHERE completion_id=?',completionId);
+    await tx.runAsync('DELETE FROM completions WHERE id=?',completionId);
+    const amount=await tx.getFirstAsync<{total:number}>(`
+      SELECT COALESCE(SUM(amount),0) AS total FROM xp_events WHERE attribute=?`,
+      completed.attribute);
+    const level=skillLevel(amount?.total??0);
+    for(const node of SKILL_NODES.filter(n=>n.attribute===completed.attribute&&n.requiredLevel>level))
+      await tx.runAsync('DELETE FROM skill_unlocks WHERE node_id=?',node.id);
+    xpRemoved=xp.amount;
+  });
+  return xpRemoved;
 }
 
 /** Human-controlled, copyable data snapshot. Not a cloud backup. */
