@@ -40,7 +40,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 3) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 4) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -153,12 +153,24 @@ export async function initialize(): Promise<void> {
         INSERT OR IGNORE INTO backup_settings(id) VALUES(1);
         INSERT OR IGNORE INTO goal_measurements(id,goal_id,value,unit,recorded_at)
           SELECT 'baseline:'||outcome.goal_id,outcome.goal_id,outcome.value,outcome.unit,
-            COALESCE((SELECT created_at FROM goals WHERE id=outcome.goal_id),
-              '2026-01-01T00:00:00Z')
+            strftime('%Y-%m-%dT%H:%M:%fZ','now')
           FROM goal_outcomes AS outcome
           WHERE NOT EXISTS (SELECT 1 FROM goal_measurements m
             WHERE m.goal_id=outcome.goal_id);
         PRAGMA user_version = 3;
+      `);
+    });
+  }
+  if ((version?.user_version ?? 0) < 4) {
+    // v3 included synthetic baseline IDs with a goal-creation timestamp.
+    // That timestamp was NOT an actual measurement. Repair affected rows
+    // without erasing the recorded value or any legitimate observations.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        UPDATE goal_measurements
+        SET recorded_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE substr(id,1,9)='baseline:';
+        PRAGMA user_version = 4;
       `);
     });
   }
