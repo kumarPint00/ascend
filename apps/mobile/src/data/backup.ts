@@ -157,7 +157,8 @@ export async function restoreFullBackup(source:string):Promise<void>{
       o.goalId,o.target,o.value,o.unit,o.deadline);
     for(const measurement of p.goalMeasurements)await tx.runAsync(
       'INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)',
-      measurement.id,measurement.goalId,measurement.value,measurement.unit,measurement.recordedAt);
+      measurement.id,measurement.goalId,measurement.value,measurement.unit,
+      measurement.id.startsWith('baseline:')?new Date().toISOString():measurement.recordedAt);
     // A v2 backup has outcomes but no historical time series. Add a single
     // baseline at restore time, rather than inventing historical observations.
     if(data.schemaVersion===2)for(const outcome of Object.values(p.outcomes))
