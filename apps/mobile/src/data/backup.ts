@@ -79,11 +79,11 @@ export function parseFullBackup(source:string):FullBackup{
       !Number.isFinite(o.value)||o.value<0||!str(o.unit,24)||
       (o.deadline!==null&&!validCalendarDay(o.deadline)))
       throw Error('Invalid measurable outcome');
-    const direction:OutcomeDirection=raw.schemaVersion===4
-      ?o.direction : (o.value>o.target?'decrease':'increase');
-    if(direction!=='increase'&&direction!=='decrease')
-      throw Error('Invalid goal direction');
-    outcomesWithDirection[id]={...o,direction};
+    const direction:OutcomeDirection=raw.schemaVersion===4?o.direction:'increase';
+    const directionReviewed=raw.schemaVersion===4?o.directionReviewed:false;
+    if((direction!=='increase'&&direction!=='decrease')||
+      typeof directionReviewed!=='boolean')throw Error('Invalid goal direction');
+    outcomesWithDirection[id]={...o,direction,directionReviewed};
   }
   const bosses=array(p.bosses,10000,'bosses') as BossBattle[];
   if(!bosses.every(b=>obj(b)&&str(b.id)&&str(b.title,100)&&typeof b.description==='string'&&
@@ -106,7 +106,8 @@ export function parseFullBackup(source:string):FullBackup{
     new Set(skillUnlocks).size!==skillUnlocks.length)throw Error('Invalid skill unlocks');
   const goalMeasurements=(Number(raw.schemaVersion)>=3
     ?array(p.goalMeasurements,50000,'goal measurements'):[]
-  ) as MeasurementPoint[];
+  ).filter(m=>!(Number(raw.schemaVersion)<4&&obj(m)&&
+    typeof m.id==='string'&&m.id.startsWith('baseline:'))) as MeasurementPoint[];
   if(!goalMeasurements.every(m=>obj(m)&&str(m.id)&&gIds.has(m.goalId)&&
      Number.isFinite(m.value)&&m.value>=0&&str(m.unit,24)&&date(m.recordedAt))||
      !unique(goalMeasurements))throw Error('Invalid measured goal history');
@@ -161,8 +162,8 @@ export async function restoreFullBackup(source:string,recoveryKey?:string):Promi
     for(const d of p.dependencies)await tx.runAsync(
       'INSERT INTO quest_dependencies(quest_id,requires_quest_id) VALUES(?,?)',d.questId,d.requiresQuestId);
     for(const o of Object.values(p.outcomes))await tx.runAsync(
-      'INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline,direction) VALUES(?,?,?,?,?,?)',
-      o.goalId,o.target,o.value,o.unit,o.deadline,o.direction);
+      'INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline,direction,direction_reviewed) VALUES(?,?,?,?,?,?,?)',
+      o.goalId,o.target,o.value,o.unit,o.deadline,o.direction,o.directionReviewed?1:0);
     for(const measurement of p.goalMeasurements)await tx.runAsync(
       'INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)',
       measurement.id,measurement.goalId,measurement.value,measurement.unit,measurement.recordedAt);
