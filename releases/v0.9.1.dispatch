@@ -1,0 +1,7 @@
+ASCEND v0.9.1 GitHub Release dispatch authorization
+Use workflow_dispatch for the existing signed Android workflow
+with publish_release=true, as requested by the repository owner.
+Source app version: 0.9.1, Android versionCode 11.
+Previously verified signed APK artifact run: 43780164463
+Three-launch Android emulator pass: 43781182287
+Do not change the Android package or signing key.
