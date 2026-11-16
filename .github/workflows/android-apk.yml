@@ -72,7 +72,7 @@ jobs:
           ASCEND_KEYSTORE_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEYSTORE_PASSWORD }}
           ASCEND_KEY_ALIAS: ${{ secrets.ASCEND_ANDROID_KEY_ALIAS }}
           ASCEND_KEY_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon -Pandroid.enableMinifyInReleaseBuilds=false
       - name: Validate signed APK
         shell: bash
         run: |
@@ -112,3 +112,7 @@ jobs:
 
 # Phase 2 feature-depth verification: v0.9.0 / build 10 (SQLite v3, adaptive planning, Android SAF backups, WorkManager maintenance, RPG polish).
 # Verify with permanent signing key but DO NOT publish the release until device acceptance.
+# Android startup crash guard (Expo SDK 58 + expo-background-task):
+# R8 can strip WorkManager/Room constructors, causing native crash before React renders.
+# Use -Pandroid.enableMinifyInReleaseBuilds=false until the upstream issue is fixed.
+# https://github.com/expo/expo/issues/52173
