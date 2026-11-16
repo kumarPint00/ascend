@@ -353,7 +353,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
             </View>
             {history.slice(0,4).map(point=><View key={point.id}
               style={[ss.between,{marginTop:7,borderBottomColor:C.border,borderBottomWidth:1,paddingBottom:5}]}>
-              <T color={C.sub} size={11}>{point.recordedAt.slice(0,10)}</T>
+              <T color={C.sub} size={11}>{point.id.startsWith('baseline:')?'Imported baseline · date unknown':point.recordedAt.slice(0,10)}</T>
               <T size={12} color={C.frost} bold>{point.value} {point.unit}</T>
             </View>)}
             {measuredTrend?<T color={C.gold} size={11} style={{marginTop:9}}>
