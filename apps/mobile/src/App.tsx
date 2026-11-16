@@ -8,6 +8,7 @@ import {
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
   completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, rankFromLevel, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
   activeMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
+  liteQuestIsAllowed,liteMinutes,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -175,8 +176,8 @@ export default function App() {
     setGoalAttribute(g?.attribute??'discipline');setGoalTarget(String(g?.targetCount??20));
     setGoalModal(true);
   };
-  const finish=(q:Quest)=>run(async()=>{
-    const reward=await completeQuest(q,new Date());
+  const finish=(q:Quest,mode:'standard'|'lite'='standard')=>run(async()=>{
+    const reward=await completeQuest(q,new Date(),mode);
     if(reward.applied) {
       const newLevel=levelFromXP(player.totalXP+reward.xp);
       const levelUp=newLevel>player.level,newRank=rankFromLevel(newLevel);
@@ -238,6 +239,18 @@ export default function App() {
           </Pressable>}
         </View>
       </View>
+      {!done&&due&&!blocked&&liteQuestIsAllowed(quest)&&
+        (phaseSummary.controls[quest.id]?.estimateMinutes??25)>5&&
+        !phaseSummary.bosses.some(b=>b.questId===quest.id&&!b.wonAt)&&
+        <View style={{marginTop:9}}>
+          <Action secondary disabled={busy} onPress={()=>Alert.alert('Lite alternative',
+            'A smaller genuine version of this recurring quest awards up to 10 XP and counts only once this period.',[
+              {text:'Cancel',style:'cancel'},
+              {text:'I completed Lite',onPress:()=>void finish(quest,'lite')},
+            ])}>
+            LITE TODAY · ~{liteMinutes(phaseSummary.controls[quest.id]?.estimateMinutes??25)} MIN · ≤10 XP
+          </Action>
+        </View>}
     </Panel>;
   };
 
