@@ -623,7 +623,7 @@ const s=StyleSheet.create({
   statRow:{flexDirection:'row',justifyContent:'space-between'},
   miniPanel:{flex:1,minHeight:85,justifyContent:'space-between'},
   reward:{borderWidth:1,borderRadius:11,paddingHorizontal:9,paddingVertical:5,alignItems:'center',minWidth:48},
-  finish:{backgroundColor:C.energy,borderRadius:9,paddingHorizontal:12,paddingVertical:9},
+  finish:{backgroundColor:C.energy,borderRadius:9,paddingHorizontal:12,paddingVertical:10,minHeight:48,minWidth:48,justifyContent:'center'},
   rankEmblem:{height:85,width:80,borderColor:'#927547',borderWidth:1,borderRadius:20,justifyContent:'center',alignItems:'center',backgroundColor:'#252B3E'},
   chips:{flexDirection:'row',flexWrap:'wrap',marginBottom:7},
   avatar:{height:105,width:105,borderRadius:52,borderWidth:1,borderColor:C.energy,backgroundColor:C.elevated,alignItems:'center',justifyContent:'center'},
