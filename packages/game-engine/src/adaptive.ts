@@ -4,7 +4,7 @@
  */
 import {type Attribute,type Completion,type Difficulty,type Goal,type Quest,
   type RepeatRule,localDayKey,periodKey} from './index';
-import {type QuestControl,type FocusSession,defaultQuestControl,questDueOn} from './phase2';
+import {type QuestControl,type FocusSession,defaultQuestControl,questDueOn,validCalendarDay} from './phase2';
 
 export type AdaptationKind='ease'|'stretch'|'quest'|'milestone'|'goal';
 export type AdaptationDecision='accepted'|'dismissed';
@@ -50,7 +50,7 @@ export function validateAdaptiveSettings(v:AdaptiveSettings):AdaptiveSettings{
     !Number.isInteger(v.maxNewGoalsPerMonth)||v.maxNewGoalsPerMonth<0||v.maxNewGoalsPerMonth>2||
     !Number.isInteger(v.suggestionsPerDay)||v.suggestionsPerDay<1||v.suggestionsPerDay>3||
     (v.pauseUntil!==null&&(!/^\d{4}-\d{2}-\d{2}$/.test(v.pauseUntil)||
-      !Number.isFinite(Date.parse(v.pauseUntil+'T12:00:00')))))
+      !validCalendarDay(v.pauseUntil))))
     throw Error('Invalid adaptive safety settings');
   return {...v};
 }
@@ -94,7 +94,9 @@ function recentRecords(
 }
 function canSuggest(kind:AdaptationKind,source:string,records:readonly AdaptiveDecisionRecord[],now:Date):boolean{
   const entries=records.filter(r=>r.kind===kind&&r.sourceId===source);
-  if(entries.some(x=>x.decision==='accepted'))return false;
+  if(kind==='quest'||kind==='milestone'||kind==='goal'){
+    if(entries.some(x=>x.decision==='accepted'))return false;
+  }else if(recentRecords(entries,now,21,x=>x.decision==='accepted').length)return false;
   return !recentRecords(entries,now,21,x=>x.decision==='dismissed').length;
 }
 export function buildAdaptiveProposals(input:{
@@ -135,7 +137,7 @@ export function buildAdaptiveProposals(input:{
     if(evidence.ratio<=0.45||settings.energy<=2||shorterObservedEffort){
       if(c.estimateMinutes<=5)continue;
       const mins=liteMinutes(c.estimateMinutes);
-      add({id:'ease:'+q.id,kind:'ease',sourceId:q.id,
+      add({id:'ease:'+q.id+':'+mins,kind:'ease',sourceId:q.id,
         title:'Make '+q.title+' easier',
         description:'Try a '+mins+'-minute version instead of '+c.estimateMinutes+' minutes.',
         reason:settings.energy<=2?'You reported low energy. Rest and smaller steps are valid.':
@@ -147,7 +149,7 @@ export function buildAdaptiveProposals(input:{
       settings.energy>=4&&!overloaded){
       const mins=Math.min(120,Math.ceil(c.estimateMinutes*1.15/5)*5);
       if(mins>c.estimateMinutes)
-        add({id:'stretch:'+q.id,kind:'stretch',sourceId:q.id,
+        add({id:'stretch:'+q.id+':'+mins,kind:'stretch',sourceId:q.id,
           title:'Optional stretch for '+q.title,
           description:'Increase planned effort slightly to '+mins+' minutes.',
           reason:'Strong recorded consistency and sufficient schedule capacity. No automatic change.',
