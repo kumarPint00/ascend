@@ -5,7 +5,7 @@ import {C} from '../theme';
 export function T({children,size=15,color=C.ink,bold=false,style}:{
   children:React.ReactNode;size?:number;color?:string;bold?:boolean;style?:StyleProp<TextStyle>;
 }){
-  return <Text allowFontScaling style={[{fontSize:size,color,fontWeight:bold?'700':'400',lineHeight:Math.ceil(size*1.42)},style]}>{children}</Text>;
+  return <Text allowFontScaling maxFontSizeMultiplier={2} style={[{fontSize:size,color,fontWeight:bold?'700':'400',lineHeight:Math.ceil(size*1.55)},style]}>{children}</Text>;
 }
 export function Panel({children,style}:{children:React.ReactNode;style?:StyleProp<ViewStyle>}){
   return <View style={[st.panel,style]}>{children}</View>;
@@ -44,6 +44,6 @@ export function Section({title,right}:{title:string;right?:React.ReactNode}){
 const st=StyleSheet.create({
   panel:{backgroundColor:C.surface,borderRadius:20,borderWidth:1,borderColor:C.border,padding:16,marginBottom:12},
   action:{paddingHorizontal:18,paddingVertical:12,borderWidth:1,borderRadius:13,alignItems:'center',justifyContent:'center',minHeight:48},
-  chip:{paddingHorizontal:13,paddingVertical:10,borderRadius:13,borderWidth:1,marginRight:8,marginBottom:8,minHeight:43,justifyContent:'center'},
-  section:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:19,marginBottom:12},
+  chip:{paddingHorizontal:13,paddingVertical:10,borderRadius:13,borderWidth:1,marginRight:8,marginBottom:8,minHeight:48,justifyContent:'center'},
+  section:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center',marginTop:19,marginBottom:12},
 });
