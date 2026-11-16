@@ -1,7 +1,7 @@
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,BossBattle,
   FocusSession,WeeklyReview,SchedulePreferences,MeasurementPoint} from '@ascend/game-engine';
 import {defaultQuestControl,validateControl,introducesCycle,DEFAULT_PREFERENCES,isoWeekKey,
-  completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill,validCalendarDay} from '@ascend/game-engine';
+  completedGoalCount,localDayKey,SKILL_NODES,canUnlockSkill,validCalendarDay,isMeasuredGoalReached} from '@ascend/game-engine';
 import {getDb,loadSnapshot} from './repository';
 
 export interface PhaseTwoSnapshot {
@@ -134,7 +134,8 @@ export async function winBoss(id:string):Promise<void>{
     if(!goal)throw Error('Linked goal missing');
     const outcome=p2.outcomes[goal.id];
     if(outcome){
-      if(outcome.value<outcome.target)throw Error('Reach the measurable goal target first');
+      if(!isMeasuredGoalReached(p2.goalMeasurements.filter(x=>x.goalId===goal.id&&x.unit===outcome.unit),
+        outcome.value,outcome.target))throw Error('Reach the measurable goal target first');
     }else if(completedGoalCount(goal.id,base.quests,base.completions)<goal.targetCount){
       throw Error('Reach the goal completion target first');
     }
