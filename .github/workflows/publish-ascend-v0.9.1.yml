@@ -1,0 +1,71 @@
+name: Publish verified ASCEND v0.9.1 APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'releases/v0.9.1.publish'
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the exact signed Android 0.9.1 APK that passed CI
+        uses: actions/download-artifact@v4
+        with:
+          name: ascend-android-v0.9.1-build11
+          run-id: 43780164463
+          github-token: ${{ github.token }}
+          path: release-apk
+      - name: Verify APK package, build number, and permanent signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=release-apk/ascend-android.apk
+          test -s "$apk"
+          buildtools="$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$buildtools/apksigner" verify --print-certs "$apk" | tee signing.txt
+          grep -Fq 'certificate SHA-256 digest: 60b4aef9ee10d6f696063ddd45601216e277be0771fe967db156ad6dd6ec5521' signing.txt
+          "$buildtools/aapt" dump badging "$apk" | tee badging.txt
+          grep -Fq "package: name='com.ascendrpg.personal' versionCode='11' versionName='0.9.1'" badging.txt
+          sha256sum "$apk"
+      - name: Publish permanent GitHub Release download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v0.9.1 >/dev/null 2>&1; then
+            echo 'v0.9.1 exists already; refusing to silently overwrite release assets'
+            exit 1
+          fi
+          cat > release-notes.md <<'NOTES'
+          ASCEND v0.9.1 (Android build 11) — startup-crash hotfix.
+
+          - Fixes the Android startup crash affecting Expo SDK 58 + expo-background-task release builds by disabling R8 minification.
+          - The APK passed signed release compilation and three Android 15 emulator cold launches.
+          - Package: com.ascendrpg.personal. Signed with the same permanent certificate as earlier ASCEND signed releases.
+          - This build includes the Phase 2 features from v0.9.0.
+
+          **Install over the existing app. Do not uninstall it or clear its data.** Updating in place is required to preserve locally stored quests and XP. If the installer reports a signature conflict, stop instead of uninstalling.
+
+          Android device-specific behavior and upgrade data preservation still need verification on a physical phone.
+
+          <!-- ASCEND_ANDROID_RELEASE {"packageName":"com.ascendrpg.personal","versionCode":11} -->
+          NOTES
+          gh release create v0.9.1 release-apk/ascend-android.apk#ascend-android.apk \
+            --repo kumarPint00/ascend \
+            --target bdd7fadc4b8ee579734626799404feb14ad74ea1 \
+            --title 'ASCEND v0.9.1 — Android startup hotfix' \
+            --notes-file release-notes.md \
+            --latest
+      - name: Verify stable release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view v0.9.1 --repo kumarPint00/ascend --json tagName,assets,isLatest
+          gh release view v0.9.1 --repo kumarPint00/ascend --json assets --jq '.assets[] | select(.name=="ascend-android.apk") | .url' | grep -F '/releases/download/v0.9.1/ascend-android.apk'
