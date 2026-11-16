@@ -1,4 +1,4 @@
-# ASCEND Phase 2 · Feature-depth upgrade v0.9.0 (Android)
+# ASCEND Phase 2 · v0.9.2 stabilization release candidate (Android)
 
 This is a local-first implementation for **personal use**, not a claim that device QA is complete.
 See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring device review.
@@ -66,7 +66,7 @@ Keep private personal details in the user-imported JSON on their device, never i
 
 ### Personal acceptance gate
 
-The signed APK is a **candidate**, not proof of runtime correctness. Verify a v0.3→v0.8.1 in-place update on a device with a disposable backup, and verify Android notification permissions and full backup restoration before publishing as the latest GitHub Release. Existing v0.3.0 remains the latest release until that gate is passed.
+The signed APK is a **candidate**, not proof of runtime correctness. Verify an in-place upgrade to v0.9.2 on your Android device with a disposable backup, permission behavior and full restoration before publishing. **v0.9.1 is the latest public release.**
 
 ## Phase 2 depth improvements (v0.9.0)
 
@@ -92,3 +92,29 @@ The following close the functionality gaps highlighted after v0.8.1. Implemented
 - **Security:** external JSON is unencrypted; never select a publicly shared folder. Verify backup/restore on a disposable profile before entrusting it with personal data.
 
 Do not publish a new GitHub Release to the in-app update feed until signed APK validation and device acceptance are complete.
+
+## v0.9.2 Phase 2 stabilization (source implemented; device acceptance pending)
+
+The Android package remains `com.ascendrpg.personal`. Version `0.9.2` uses Android build code `12`, must use the existing permanent signing key, and must **not** be automatically published.
+
+| Priority | Stabilization | Evidence / limitation |
+|---|---|---|
+| P0 | Boss verification now uses a shared direction-aware predicate with measurement history. Lower-is-better goals cannot be won before the target is reached | Unit and target-equality regression tests; on-device boss completion still needs testing |
+| P0 | SQLite v4 corrects synthetic migration baseline timestamps and preserves actual observed values and XP | SQL migration test and forward-only backup/restore precautions; legacy baseline observation date is still *unknown* |
+| P0 | Native reminders stage replacements before removing old alarms; unchanged reminder schedules stay in place | Android notification OS behavior remains non-transactional and battery constrained |
+| P0 | Recent mission completions support confirmable transactional undo, with XP reversal and evidence/dependency safeguards | Ten-minute window; proofs supporting a completed boss/dependent milestone are not silently removed |
+| P1 | Automatic external backup retention tracks ASCEND-created SAF document URIs, reducing risk of touching unrelated files | JSON files are not encrypted; external folder permissions and cleanup must be tested on Samsung |
+| P1 | Game engine and planner use consistent-unit metric segments, memoized scheduling/XP calculations, touch targets, larger text and improved labels | Physical accessibility audit required; no synthetic benchmark claims |
+| P1 | Original level/rank feedback and a JavaScript error recovery boundary provide actionable UI | Native crashes before React starts still require Android logs |
+| P1 | Committed `package-lock.json`, `npm ci` in validation/build workflows and deterministic tests | Signed build and emulator verification must use final v0.9.2 source commit |
+
+### Outstanding acceptance gates
+
+1. Signed release candidate APK built from the **final** stabilization commit, verified package ID and permanent signing certificate.
+2. Three fresh emulator cold launches for the final artifact, without a process crash.
+3. In-place installation on the Samsung S25 Ultra preserving local database, XP and imported private goal/quest pack; **never uninstall the current app to test upgrades**.
+4. Android SAF folder backup write/read/restore, retention with unrelated files, device reboot and background scheduling behavior.
+5. Notifications including permission denied, quiet hours, unchanged schedules, reschedules, device restart and Doze behavior.
+6. UX audit at standard and enlarged Android font sizes on both small and large screens.
+
+**No automatic cloud sync, paid AI service or recurring paid infrastructure was added.**
