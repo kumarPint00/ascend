@@ -12,4 +12,9 @@ for(const flow of ['android-apk.yml','android-test-apk.yml']){
   assert.doesNotMatch(s,/-Pandroid\.enableMinifyInReleaseBuilds=true/,
     flow+' must not enable the affected optimization');
 }
-console.log('Android startup guard PASS: both APK builds disable affected R8 optimization');
+const app=require('../apps/mobile/app.json').expo;
+const minifyPlugin=app.plugins.find(p=>Array.isArray(p)&&p[0]==='expo-build-properties');
+assert.ok(minifyPlugin,'App should disable native R8 for non-CI builds too');
+assert.equal(minifyPlugin[1]?.android?.enableMinifyInReleaseBuilds,false,
+  'Android local builds must not re-enable startup-breaking R8');
+console.log('Android startup guard PASS: both CI builds and local Expo prebuild disable affected R8 optimization');
