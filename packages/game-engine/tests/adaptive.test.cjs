@@ -84,3 +84,24 @@ test('Invalid safety settings cannot silently expand quotas',()=>{
   assert.throws(()=>validateAdaptiveSettings(settings({dailyBudgetMinutes:1000})));
   assert.throws(()=>validateAdaptiveSettings(settings({maxNewGoalsPerMonth:10})));
 });
+
+test('Recorded short focus sessions can trigger a lighter workload even with good completion logging',()=>{
+  const q=quest(),ctrl={...defaultQuestControl(q),status:'active',estimateMinutes:80};
+  const cs=logged(q,[0,1,2,3,4,5,6,7,8,9,10,11,12]);
+  const focusSessions=[0,3,6].map(i=>({id:'f'+i,questId:q.id,minutes:20,
+    createdAt:new Date(2026,10,16-i,12).toISOString()}));
+  const proposals=buildAdaptiveProposals({quests:[q],goals:[],controls:{q:ctrl},
+    completions:cs,focusSessions,decisions:[],settings:settings({energy:3}),now});
+  assert.ok(proposals.some(x=>x.kind==='ease'));
+  assert.match(proposals.find(x=>x.kind==='ease').reason,/focus sessions/i);
+});
+test('Accepted easing is time-limited while new draft creation remains approved-only',()=>{
+  const q=quest(),ctrl={...defaultQuestControl(q),status:'active',estimateMinutes:50};
+  const cs=logged(q,[0,4,9]);
+  const recent=[{id:'ease:q:20',kind:'ease',sourceId:'q',
+    decision:'accepted',decidedAt:now.toISOString()}];
+  assert.equal(get([q],{q:ctrl},cs,settings(),recent).some(p=>p.kind==='ease'),false);
+  const old=[{...recent[0],decidedAt:'2026-10-01T12:00:00Z'}];
+  assert.ok(get([q],{q:ctrl},cs,settings(),old).some(p=>p.kind==='ease'));
+  assert.equal(liteQuestIsAllowed(quest('q-easy',{difficulty:'easy'})),false);
+});
