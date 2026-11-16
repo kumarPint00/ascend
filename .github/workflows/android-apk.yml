@@ -86,7 +86,8 @@ jobs:
           tools="${ANDROID_HOME}/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           "$tools/apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/ascend-signature.txt"
           grep -Fq 'certificate SHA-256 digest: 60b4aef9ee10d6f696063ddd45601216e277be0771fe967db156ad6dd6ec5521' "$RUNNER_TEMP/ascend-signature.txt"
-          "$tools/aapt" dump badging "$apk" | grep -Fq "package: name='${{ steps.version.outputs.package }}' versionCode='${{ steps.version.outputs.code }}' versionName='${{ steps.version.outputs.version }}'"
+          "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/ascend-badging.txt"
+          grep -Fq "package: name='${{ steps.version.outputs.package }}' versionCode='${{ steps.version.outputs.code }}' versionName='${{ steps.version.outputs.version }}'" "$RUNNER_TEMP/ascend-badging.txt"
           cp "$apk" ascend-android.apk
       - name: Upload signed test artifact
         uses: actions/upload-artifact@v4
