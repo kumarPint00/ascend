@@ -118,3 +118,4 @@ jobs:
 # v0.9.2 final source candidate: no auto publication; gate on signature, package, emulator and device QA.
 # v0.10.0 signed adaptive candidate: SQLite v5, Lite XP, offline habit learning,
 # AI-style suggestions only with explicit approval; no public release before device QA.
+# Re-run signed v0.10.0 build 13 after adaptive title/back-up compatibility fix.
