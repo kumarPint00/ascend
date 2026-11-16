@@ -6,6 +6,7 @@ import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutc
 import {ATTRIBUTES,validateControl,introducesCycle,validTime,validCalendarDay} from '@ascend/game-engine';
 import {getDb,loadSnapshot,restoreJSON} from './repository';
 import {loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './phase2';
+import {isEncryptedBackup,parseEncryptedEnvelope,decryptBackup} from './backupCrypto';
 
 type Core={quests:Quest[];goals:Goal[];completions:Completion[];xpEvents:XPEvent[]};
 export interface FullBackup extends Core {
@@ -121,7 +122,8 @@ export function parseFullBackup(source:string):FullBackup{
     goals,quests,completions,xpEvents,phase2:{controls,dependencies:chain,outcomes:outcomesWithDirection,bosses,
       focusSessions,weeklyReviews,skillUnlocks,goalMeasurements,preferences:{...pref,availableMinutes:pref.availableMinutes??90}}};
 }
-export async function restoreFullBackup(source:string):Promise<void>{
+export async function restoreFullBackup(source:string,recoveryKey?:string):Promise<void>{
+  if(isEncryptedBackup(source))source=await decryptBackup(source,recoveryKey);
   if(source.length>10_000_000)throw Error('Backup exceeds 10 MB');
   let summary:unknown;
   try{summary=JSON.parse(source);}catch{throw Error('Backup is not valid JSON');}
@@ -199,7 +201,8 @@ export async function chooseBackupFile():Promise<string|null>{
   const source=await FileSystem.readAsStringAsync(file.uri);
   // Validate without touching the database.
   let raw:unknown;try{raw=JSON.parse(source);}catch{throw Error('Not valid JSON');}
-  if(obj(raw)&&(raw.schemaVersion===2||raw.schemaVersion===3||raw.schemaVersion===4))parseFullBackup(source);
+  if(isEncryptedBackup(source))parseEncryptedEnvelope(source);
+  else if(obj(raw)&&(raw.schemaVersion===2||raw.schemaVersion===3||raw.schemaVersion===4))parseFullBackup(source);
   else if(!obj(raw)||raw.format!=='ascend-backup'||raw.schemaVersion!==1)
     throw Error('Not a recognized ASCEND backup');
   return source;
