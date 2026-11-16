@@ -134,6 +134,9 @@ export function isMeasuredGoalReached(
   points:readonly MeasurementPoint[],current:number,target:number
 ):boolean {
   if(!Number.isFinite(current)||!Number.isFinite(target)||target<=0)return false;
+  const series=currentMeasurementSeries(points);
+  if(series.length&&Math.abs(series[0].value-target)<1e-8)
+    return Math.abs(current-target)<1e-8;
   const direction=measuredGoalDirection(points,target,current);
   return direction==='decrease'?current<=target:current>=target;
 }
