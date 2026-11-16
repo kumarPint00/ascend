@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,
-  StyleSheet,TextInput,View} from 'react-native';
+  StyleSheet,TextInput,Text,View} from 'react-native';
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
   ChevronRight,ShieldCheck,Lock,CheckCircle2,Trophy,Sparkles,Flame} from 'lucide-react-native';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -778,9 +778,10 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
             restore encrypted backups after uninstall, device replacement or app storage loss.
             Never share it publicly.
           </T>
-          <TextInput style={[ss.input,{fontSize:12,minHeight:100,textAlignVertical:'center'}]}
-            value={backupKeyShown??''} multiline selectTextOnFocus
-            autoCapitalize="none" editable={false}/>
+          <Text selectable selectionColor={C.energy} accessibilityLabel="Selectable backup recovery key"
+            style={[ss.input,{fontSize:13,minHeight:100,textAlignVertical:'center',paddingVertical:16}]}>
+            {backupKeyShown??''}
+          </Text>
           <View style={{height:12}}/>
           <Action disabled={busy} onPress={()=>void run(async()=>{
             await confirmRecoveryKeySaved();setBackupKeyShown(null);
@@ -823,7 +824,7 @@ const ss=StyleSheet.create({
   metric:{flex:1,backgroundColor:C.surface,borderColor:C.border,borderWidth:1,
     borderRadius:16,padding:12,minHeight:81,justifyContent:'space-between'},
   smallButton:{borderRadius:10,borderColor:C.borderActive,borderWidth:1,paddingHorizontal:12,
-    paddingVertical:8,minHeight:38,justifyContent:'center'},
+    paddingVertical:9,minHeight:48,justifyContent:'center'},
   chips:{flexDirection:'row',flexWrap:'wrap',marginVertical:11},
   day:{alignItems:'center',justifyContent:'center',backgroundColor:C.surface,
     borderColor:C.border,borderWidth:1,borderRadius:13,width:62,minHeight:86,marginRight:8,gap:4},
