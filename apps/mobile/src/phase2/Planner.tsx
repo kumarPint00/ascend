@@ -4,12 +4,13 @@ import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
   ChevronRight,ShieldCheck,Lock,CheckCircle2,Trophy,Sparkles,Flame} from 'lucide-react-native';
 import {LinearGradient} from 'expo-linear-gradient';
-import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences} from '@ascend/game-engine';
+import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences,AdaptiveProposal} from '@ascend/game-engine';
 import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuestControl,
   questDueOn,blockedByDependencies,isCompleted,localDayKey,isoWeekKey,
   derivedSkills,derivedAchievements,canUnlockSkill,outcomeProgress,xpTrend,focusMinutesForWeek,
   forecastGoalCompletion,attributeWeekBreakdown,activeDaysInWindow,
-  adaptiveMissionRecommendations,metricForecast,milestoneHistoryStatus,measuredGoalProgress
+  adaptiveMissionRecommendations,metricForecast,milestoneHistoryStatus,measuredGoalProgress,
+  DEFAULT_ADAPTIVE_SETTINGS,liteMinutes,liteQuestIsAllowed
 } from '@ascend/game-engine';
 import {Action,Chip,Meter,Panel,Section,T} from '../components/Elements';
 import {C,LABELS} from '../theme';
@@ -23,9 +24,11 @@ import {askReminderPermission,syncLocalReminders} from './reminders';
 import {readBackupSettings,selectExternalBackupFolder,configureAutoBackup,
   runAutomaticBackup,type AutomaticBackupSettings} from '../data/autoBackup';
 import {syncMaintenanceRegistration} from './maintenance';
+import {loadAdaptiveState,saveAdaptiveSettings,decideAdaptiveProposal,
+  proposeFromPersonalHistory,type AdaptiveState} from '../data/adaptive';
 
-type Area='Today'|'Calendar'|'Library'|'Goals'|'Skills'|'Insights'|'Settings';
-const AREAS:Area[]=['Today','Calendar','Library','Goals','Skills','Insights','Settings'];
+type Area='Today'|'Adapt'|'Calendar'|'Library'|'Goals'|'Skills'|'Insights'|'Settings';
+const AREAS:Area[]=['Today','Adapt','Calendar','Library','Goals','Skills','Insights','Settings'];
 const DAYS=['Su','Mo','Tu','We','Th','Fr','Sa'];
 const nextDate=(offset:number)=>{
   const date=new Date();date.setDate(date.getDate()+offset);return localDayKey(date);
@@ -53,6 +56,12 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [backupInterval,setBackupInterval]=useState<12|24|72>(24);
   const [backupEnabled,setBackupEnabled]=useState(false);
   const [victoryMessage,setVictoryMessage]=useState<string|null>(null);
+  const [adaptive,setAdaptive]=useState<AdaptiveState>({
+    settings:DEFAULT_ADAPTIVE_SETTINGS,decisions:[],completionModes:[],
+  });
+  const [editingAdaptive,setEditingAdaptive]=useState<AdaptiveProposal|null>(null);
+  const [adaptiveTitle,setAdaptiveTitle]=useState('');
+  const [adaptiveMinutes,setAdaptiveMinutes]=useState('15');
   const victoryPulse=useRef(new Animated.Value(0)).current;
   const [reduceMotion,setReduceMotion]=useState(false);
   const entrance=useRef(new Animated.Value(1)).current;
@@ -76,8 +85,8 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   },[victoryMessage,reduceMotion,victoryPulse]);
 
   const refresh=useCallback(async()=>{
-    const p=await loadPhaseTwoSnapshot();
-    setPhase(p);setPrefs({...p.preferences});
+    const [p,learned]=await Promise.all([loadPhaseTwoSnapshot(),loadAdaptiveState()]);
+    setAdaptive(learned);setPhase(p);setPrefs({...p.preferences});
     const thisWeek=p.weeklyReviews.find(x=>x.weekKey===isoWeekKey(new Date()));
     setReview({wins:thisWeek?.wins??'',blockers:thisWeek?.blockers??'',
       nextFocus:thisWeek?.nextFocus??''});
@@ -93,6 +102,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       setBackupSettings(backup);setBackupRetention(backup.retention);
       setBackupInterval(backup.intervalHours);setBackupEnabled(backup.enabled);
     }).catch(()=>{});
+    void loadAdaptiveState().then(a=>{if(live)setAdaptive(a);}).catch(()=>{});
     loadPhaseTwoSnapshot().then(p=>{
       if(!live)return;
       setPhase(p);setPrefs({...p.preferences});
@@ -134,10 +144,18 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const today=useMemo(()=>new Date(),[base,phase]);
   const recommendations=useMemo(()=>adaptiveMissionRecommendations(
     allQuests,phase.controls,base.completions,phase.dependencies,today,
-    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit),
+    Math.min(phase.preferences.availableMinutes,adaptive.settings.dailyBudgetMinutes),
+    Math.min(phase.preferences.dailyMissionLimit,adaptive.settings.maxDailyMissions)),
     [allQuests,phase.controls,base.completions,phase.dependencies,today,
-      phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit]);
+      phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit,
+      adaptive.settings.dailyBudgetMinutes,adaptive.settings.maxDailyMissions]);
   const due=useMemo(()=>recommendations.map(r=>r.quest),[recommendations]);
+  const adaptiveProposals=useMemo(()=>proposeFromPersonalHistory({
+    quests:base.quests,goals:base.goals,controls:phase.controls,
+    completions:base.completions,focusSessions:phase.focusSessions,
+    state:adaptive,now:today,
+  }),[base.quests,base.goals,base.completions,phase.controls,
+    phase.focusSessions,adaptive,today]);
   const active=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='active'),
     [allQuests,phase.controls]);
   const backlog=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='backlog'),
@@ -179,10 +197,25 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           controls:p.controls,dependencies:p.dependencies,preferences:p.preferences});
     },'Quest plan saved');
   };
-  const complete=(q:Quest)=>void run(async()=>{
-    const result=await completeQuest(q);
+  const complete=(q:Quest,mode:'standard'|'lite'='standard')=>void run(async()=>{
+    const result=await completeQuest(q,new Date(),mode);
     if(!result.applied)throw Error('Already completed in this period');
-  },'Quest cleared. XP recorded without duplicates.');
+  },mode==='lite'?'Lite mission cleared · easy-level XP recorded':
+    'Quest cleared. XP recorded without duplicates.');
+  const updateAdaptivePrefs=(patch:Partial<AdaptiveState['settings']>)=>
+    void run(()=>saveAdaptiveSettings({...adaptive.settings,...patch}),'Adaptive safeguards updated');
+  const reviewAdaptive=(proposal:AdaptiveProposal)=>{
+    setEditingAdaptive(proposal);setAdaptiveTitle(proposal.title);
+    setAdaptiveMinutes(String(proposal.estimateMinutes));
+  };
+  const acceptAdaptive=()=>{if(!editingAdaptive)return;
+    void run(async()=>{
+      await decideAdaptiveProposal(editingAdaptive,'accepted',{
+        title:adaptiveTitle,minutes:Number(adaptiveMinutes)
+      });
+      setEditingAdaptive(null);
+    },'Suggestion approved and saved. New quests begin in Backlog.');
+  };
   const openMetric=(g:Goal)=>{
     setSelectedGoal(g);
     const m=phase.outcomes[g.id];
