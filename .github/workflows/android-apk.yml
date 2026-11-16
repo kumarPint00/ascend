@@ -64,6 +64,61 @@ jobs:
       - name: Generate Android native project
         run: npx expo prebuild --platform android --clean --no-install
         working-directory: apps/mobile
+      - name: Assert native startup-safe R8 setting
+        run: |
+          grep -q '^android.enableMinifyInReleaseBuilds=false
+      - name: Build signed release APK
+        working-directory: apps/mobile/android
+        env:
+          ASCEND_KEYSTORE_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEYSTORE_PASSWORD }}
+          ASCEND_KEY_ALIAS: ${{ secrets.ASCEND_ANDROID_KEY_ALIAS }}
+          ASCEND_KEY_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --no-daemon -Pandroid.enableMinifyInReleaseBuilds=false
+      - name: Validate signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='apps/mobile/android/app/build/outputs/apk/release/app-release.apk'
+          test -s "$apk"
+          "${ANDROID_HOME}/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs "$apk"
+          cp "$apk" ascend-android.apk
+      - name: Upload signed test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascend-android-v${{ steps.version.outputs.version }}-build${{ steps.version.outputs.code }}
+          path: ascend-android.apk
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish update
+        if: ${{ inputs.publish_release == true }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          APP_PACKAGE: ${{ steps.version.outputs.package }}
+        run: |
+          set -euo pipefail
+          tag="v${VERSION}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release already exists; increment version and versionCode." >&2
+            exit 1
+          fi
+          notes=$(printf 'ASCEND Android %s (build %s)\n\nSigned update preserves existing app data when the key matches.\n\n<!-- ASCEND_ANDROID_RELEASE {"packageName":"%s","versionCode":%s} -->' "$VERSION" "$VERSION_CODE" "$APP_PACKAGE" "$VERSION_CODE")
+          gh release create "$tag" 'ascend-android.apk#ascend-android.apk' --target "$GITHUB_SHA" --title "ASCEND v${VERSION}" --notes "$notes" --latest
+# Phase 2 final verification: includes milestone date migration, complete backup history and integrity scan.
+
+# Phase 2 v0.8.1 candidate: strict scheduling, correct milestone actions, date validation and external JSON selection.
+# This push verifies and uploads a permanently signed APK; it does not publish a release.
+
+# Phase 2 feature-depth verification: v0.9.0 / build 10 (SQLite v3, adaptive planning, Android SAF backups, WorkManager maintenance, RPG polish).
+# Verify with permanent signing key but DO NOT publish the release until device acceptance.
+# Android startup crash guard (Expo SDK 58 + expo-background-task):
+# R8 can strip WorkManager/Room constructors, causing native crash before React renders.
+# Use -Pandroid.enableMinifyInReleaseBuilds=false until the upstream issue is fixed.
+# https://github.com/expo/expo/issues/52173
+ apps/mobile/android/gradle.properties
+          echo 'R8 disabled for expo-background-task native startup safety'
       - name: Configure release signing
         run: node scripts/configure-android-signing.cjs
       - name: Build signed release APK
