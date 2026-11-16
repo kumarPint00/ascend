@@ -41,7 +41,6 @@ export interface AdaptiveProposal {
 }
 const clamp=(v:number,lo:number,hi:number)=>Math.min(hi,Math.max(lo,v));
 const dateOnly=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);
-const dayDiff=(a:Date,b:Date)=>Math.floor((a.getTime()-b.getTime())/86400000);
 const parse=(s:string)=>Date.parse(s);
 export function validateAdaptiveSettings(v:AdaptiveSettings):AdaptiveSettings{
   if(typeof v.enabled!=='boolean'||![1,2,3,4,5].includes(v.energy)||
@@ -110,10 +109,8 @@ export function buildAdaptiveProposals(input:{
   validateAdaptiveSettings(settings);
   if(!settings.enabled||!Number.isFinite(now.getTime())||
     (settings.pauseUntil&&settings.pauseUntil>=localDayKey(now)))return [];
-  const today=localDayKey(now);
   if(recentRecords(decisions,now,1,x=>x.decision==='accepted').length>=settings.suggestionsPerDay)
     return [];
-  const currentWeekStart=new Date(dateOnly(now).getTime()-6*86400000);
   const createdThisWeek=recentRecords(decisions,now,7,x=>x.decision==='accepted'&&
     (x.kind==='quest'||x.kind==='milestone')).length;
   const createdGoals=recentRecords(decisions,now,30,x=>x.decision==='accepted'&&x.kind==='goal').length;
