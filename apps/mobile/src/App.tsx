@@ -6,7 +6,7 @@ import {
 import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
-  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
+  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, rankFromLevel, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
   activeMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
@@ -69,7 +69,7 @@ export default function App() {
   const [goalLimit,setGoalLimit] = useState(8);
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
-  const [reward,setReward] = useState<{xp:number;levelUp:boolean}|null>(null);
+  const [reward,setReward] = useState<{xp:number;levelUp:boolean;rankUp:boolean;newLevel:number;newRank:string}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
   useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
 
@@ -171,13 +171,16 @@ export default function App() {
   const finish=(q:Quest)=>run(async()=>{
     const reward=await completeQuest(q,new Date());
     if(reward.applied) {
-      const levelUp=levelFromXP(player.totalXP+reward.xp)>player.level;
-      setReward({xp:reward.xp,levelUp});
+      const newLevel=levelFromXP(player.totalXP+reward.xp);
+      const levelUp=newLevel>player.level,newRank=rankFromLevel(newLevel);
+      const rankUp=newRank!==player.rank;
+      setReward({xp:reward.xp,levelUp,rankUp,newLevel,newRank});
       rewardPulse.stopAnimation(); rewardPulse.setValue(0);
       Animated.sequence([
-        Animated.timing(rewardPulse,{toValue:1,duration:reduceMotion?0:180,useNativeDriver:true}),
-        Animated.delay(reduceMotion?700:850),
-        Animated.timing(rewardPulse,{toValue:0,duration:reduceMotion?0:300,useNativeDriver:true}),
+        Animated.spring(rewardPulse,{toValue:1,
+          tension:reduceMotion?1000:85,friction:reduceMotion?1000:8,useNativeDriver:true}),
+        Animated.delay(reduceMotion?700:rankUp?2100:levelUp?1650:900),
+        Animated.timing(rewardPulse,{toValue:0,duration:reduceMotion?0:250,useNativeDriver:true}),
       ]).start(()=>setReward(null));
     }
   });
@@ -491,9 +494,23 @@ export default function App() {
     <ScrollView style={{flex:1}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:<More/>}
     </ScrollView>
-    {reward&&<Animated.View pointerEvents="none" style={[s.rewardToast,{opacity:rewardPulse,transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[0.85,1]})}]}]}>
-      <T color={C.energy} bold size={12}>{reward.levelUp?'✦ LEVEL UP ✦':'QUEST CLEARED'}</T>
-      <T color={C.gold} bold size={23}>{reward.xp>0?`+${reward.xp} XP`:'XP CAP REACHED'}</T>
+    {reward&&<Animated.View pointerEvents="none" accessibilityLiveRegion="polite"
+      style={[s.rewardToast,{opacity:rewardPulse,
+        transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[reduceMotion?1:.88,1]})}]}]}>
+      <LinearGradient colors={reward.rankUp?['#41304D','#142F49','#0E1D32']:
+        reward.levelUp?['#303C5E','#172C48']:['#18334E','#10223A']}
+        style={{borderRadius:14,paddingHorizontal:21,paddingVertical:12,alignItems:'center'}}>
+        <Sparkles color={C.gold} size={reward.rankUp?31:22}/>
+        <T color={C.energy} bold size={13} style={{letterSpacing:2,marginTop:7}}>
+          {reward.rankUp?'RANK ASCENSION':reward.levelUp?'LEVEL UP':'QUEST CLEARED'}
+        </T>
+        {reward.levelUp&&<T color={C.frost} bold size={21} style={{marginTop:5}}>
+          {reward.rankUp?`${reward.newRank}-RANK UNLOCKED`:`LEVEL ${reward.newLevel} REACHED`}
+        </T>}
+        <T color={C.gold} bold size={24} style={{marginTop:4}}>
+          {reward.xp>0?`+${reward.xp} XP`:'XP CAP REACHED'}
+        </T>
+      </LinearGradient>
     </Animated.View>}
     <View style={s.nav}>
       {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable accessibilityRole="tab"
@@ -547,7 +564,7 @@ export default function App() {
             onPress={()=>setGoalAttribute(a)}>{LABELS[a].label}</Chip>)}</View>
           <T color={C.sub} style={s.formLabel}>Target linked quest completions</T>
           <TextInput keyboardType="number-pad" value={goalTarget} onChangeText={setGoalTarget} style={s.input}/>
-          <T color={C.dim} size={11} style={{marginTop:8}}>This is a practice target. Outcome-based goal metrics come in a later version.</T>
+          <T color={C.dim} size={11} style={{marginTop:8}}>This is a practice target. Record real outcome metrics and history in Planner → Goals.</T>
           <Action disabled={busy} style={{marginTop:20}} onPress={()=>run(async()=>{
             await saveGoal({title:goalTitle,attribute:goalAttribute,targetCount:Number(goalTarget)},editingGoal?.id);
             setGoalModal(false);
@@ -621,7 +638,7 @@ const s=StyleSheet.create({
   statRow:{flexDirection:'row',justifyContent:'space-between'},
   miniPanel:{flex:1,minHeight:85,justifyContent:'space-between'},
   reward:{borderWidth:1,borderRadius:11,paddingHorizontal:9,paddingVertical:5,alignItems:'center',minWidth:48},
-  finish:{backgroundColor:C.energy,borderRadius:9,paddingHorizontal:12,paddingVertical:9},
+  finish:{backgroundColor:C.energy,borderRadius:9,paddingHorizontal:12,paddingVertical:9,minHeight:44,justifyContent:'center'},
   rankEmblem:{height:85,width:80,borderColor:'#927547',borderWidth:1,borderRadius:20,justifyContent:'center',alignItems:'center',backgroundColor:'#252B3E'},
   chips:{flexDirection:'row',flexWrap:'wrap',marginBottom:7},
   avatar:{height:105,width:105,borderRadius:52,borderWidth:1,borderColor:C.energy,backgroundColor:C.elevated,alignItems:'center',justifyContent:'center'},
