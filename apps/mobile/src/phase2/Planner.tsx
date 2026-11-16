@@ -62,6 +62,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [editingAdaptive,setEditingAdaptive]=useState<AdaptiveProposal|null>(null);
   const [adaptiveTitle,setAdaptiveTitle]=useState('');
   const [adaptiveMinutes,setAdaptiveMinutes]=useState('15');
+  const [adaptiveGoalCount,setAdaptiveGoalCount]=useState('4');
   const victoryPulse=useRef(new Animated.Value(0)).current;
   const [reduceMotion,setReduceMotion]=useState(false);
   const entrance=useRef(new Animated.Value(1)).current;
@@ -206,12 +207,12 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     void run(()=>saveAdaptiveSettings({...adaptive.settings,...patch}),'Adaptive safeguards updated');
   const reviewAdaptive=(proposal:AdaptiveProposal)=>{
     setEditingAdaptive(proposal);setAdaptiveTitle(proposal.title);
-    setAdaptiveMinutes(String(proposal.estimateMinutes));
+    setAdaptiveMinutes(String(proposal.estimateMinutes));setAdaptiveGoalCount('4');
   };
   const acceptAdaptive=()=>{if(!editingAdaptive)return;
     void run(async()=>{
       await decideAdaptiveProposal(editingAdaptive,'accepted',{
-        title:adaptiveTitle,minutes:Number(adaptiveMinutes)
+        title:adaptiveTitle,minutes:Number(adaptiveMinutes),goalTargetCount:Number(adaptiveGoalCount)
       });
       setEditingAdaptive(null);
     },'Suggestion approved and saved. New quests begin in Backlog.');
@@ -877,6 +878,11 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
                 value={adaptiveTitle} onChangeText={setAdaptiveTitle}
                 maxLength={100} style={ss.input}/>
             </View>}
+          {editingAdaptive?.kind==='goal'&&<>
+            <T color={C.sub} size={12} style={{marginTop:12}}>Quest-completion target for this goal</T>
+            <TextInput accessibilityLabel="New goal activity target" keyboardType="number-pad"
+              value={adaptiveGoalCount} onChangeText={setAdaptiveGoalCount} style={ss.input}/>
+          </>}
           {editingAdaptive?.kind!=='goal'&&<>
             <T color={C.sub} size={12} style={{marginTop:12}}>Estimated minutes</T>
             <TextInput accessibilityLabel="Suggested effort in minutes"
