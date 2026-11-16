@@ -1,10 +1,10 @@
-import React,{useCallback,useEffect,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,
-  StyleSheet,TextInput,View} from 'react-native';
+  StyleSheet,TextInput,Text,View} from 'react-native';
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
   ChevronRight,ShieldCheck,Lock,CheckCircle2,Trophy,Sparkles,Flame} from 'lucide-react-native';
 import {LinearGradient} from 'expo-linear-gradient';
-import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences} from '@ascend/game-engine';
+import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences,OutcomeDirection} from '@ascend/game-engine';
 import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuestControl,
   questDueOn,blockedByDependencies,isCompleted,localDayKey,isoWeekKey,
   derivedSkills,derivedAchievements,canUnlockSkill,outcomeProgress,xpTrend,focusMinutesForWeek,
@@ -14,14 +14,15 @@ import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuest
 import {Action,Chip,Meter,Panel,Section,T} from '../components/Elements';
 import {C,LABELS} from '../theme';
 import type {Snapshot} from '../data/repository';
-import {completeQuest} from '../data/repository';
+import {completeQuest,undoQuestCompletion} from '../data/repository';
 import {EMPTY_PHASE_TWO,loadPhaseTwoSnapshot,updateQuestControl,addQuestDependency,
   removeQuestDependency,saveGoalOutcome,createBoss,winBoss,logFocusSession,saveWeeklyReview,
   savePreferences,unlockSkill,type PhaseTwoSnapshot} from '../data/phase2';
 import {shareBackupFile,chooseBackupFile,restoreFullBackup,verifyLocalDatabase} from '../data/backup';
 import {askReminderPermission,syncLocalReminders} from './reminders';
 import {readBackupSettings,selectExternalBackupFolder,configureAutoBackup,
-  runAutomaticBackup,type AutomaticBackupSettings} from '../data/autoBackup';
+  runAutomaticBackup,confirmRecoveryKeySaved,type AutomaticBackupSettings} from '../data/autoBackup';
+import {getOrCreateRecoveryKey} from '../data/backupCrypto';
 import {syncMaintenanceRegistration} from './maintenance';
 
 type Area='Today'|'Calendar'|'Library'|'Goals'|'Skills'|'Insights'|'Settings';
@@ -37,7 +38,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [selectedQuest,setSelectedQuest]=useState<Quest|null>(null);
   const [editControl,setEditControl]=useState<QuestControl|null>(null);
   const [selectedGoal,setSelectedGoal]=useState<Goal|null>(null);
-  const [goalMetric,setGoalMetric]=useState({value:'0',target:'10',unit:'sessions',deadline:''});
+  const [goalMetric,setGoalMetric]=useState<{value:string;target:string;unit:string;deadline:string;direction:OutcomeDirection}>({value:'0',target:'10',unit:'sessions',deadline:'',direction:'increase'});
   const [libraryStatus,setLibraryStatus]=useState<'All'|'active'|'backlog'|'paused'>('All');
   const [search,setSearch]=useState(''),[showCount,setShowCount]=useState(18);
   const [chosenDay,setChosenDay]=useState(localDayKey(new Date()));
@@ -49,13 +50,21 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [notificationsCount,setNotificationsCount]=useState<number|null>(null);
   const [calendarDays,setCalendarDays]=useState<14|30|90>(30);
   const [backupSettings,setBackupSettings]=useState<AutomaticBackupSettings|null>(null);
+  const [backupKeyShown,setBackupKeyShown]=useState<string|null>(null);
+  const [restoreRecoveryKey,setRestoreRecoveryKey]=useState('');
   const [backupRetention,setBackupRetention]=useState(7);
   const [backupInterval,setBackupInterval]=useState<12|24|72>(24);
   const [backupEnabled,setBackupEnabled]=useState(false);
   const [victoryMessage,setVictoryMessage]=useState<string|null>(null);
+  const [undo,setUndo]=useState<{completionId:string;xp:number}|null>(null);
   const victoryPulse=useRef(new Animated.Value(0)).current;
   const [reduceMotion,setReduceMotion]=useState(false);
   const entrance=useRef(new Animated.Value(1)).current;
+  useEffect(()=>{
+    if(!undo)return;
+    const timer=setTimeout(()=>setUndo(null),120_000);
+    return ()=>clearTimeout(timer);
+  },[undo]);
   useEffect(()=>{
     let live=true;
     AccessibilityInfo.isReduceMotionEnabled().then(enabled=>{if(live)setReduceMotion(enabled);}).catch(()=>{});
@@ -127,22 +136,50 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     finally{setBusy(false);}
   };
   const controlFor=(q:Quest)=>phase.controls[q.id]??defaultQuestControl(q);
-  const allQuests=base.quests.filter(q=>!q.archived);
-  const allGoals=base.goals.filter(g=>!g.archived);
-  const today=new Date();
-  const recommendations=adaptiveMissionRecommendations(
+  const allQuests=useMemo(()=>base.quests.filter(q=>!q.archived),[base.quests]);
+  const allGoals=useMemo(()=>base.goals.filter(g=>!g.archived),[base.goals]);
+  const dayKey=localDayKey(new Date());
+  const today=useMemo(()=>new Date(dayKey+'T12:00:00'),[dayKey]);
+  const recommendations=useMemo(()=>adaptiveMissionRecommendations(
     allQuests,phase.controls,base.completions,phase.dependencies,today,
-    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit);
-  const due=recommendations.map(r=>r.quest);
-  const active=allQuests.filter(q=>controlFor(q).status==='active');
-  const backlog=allQuests.filter(q=>controlFor(q).status==='backlog');
-  const paused=allQuests.filter(q=>controlFor(q).status==='paused');
-  const calendar=occurrencesForDays(allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays);
-  const shown=allQuests.filter(q=>libraryStatus==='All'||controlFor(q).status===libraryStatus)
-    .filter(q=>(q.title+' '+q.description).toLowerCase().includes(search.toLowerCase()));
-  const skills=derivedSkills(base.xpEvents),achievements=derivedAchievements(
-    base.quests,base.completions,base.xpEvents,phase.bosses);
-  const trend=xpTrend(base.xpEvents,today,7);
+    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit),
+    [allQuests,phase.controls,base.completions,phase.dependencies,today,
+      phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit]);
+  const due=useMemo(()=>recommendations.map(r=>r.quest),[recommendations]);
+  const active=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='active'),[allQuests,phase.controls]);
+  const backlog=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='backlog'),[allQuests,phase.controls]);
+  const paused=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='paused'),[allQuests,phase.controls]);
+  const calendar=useMemo(()=>occurrencesForDays(allQuests,phase.controls,base.completions,
+    phase.dependencies,today,calendarDays),[allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays]);
+  const shown=useMemo(()=>allQuests.filter(q=>libraryStatus==='All'||(phase.controls[q.id]??defaultQuestControl(q)).status===libraryStatus)
+    .filter(q=>(q.title+' '+q.description).toLowerCase().includes(search.toLowerCase())),
+    [allQuests,libraryStatus,phase.controls,search]);
+  const skills=useMemo(()=>derivedSkills(base.xpEvents),[base.xpEvents]);
+  const achievements=useMemo(()=>derivedAchievements(base.quests,base.completions,base.xpEvents,phase.bosses),
+    [base.quests,base.completions,base.xpEvents,phase.bosses]);
+  const measurementsByGoal=useMemo(()=>{
+    const map=new Map<string,typeof phase.goalMeasurements>();
+    for(const m of phase.goalMeasurements){
+      if(!map.has(m.goalId))map.set(m.goalId,[]);
+      map.get(m.goalId)!.push(m);
+    }
+    return map;
+  },[phase.goalMeasurements]);
+  const questGoalMap=useMemo(()=>new Map(base.quests.map(q=>[q.id,q.goalId])),[base.quests]);
+  const goalCompletionCounts=useMemo(()=>{
+    const map=new Map<string,number>();
+    for(const c of base.completions){
+      const id=questGoalMap.get(c.questId);if(id)map.set(id,(map.get(id)??0)+1);
+    }
+    return map;
+  },[base.completions,questGoalMap]);
+  const milestoneCounts=useMemo(()=>{
+    const map=new Map<string,number>();
+    for(const q of allQuests)if(q.goalId&&q.title.startsWith('◆ '))
+      map.set(q.goalId,(map.get(q.goalId)??0)+1);
+    return map;
+  },[allQuests]);
+  const trend=useMemo(()=>xpTrend(base.xpEvents,today,7),[base.xpEvents,today]);
   const trendMax=Math.max(25,...trend.map(x=>x.xp));
   const totalWeekFocus=focusMinutesForWeek(phase.focusSessions,today);
   const weekAttributes=attributeWeekBreakdown(base.xpEvents,today);
@@ -166,17 +203,21 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const complete=(q:Quest)=>void run(async()=>{
     const result=await completeQuest(q);
     if(!result.applied)throw Error('Already completed in this period');
-  },'Quest cleared. XP recorded without duplicates.');
+    if(result.completionId)setUndo({completionId:result.completionId,xp:result.xp});
+  });
   const openMetric=(g:Goal)=>{
     setSelectedGoal(g);
     const m=phase.outcomes[g.id];
     setGoalMetric({value:String(m?.value??0),target:String(m?.target??g.targetCount),
-      unit:m?.unit??'units',deadline:m?.deadline??''});
+      unit:m?.unit??'units',deadline:m?.deadline??'',direction:m?.direction??'increase'});
   };
   const saveMetric=()=>{if(!selectedGoal)return;
+    if(!goalMetric.value.trim()||!goalMetric.target.trim()){
+      Alert.alert('Missing measurement','Enter an actual current value and target');return;
+    }
     void run(async()=>{
       await saveGoalOutcome(selectedGoal.id,{value:Number(goalMetric.value),target:Number(goalMetric.target),
-        unit:goalMetric.unit,deadline:goalMetric.deadline.trim()||null});
+        unit:goalMetric.unit,deadline:goalMetric.deadline.trim()||null,direction:goalMetric.direction});
       setSelectedGoal(null);
     },'Outcome saved. XP remains separate from this metric.');
   };
@@ -254,6 +295,15 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
 
     {area==='Today'&&<>
       {heading('Today’s focused missions','Prioritized from deadlines, effort, your real history and available time. No cloud AI.')}
+      {undo&&<Panel style={{borderColor:C.gold}}>
+        <T color={C.gold} size={12} bold>Quest cleared · +{undo.xp} XP</T>
+        <T color={C.sub} size={11} style={{marginTop:5,marginBottom:10}}>
+          Accidental completion? Undo within two minutes. Verified boss victories cannot be reversed.
+        </T>
+        <Action secondary disabled={busy} onPress={()=>void run(async()=>{
+          await undoQuestCompletion(undo.completionId);setUndo(null);
+        },'Quest completion and XP restored')}>UNDO LAST COMPLETION</Action>
+      </Panel>}
       <View style={ss.metrics}>
         <View style={ss.metric}><T color={C.sub} size={10}>TODAY</T><T size={24} bold color={C.energy}>{due.length}</T></View>
         <View style={ss.metric}><T color={C.sub} size={10}>ACTIVE</T><T size={24} bold>{active.length}</T></View>
@@ -332,16 +382,19 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       {heading('Epic questlines','Measure real results separately from XP and task counts.')}
       {allGoals.slice(0,30).map(g=>{
         const m=phase.outcomes[g.id];
-        const history=milestoneHistoryStatus(phase.goalMeasurements,g.id);
-        const measuredTrend=m?metricForecast(history,m.target,today):null;
-        const recorded=m?measuredGoalProgress(history,m.value,m.target):Math.min(1,base.completions.filter(c=>
-          base.quests.some(q=>q.id===c.questId&&q.goalId===g.id)).length/g.targetCount);
-        const milestoneCount=allQuests.filter(q=>q.goalId===g.id&&q.title.startsWith('◆ ')).length;
+        const history=measurementsByGoal.get(g.id)??[];
+        const measuredTrend=m?metricForecast(history,m.target,today,m.direction):null;
+        const recorded=m?measuredGoalProgress(history,m.value,m.target,m.direction):
+          Math.min(1,(goalCompletionCounts.get(g.id)??0)/g.targetCount);
+        const milestoneCount=milestoneCounts.get(g.id)??0;
         return <Panel key={g.id}>
           <T size={15} bold>{g.title}</T>
           <T size={11} color={C.sub} style={{marginVertical:7}}>
             {m?`${m.value} / ${m.target} ${m.unit}`:'Quest completions used until a real metric is configured'}
           </T>
+          {m&&!m.directionReviewed&&<T color={C.gold} size={12} style={{marginBottom:8}}>
+            Direction not verified after migration. Open SET METRIC and confirm increase/decrease before boss victory.
+          </T>}
           <Meter value={recorded} tint={LABELS[g.attribute].tint}/>
           <T size={11} color={C.dim} style={{marginTop:7}}>
             {milestoneCount} milestones · {Math.round(recorded*100)}% of {m?'measured result':'activity target'}
@@ -542,9 +595,9 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         <View style={ss.between}><T bold size={17}>Automatic verified backups</T>
           <ShieldCheck size={22} color={C.energy}/></View>
         <T color={C.sub} size={12} style={{marginVertical:9}}>
-          Choose a private folder outside ASCEND. Backups are unencrypted JSON,
-          so don't select a shared folder. Android's background maintenance is best-effort;
-          backups also run when you reopen the app.
+          Automatic backups use AES-256-GCM encryption. Store your 64-character recovery key
+          outside this phone or encrypted backups cannot be restored after uninstall.
+          Android background scheduling is best-effort; ASCEND also catches up when opened.
         </T>
         <T color={backupSettings?.directoryUri?C.green:C.gold} size={12}>
           {backupSettings?.directoryUri?'External folder selected':'No external folder selected'}
@@ -553,11 +606,18 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <Action secondary disabled={busy} onPress={()=>void run(async()=>{
             await selectExternalBackupFolder();
             await syncMaintenanceRegistration();
-            const result=await runAutomaticBackup(true);
-            Alert.alert('Backup verified',result.message);
+            Alert.alert('Folder selected','Save and confirm your recovery key, then enable automatic backups.');
           })}>SELECT / CHANGE BACKUP FOLDER</Action>
         </View>
-        <T color={C.sub} size={12}>Automatic backup</T>
+        <T color={backupSettings?.recoveryConfirmed?C.green:C.gold} size={12} style={{marginBottom:10}}>
+          {backupSettings?.recoveryConfirmed?'Recovery key acknowledged':'Recovery key not yet saved'}
+        </T>
+        <Action secondary disabled={busy} onPress={()=>void run(async()=>{
+          const key=await getOrCreateRecoveryKey();
+          setBackupKeyShown(key);
+        })}>SHOW / SAVE RECOVERY KEY</Action>
+        <View style={{height:12}}/>
+        <T color={C.sub} size={12}>Automatic encrypted backup</T>
         <View style={ss.chips}>
           <Chip active={backupEnabled} onPress={()=>setBackupEnabled(true)}>Enabled</Chip>
           <Chip active={!backupEnabled} onPress={()=>setBackupEnabled(false)}>Disabled</Chip>
@@ -586,9 +646,10 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         </T>}
       </Panel>
       <Panel>
-        <T bold size={16}>Verified file backups</T>
+        <T bold size={16}>Manual backup and restore</T>
         <T color={C.sub} size={12} style={{marginVertical:10}}>
-          Export quests, XP, goals, planner states, skills, bosses, reviews and focus sessions to an actual JSON file. Save it outside this app.
+          Manual exports are currently UNENCRYPTED JSON for compatibility. Keep them in private storage.
+          Automatic folder backups above are encrypted and independently recoverable with your saved key.
         </T>
         <Action secondary disabled={busy} onPress={()=>void run(shareBackupFile)}>EXPORT & SHARE BACKUP</Action>
         <View style={{height:10}}/>
@@ -674,6 +735,14 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <T size={12} color={C.sub}>Target</T>
           <TextInput keyboardType="decimal-pad" style={ss.input} value={goalMetric.target}
             onChangeText={target=>setGoalMetric(m=>({...m,target}))}/>
+          <T size={12} color={C.sub}>Goal direction</T>
+          <View style={ss.chips}>
+            <Chip active={goalMetric.direction==='increase'} onPress={()=>setGoalMetric(m=>({...m,direction:'increase'}))}>Increase to target</Chip>
+            <Chip active={goalMetric.direction==='decrease'} onPress={()=>setGoalMetric(m=>({...m,direction:'decrease'}))}>Decrease to target</Chip>
+          </View>
+          <T color={C.sub} size={11} style={{marginBottom:8}}>
+            Choose decrease for spending, weight or debt reduction. This affects verified boss victories.
+          </T>
           <T size={12} color={C.sub}>Unit</T>
           <TextInput style={ss.input} value={goalMetric.unit} maxLength={24}
             onChangeText={unit=>setGoalMetric(m=>({...m,unit}))}/>
@@ -705,17 +774,48 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         </Animated.View>
       </View>
     </Modal>
+    <Modal visible={backupKeyShown!==null} animationType="fade" transparent
+      onRequestClose={()=>setBackupKeyShown(null)}>
+      <View style={[ss.overlay,{justifyContent:'center',padding:20}]}>
+        <View style={ss.sheet}>
+          <T color={C.gold} size={19} bold>Save your backup recovery key</T>
+          <T color={C.sub} size={12} style={{marginVertical:12}}>
+            Copy this 64-character key to your password manager or write it down. It is the ONLY way to
+            restore encrypted backups after uninstall, device replacement or app storage loss.
+            Never share it publicly.
+          </T>
+          <Text selectable selectionColor={C.energy} accessibilityLabel="Selectable backup recovery key"
+            style={[ss.input,{fontSize:13,minHeight:100,textAlignVertical:'center',paddingVertical:16}]}>
+            {backupKeyShown??''}
+          </Text>
+          <View style={{height:12}}/>
+          <Action disabled={busy} onPress={()=>void run(async()=>{
+            await confirmRecoveryKeySaved();setBackupKeyShown(null);
+          },'Recovery key acknowledged. You may now enable automatic encrypted backups.')}>
+            I SAVED THE RECOVERY KEY
+          </Action>
+          <View style={{height:10}}/>
+          <Action secondary onPress={()=>setBackupKeyShown(null)}>CLOSE WITHOUT CONFIRMING</Action>
+        </View>
+      </View>
+    </Modal>
     <Modal visible={backupText!==null} animationType="fade" transparent onRequestClose={()=>setBackupText(null)}>
       <View style={ss.overlay}><View style={ss.sheet}>
         <T bold size={19}>Restore from backup?</T>
         <T color={C.sub} size={13} style={{marginVertical:14}}>
-          This replaces ALL quests, XP, goals, planner settings, skills, bosses and reviews on this phone. Make a backup of current data before proceeding.
+          This replaces ALL local quests, XP, goals and planner data. Encrypted files require your recovery key, especially on a replacement phone.
         </T>
+        <T color={C.sub} size={11} style={{marginBottom:8}}>Recovery key (for encrypted backups on another phone)</T>
+        <TextInput style={ss.input} autoCapitalize="none" autoCorrect={false}
+          value={restoreRecoveryKey} maxLength={64} secureTextEntry
+          placeholder="Optional 64-character recovery key" placeholderTextColor={C.dim}
+          onChangeText={setRestoreRecoveryKey}/>
         <Action danger disabled={busy} onPress={()=>Alert.alert('Final confirmation',
           'Are you sure? Existing local data will be replaced.',[
           {text:'Cancel',style:'cancel'},
           {text:'Restore',style:'destructive',onPress:()=>void run(async()=>{
-            await restoreFullBackup(backupText!);setBackupText(null);
+            await restoreFullBackup(backupText!,restoreRecoveryKey||undefined);
+            setBackupText(null);setRestoreRecoveryKey('');
           },'Backup restored successfully')},
         ])}>REPLACE DATA FROM FILE</Action>
         <View style={{height:11}}/><Action secondary onPress={()=>setBackupText(null)}>CANCEL</Action>
@@ -730,7 +830,7 @@ const ss=StyleSheet.create({
   metric:{flex:1,backgroundColor:C.surface,borderColor:C.border,borderWidth:1,
     borderRadius:16,padding:12,minHeight:81,justifyContent:'space-between'},
   smallButton:{borderRadius:10,borderColor:C.borderActive,borderWidth:1,paddingHorizontal:12,
-    paddingVertical:8,minHeight:38,justifyContent:'center'},
+    paddingVertical:9,minHeight:48,justifyContent:'center'},
   chips:{flexDirection:'row',flexWrap:'wrap',marginVertical:11},
   day:{alignItems:'center',justifyContent:'center',backgroundColor:C.surface,
     borderColor:C.border,borderWidth:1,borderRadius:13,width:62,minHeight:86,marginRight:8,gap:4},

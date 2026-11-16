@@ -44,6 +44,6 @@ export function Section({title,right}:{title:string;right?:React.ReactNode}){
 const st=StyleSheet.create({
   panel:{backgroundColor:C.surface,borderRadius:20,borderWidth:1,borderColor:C.border,padding:16,marginBottom:12},
   action:{paddingHorizontal:18,paddingVertical:12,borderWidth:1,borderRadius:13,alignItems:'center',justifyContent:'center',minHeight:48},
-  chip:{paddingHorizontal:13,paddingVertical:10,borderRadius:13,borderWidth:1,marginRight:8,marginBottom:8,minHeight:43,justifyContent:'center'},
+  chip:{paddingHorizontal:13,paddingVertical:10,borderRadius:13,borderWidth:1,marginRight:8,marginBottom:8,minHeight:48,minWidth:48,justifyContent:'center'},
   section:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:19,marginBottom:12},
 });

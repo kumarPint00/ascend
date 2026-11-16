@@ -2,14 +2,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import type {Quest,Goal,Completion,XPEvent,QuestControl,QuestDependency,GoalOutcome,
-  BossBattle,FocusSession,WeeklyReview,SchedulePreferences,MeasurementPoint} from '@ascend/game-engine';
+  BossBattle,FocusSession,WeeklyReview,SchedulePreferences,MeasurementPoint,OutcomeDirection} from '@ascend/game-engine';
 import {ATTRIBUTES,validateControl,introducesCycle,validTime,validCalendarDay} from '@ascend/game-engine';
 import {getDb,loadSnapshot,restoreJSON} from './repository';
 import {loadPhaseTwoSnapshot,type PhaseTwoSnapshot} from './phase2';
+import {isEncryptedBackup,parseEncryptedEnvelope,decryptBackup} from './backupCrypto';
 
 type Core={quests:Quest[];goals:Goal[];completions:Completion[];xpEvents:XPEvent[]};
 export interface FullBackup extends Core {
-  format:'ascend-backup';schemaVersion:2|3;exportedAt:string;phase2:PhaseTwoSnapshot;
+  format:'ascend-backup';schemaVersion:2|3|4;exportedAt:string;phase2:PhaseTwoSnapshot;
 }
 const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const str=(v:unknown,max=128):v is string=>typeof v==='string'&&v.length>0&&v.length<=max;
@@ -22,7 +23,7 @@ const array=(v:unknown,max:number,field:string):unknown[]=>{
 };
 export async function exportFullBackup():Promise<string>{
   const base=await loadSnapshot(),phase2=await loadPhaseTwoSnapshot(true);
-  return JSON.stringify({format:'ascend-backup',schemaVersion:3,
+  return JSON.stringify({format:'ascend-backup',schemaVersion:4,
     exportedAt:new Date().toISOString(),...base,phase2},null,2);
 }
 /** Strict validation before entering the single replacement transaction. */
@@ -30,8 +31,8 @@ export function parseFullBackup(source:string):FullBackup{
   if(source.length>10_000_000)throw Error('Backup exceeds 10 MB');
   let raw:unknown;
   try{raw=JSON.parse(source);}catch{throw Error('Backup is not valid JSON');}
-  if(!obj(raw)||raw.format!=='ascend-backup'||![2,3].includes(Number(raw.schemaVersion))||!obj(raw.phase2))
-    throw Error('Unsupported ASCEND v2/v3 backup');
+  if(!obj(raw)||raw.format!=='ascend-backup'||![2,3,4].includes(Number(raw.schemaVersion))||!obj(raw.phase2))
+    throw Error('Unsupported ASCEND v2/v3/v4 backup');
   const goals=array(raw.goals,50000,'goals') as Goal[],quests=array(raw.quests,50000,'quests') as Quest[];
   const completions=array(raw.completions,100000,'completions') as Completion[];
   const xpEvents=array(raw.xpEvents,100000,'xpEvents') as XPEvent[];
@@ -72,11 +73,17 @@ export function parseFullBackup(source:string):FullBackup{
   }
   if(!obj(p.outcomes)||Object.keys(p.outcomes).length>50000)throw Error('Invalid goal outcomes');
   const outcomes=p.outcomes as Record<string,GoalOutcome>;
+  const outcomesWithDirection:Record<string,GoalOutcome>={};
   for(const [id,o] of Object.entries(outcomes)){
     if(!gIds.has(id)||!obj(o)||o.goalId!==id||!Number.isFinite(o.target)||o.target<=0||
       !Number.isFinite(o.value)||o.value<0||!str(o.unit,24)||
       (o.deadline!==null&&!validCalendarDay(o.deadline)))
       throw Error('Invalid measurable outcome');
+    const direction:OutcomeDirection=raw.schemaVersion===4?o.direction:'increase';
+    const directionReviewed=raw.schemaVersion===4?o.directionReviewed:false;
+    if((direction!=='increase'&&direction!=='decrease')||
+      typeof directionReviewed!=='boolean')throw Error('Invalid goal direction');
+    outcomesWithDirection[id]={...o,direction,directionReviewed};
   }
   const bosses=array(p.bosses,10000,'bosses') as BossBattle[];
   if(!bosses.every(b=>obj(b)&&str(b.id)&&str(b.title,100)&&typeof b.description==='string'&&
@@ -97,9 +104,10 @@ export function parseFullBackup(source:string):FullBackup{
   const skillUnlocks=array(p.skillUnlocks,100,'skill unlocks') as string[];
   if(!skillUnlocks.every(x=>typeof x==='string'&&/^(strength|intelligence|discipline|finance|relationships|recovery)-[123]$/.test(x))||
     new Set(skillUnlocks).size!==skillUnlocks.length)throw Error('Invalid skill unlocks');
-  const goalMeasurements=(raw.schemaVersion===3
+  const goalMeasurements=(Number(raw.schemaVersion)>=3
     ?array(p.goalMeasurements,50000,'goal measurements'):[]
-  ) as MeasurementPoint[];
+  ).filter(m=>!(Number(raw.schemaVersion)<4&&obj(m)&&
+    typeof m.id==='string'&&m.id.startsWith('baseline:'))) as MeasurementPoint[];
   if(!goalMeasurements.every(m=>obj(m)&&str(m.id)&&gIds.has(m.goalId)&&
      Number.isFinite(m.value)&&m.value>=0&&str(m.unit,24)&&date(m.recordedAt))||
      !unique(goalMeasurements))throw Error('Invalid measured goal history');
@@ -111,11 +119,12 @@ export function parseFullBackup(source:string):FullBackup{
     (pref.availableMinutes!==undefined&&(!Number.isInteger(pref.availableMinutes)||
       pref.availableMinutes<10||pref.availableMinutes>480)))
     throw Error('Invalid reminder preferences');
-  return {format:'ascend-backup',schemaVersion:raw.schemaVersion as 2|3,exportedAt:date(raw.exportedAt)?raw.exportedAt as string:new Date().toISOString(),
-    goals,quests,completions,xpEvents,phase2:{controls,dependencies:chain,outcomes,bosses,
+  return {format:'ascend-backup',schemaVersion:raw.schemaVersion as 2|3|4,exportedAt:date(raw.exportedAt)?raw.exportedAt as string:new Date().toISOString(),
+    goals,quests,completions,xpEvents,phase2:{controls,dependencies:chain,outcomes:outcomesWithDirection,bosses,
       focusSessions,weeklyReviews,skillUnlocks,goalMeasurements,preferences:{...pref,availableMinutes:pref.availableMinutes??90}}};
 }
-export async function restoreFullBackup(source:string):Promise<void>{
+export async function restoreFullBackup(source:string,recoveryKey?:string):Promise<void>{
+  if(isEncryptedBackup(source))source=await decryptBackup(source,recoveryKey);
   if(source.length>10_000_000)throw Error('Backup exceeds 10 MB');
   let summary:unknown;
   try{summary=JSON.parse(source);}catch{throw Error('Backup is not valid JSON');}
@@ -153,16 +162,12 @@ export async function restoreFullBackup(source:string):Promise<void>{
     for(const d of p.dependencies)await tx.runAsync(
       'INSERT INTO quest_dependencies(quest_id,requires_quest_id) VALUES(?,?)',d.questId,d.requiresQuestId);
     for(const o of Object.values(p.outcomes))await tx.runAsync(
-      'INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline) VALUES(?,?,?,?,?)',
-      o.goalId,o.target,o.value,o.unit,o.deadline);
+      'INSERT INTO goal_outcomes(goal_id,target,value,unit,deadline,direction,direction_reviewed) VALUES(?,?,?,?,?,?,?)',
+      o.goalId,o.target,o.value,o.unit,o.deadline,o.direction,o.directionReviewed?1:0);
     for(const measurement of p.goalMeasurements)await tx.runAsync(
       'INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)',
       measurement.id,measurement.goalId,measurement.value,measurement.unit,measurement.recordedAt);
-    // A v2 backup has outcomes but no historical time series. Add a single
-    // baseline at restore time, rather than inventing historical observations.
-    if(data.schemaVersion===2)for(const outcome of Object.values(p.outcomes))
-      await tx.runAsync('INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VALUES(?,?,?,?,?)',
-        'baseline:'+outcome.goalId,outcome.goalId,outcome.value,outcome.unit,new Date().toISOString());
+    // Old backup versions have no observation dates. Do not fabricate measurement history.
     for(const b of p.bosses)await tx.runAsync(
       'INSERT INTO boss_battles(id,title,description,goal_id,quest_id,won_at,created_at) VALUES(?,?,?,?,?,?,?)',
       b.id,b.title,b.description,b.goalId,b.questId,b.wonAt,b.createdAt);
@@ -197,7 +202,8 @@ export async function chooseBackupFile():Promise<string|null>{
   const source=await FileSystem.readAsStringAsync(file.uri);
   // Validate without touching the database.
   let raw:unknown;try{raw=JSON.parse(source);}catch{throw Error('Not valid JSON');}
-  if(obj(raw)&&(raw.schemaVersion===2||raw.schemaVersion===3))parseFullBackup(source);
+  if(isEncryptedBackup(source))parseEncryptedEnvelope(source);
+  else if(obj(raw)&&(raw.schemaVersion===2||raw.schemaVersion===3||raw.schemaVersion===4))parseFullBackup(source);
   else if(!obj(raw)||raw.format!=='ascend-backup'||raw.schemaVersion!==1)
     throw Error('Not a recognized ASCEND backup');
   return source;

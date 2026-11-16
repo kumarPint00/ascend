@@ -43,3 +43,23 @@ test('downward-goal progress uses recorded baseline and ignores mixed units',()=
  assert.equal(measuredGoalProgress(h.slice(0,2),69,64),1/6);
  assert.equal(metricForecast(h,64,new Date(2026,10,16,12)),null);
 });
+
+test('boss evidence distinguishes increasing and decreasing outcomes',()=>{
+  const {hasReachedOutcome,outcomeProgress}=require('../dist/index.js');
+  assert.equal(hasReachedOutcome({value:15000,target:10000,direction:'decrease'}),false);
+  assert.equal(hasReachedOutcome({value:9000,target:10000,direction:'decrease'}),true);
+  assert.equal(hasReachedOutcome({value:9,target:10,direction:'increase'}),false);
+  assert.equal(hasReachedOutcome({value:10,target:10,direction:'increase'}),true);
+  assert.equal(outcomeProgress({value:15000,target:10000,direction:'decrease'},20000),.5);
+  assert.equal(outcomeProgress({value:9000,target:10000,direction:'decrease'},20000),1);
+});
+test('directional metric forecasts require observed progress in the intended direction',()=>{
+  const {metricForecast,measuredGoalProgress}=require('../dist/index.js');
+  const make=(id,value,day)=>({id,goalId:'g',value,unit:'kg',recordedAt:day+'T08:00:00Z'});
+  const falling=[make('a',75,'2026-10-01'),make('b',72,'2026-10-15'),make('c',70,'2026-11-01')];
+  assert.equal(metricForecast(falling,80,new Date(2026,10,16),'increase'),null);
+  assert.ok(metricForecast(falling,65,new Date(2026,10,16),'decrease'));
+  assert.equal(measuredGoalProgress(falling,70,65,'decrease'),.5);
+  const mixed=[make('a',75,'2026-10-01'),{...make('b',72,'2026-10-15'),unit:'lb'},make('c',70,'2026-11-01')];
+  assert.equal(metricForecast(mixed,65,new Date(2026,10,16),'decrease'),null);
+});

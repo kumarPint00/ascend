@@ -6,8 +6,16 @@ export interface QuestControl {
   dueOn:string|null;timeOfDay:string|null;snoozedUntil:string|null;
   estimateMinutes:number;reminder:boolean;
 }
+export type OutcomeDirection='increase'|'decrease';
 export interface GoalOutcome {
   goalId:string;target:number;value:number;unit:string;deadline:string|null;
+  direction:OutcomeDirection;
+  directionReviewed:boolean;
+}
+/** Goal verification must respect whether the user's objective rises or falls. */
+export function hasReachedOutcome(outcome:Pick<GoalOutcome,'value'|'target'|'direction'>):boolean {
+  return outcome.direction==='decrease'
+    ? outcome.value<=outcome.target : outcome.value>=outcome.target;
 }
 export interface QuestDependency {questId:string;requiresQuestId:string}
 export interface WeeklyReview {weekKey:string;wins:string;blockers:string;nextFocus:string;createdAt:string}
@@ -126,8 +134,14 @@ export function derivedAchievements(quests:readonly Quest[],completions:readonly
     {id:'boss',title:'Boss Slayer',description:'Win a verified boss battle',unlocked:wins>=1},
   ];
 }
-export function outcomeProgress(outcome:GoalOutcome|null|undefined):number {
-  return outcome&&outcome.target>0?Math.min(1,Math.max(0,outcome.value/outcome.target)):0;
+export function outcomeProgress(outcome:GoalOutcome|null|undefined,baseline?:number):number {
+  if(!outcome||outcome.target<=0)return 0;
+  if(outcome.direction==='decrease'){
+    if(hasReachedOutcome(outcome))return 1;
+    if(baseline===undefined||baseline<=outcome.target)return 0;
+    return Math.max(0,Math.min(1,(baseline-outcome.value)/(baseline-outcome.target)));
+  }
+  return Math.min(1,Math.max(0,outcome.value/outcome.target));
 }
 export function xpTrend(events:readonly XPEvent[],end:Date,days=7):{day:string;xp:number}[]{
   return Array.from({length:Math.max(1,Math.min(31,days))},(_,i)=>{

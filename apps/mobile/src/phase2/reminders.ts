@@ -38,23 +38,27 @@ export function syncLocalReminders(input:ReminderInput,now=new Date()):Promise<n
 }
 async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
   const pending=await Notifications.getAllScheduledNotificationsAsync();
-  for(const scheduled of pending){
-    if(scheduled.content.data?.ascendQuest===true)
-      await Notifications.cancelScheduledNotificationAsync(scheduled.identifier);
+  const previous=pending.filter(item=>item.content.data?.ascendQuest===true);
+  // Disabling reminders is an explicit decision, so cancel intentionally.
+  if(!input.preferences.remindersEnabled){
+    for(const old of previous)await Notifications.cancelScheduledNotificationAsync(old.identifier);
+    return 0;
   }
-  if(!input.preferences.remindersEnabled)return 0;
   const permission=await Notifications.getPermissionsAsync();
-  if(!permission.granted)return 0;
-  let count=0;
+  if(!permission.granted)return 0; // preserve old alarms if permission changes
+  const created:string[]=[];
   const schedule=async(quest:Quest,trigger:Notifications.NotificationTriggerInput)=>{
-    if(count>=MAX_REMINDERS)return;
-    await Notifications.scheduleNotificationAsync({
+    if(created.length>=MAX_REMINDERS)return;
+    const id=await Notifications.scheduleNotificationAsync({
       content:{title:'ASCEND · Mission reminder',body:quest.title.replace(/^◆ /,''),
         data:{ascendQuest:true,questId:quest.id}},
       trigger,
     });
-    count++;
+    created.push(id);
   };
+  // Build the replacement generation before touching existing reminders.
+  // If any native scheduling call fails, roll back only the new generation.
+  try{
   // Stable recurring quests use native repeating wall-clock triggers.
   // These remain registered when ASCEND isn't opened for weeks.
   const selected=input.quests.filter(q=>{
@@ -62,9 +66,15 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
     return !q.archived&&c.status==='active'&&c.reminder&&!!c.timeOfDay&&
       !isQuietTime(c.timeOfDay,input.preferences.quietStart,input.preferences.quietEnd)&&
       !blockedByDependencies(q,input.dependencies,input.completions);
+  }).sort((a,b)=>{
+    const ca=input.controls[a.id]??defaultQuestControl(a);
+    const cb=input.controls[b.id]??defaultQuestControl(b);
+    return ca.priority-cb.priority||
+      (ca.dueOn??'9999-12-31').localeCompare(cb.dueOn??'9999-12-31')||
+      a.id.localeCompare(b.id);
   });
   for(const quest of selected){
-    if(count>=MAX_REMINDERS)break;
+    if(created.length>=MAX_REMINDERS)break;
     const c=input.controls[quest.id]??defaultQuestControl(quest);
     if(!c.timeOfDay)continue;
     const [hour,minute]=c.timeOfDay.split(':').map(Number);
@@ -106,7 +116,7 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
     const dates=occurrencesForDays([quest],input.controls,input.completions,
       input.dependencies,now,HORIZON_DAYS);
     for(const day of dates){
-      if(count>=MAX_REMINDERS)break;
+      if(created.length>=MAX_REMINDERS)break;
       if(!day.quests.length)continue;
       const [y,m,d]=day.date.split('-').map(Number);
       const date=new Date(y,m-1,d,hour,minute);
@@ -114,5 +124,18 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
       await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DATE,date,channelId:CHANNEL});
     }
   }
-  return count;
+  }catch(error){
+    await Promise.allSettled(created.map(id=>Notifications.cancelScheduledNotificationAsync(id)));
+    throw error;
+  }
+  // Once all replacement triggers are saved, retire the prior generation.
+  // Duplicate reminders are safer than losing every notification.
+  const failed:string[]=[];
+  for(const old of previous){
+    try{await Notifications.cancelScheduledNotificationAsync(old.identifier);}
+    catch{failed.push(old.identifier);}
+  }
+  if(failed.length)throw Error('New reminders saved but '+failed.length+
+    ' older reminders could not be removed; check notification permissions');
+  return created.length;
 }
