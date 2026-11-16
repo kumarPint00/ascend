@@ -1,28 +1,25 @@
 name: Android startup smoke test (signed APK)
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/android-startup-smoke.yml']
   workflow_run:
     workflows: ["Build signed updatable Android APK"]
     types: [completed]
-  workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
   launch:
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Download signed APK
+      - name: Download the signed APK from the completed build
         uses: actions/download-artifact@v4
         with:
-          name: ascend-android-v0.9.1-build11
+          pattern: 'ascend-android-v*-build*'
+          merge-multiple: true
           path: apk
-          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || 43780164463 }}
+          run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
       - name: Verify APK download
         run: test -s apk/ascend-android.apk
