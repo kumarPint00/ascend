@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,
   StyleSheet,TextInput,View} from 'react-native';
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
@@ -127,22 +127,50 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     finally{setBusy(false);}
   };
   const controlFor=(q:Quest)=>phase.controls[q.id]??defaultQuestControl(q);
-  const allQuests=base.quests.filter(q=>!q.archived);
-  const allGoals=base.goals.filter(g=>!g.archived);
-  const today=new Date();
-  const recommendations=adaptiveMissionRecommendations(
+  const allQuests=useMemo(()=>base.quests.filter(q=>!q.archived),[base.quests]);
+  const allGoals=useMemo(()=>base.goals.filter(g=>!g.archived),[base.goals]);
+  const dayKey=localDayKey(new Date());
+  const today=useMemo(()=>new Date(dayKey+'T12:00:00'),[dayKey]);
+  const recommendations=useMemo(()=>adaptiveMissionRecommendations(
     allQuests,phase.controls,base.completions,phase.dependencies,today,
-    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit);
-  const due=recommendations.map(r=>r.quest);
-  const active=allQuests.filter(q=>controlFor(q).status==='active');
-  const backlog=allQuests.filter(q=>controlFor(q).status==='backlog');
-  const paused=allQuests.filter(q=>controlFor(q).status==='paused');
-  const calendar=occurrencesForDays(allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays);
-  const shown=allQuests.filter(q=>libraryStatus==='All'||controlFor(q).status===libraryStatus)
-    .filter(q=>(q.title+' '+q.description).toLowerCase().includes(search.toLowerCase()));
-  const skills=derivedSkills(base.xpEvents),achievements=derivedAchievements(
-    base.quests,base.completions,base.xpEvents,phase.bosses);
-  const trend=xpTrend(base.xpEvents,today,7);
+    phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit),
+    [allQuests,phase.controls,base.completions,phase.dependencies,today,
+      phase.preferences.availableMinutes,phase.preferences.dailyMissionLimit]);
+  const due=useMemo(()=>recommendations.map(r=>r.quest),[recommendations]);
+  const active=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='active'),[allQuests,phase.controls]);
+  const backlog=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='backlog'),[allQuests,phase.controls]);
+  const paused=useMemo(()=>allQuests.filter(q=>(phase.controls[q.id]??defaultQuestControl(q)).status==='paused'),[allQuests,phase.controls]);
+  const calendar=useMemo(()=>occurrencesForDays(allQuests,phase.controls,base.completions,
+    phase.dependencies,today,calendarDays),[allQuests,phase.controls,base.completions,phase.dependencies,today,calendarDays]);
+  const shown=useMemo(()=>allQuests.filter(q=>libraryStatus==='All'||(phase.controls[q.id]??defaultQuestControl(q)).status===libraryStatus)
+    .filter(q=>(q.title+' '+q.description).toLowerCase().includes(search.toLowerCase())),
+    [allQuests,libraryStatus,phase.controls,search]);
+  const skills=useMemo(()=>derivedSkills(base.xpEvents),[base.xpEvents]);
+  const achievements=useMemo(()=>derivedAchievements(base.quests,base.completions,base.xpEvents,phase.bosses),
+    [base.quests,base.completions,base.xpEvents,phase.bosses]);
+  const measurementsByGoal=useMemo(()=>{
+    const map=new Map<string,typeof phase.goalMeasurements>();
+    for(const m of phase.goalMeasurements){
+      if(!map.has(m.goalId))map.set(m.goalId,[]);
+      map.get(m.goalId)!.push(m);
+    }
+    return map;
+  },[phase.goalMeasurements]);
+  const questGoalMap=useMemo(()=>new Map(base.quests.map(q=>[q.id,q.goalId])),[base.quests]);
+  const goalCompletionCounts=useMemo(()=>{
+    const map=new Map<string,number>();
+    for(const c of base.completions){
+      const id=questGoalMap.get(c.questId);if(id)map.set(id,(map.get(id)??0)+1);
+    }
+    return map;
+  },[base.completions,questGoalMap]);
+  const milestoneCounts=useMemo(()=>{
+    const map=new Map<string,number>();
+    for(const q of allQuests)if(q.goalId&&q.title.startsWith('◆ '))
+      map.set(q.goalId,(map.get(q.goalId)??0)+1);
+    return map;
+  },[allQuests]);
+  const trend=useMemo(()=>xpTrend(base.xpEvents,today,7),[base.xpEvents,today]);
   const trendMax=Math.max(25,...trend.map(x=>x.xp));
   const totalWeekFocus=focusMinutesForWeek(phase.focusSessions,today);
   const weekAttributes=attributeWeekBreakdown(base.xpEvents,today);
@@ -332,11 +360,11 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       {heading('Epic questlines','Measure real results separately from XP and task counts.')}
       {allGoals.slice(0,30).map(g=>{
         const m=phase.outcomes[g.id];
-        const history=milestoneHistoryStatus(phase.goalMeasurements,g.id);
+        const history=measurementsByGoal.get(g.id)??[];
         const measuredTrend=m?metricForecast(history,m.target,today,m.direction):null;
-        const recorded=m?measuredGoalProgress(history,m.value,m.target,m.direction):Math.min(1,base.completions.filter(c=>
-          base.quests.some(q=>q.id===c.questId&&q.goalId===g.id)).length/g.targetCount);
-        const milestoneCount=allQuests.filter(q=>q.goalId===g.id&&q.title.startsWith('◆ ')).length;
+        const recorded=m?measuredGoalProgress(history,m.value,m.target,m.direction):
+          Math.min(1,(goalCompletionCounts.get(g.id)??0)/g.targetCount);
+        const milestoneCount=milestoneCounts.get(g.id)??0;
         return <Panel key={g.id}>
           <T size={15} bold>{g.title}</T>
           <T size={11} color={C.sub} style={{marginVertical:7}}>
