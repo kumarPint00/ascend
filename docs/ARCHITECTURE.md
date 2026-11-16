@@ -21,10 +21,33 @@
 - Never include Supabase service_role credentials or private tokens in the mobile bundle.
 - RLS for every user-owned table; all privileged score calculations on trusted server.
 
-## Known technical debt
-- Offline data backup is manual JSON text; import flow not yet implemented.
-- No notification scheduler, health metrics or AI yet.
-- Only game engine tests can be executed in the current offline build environment.
-- Need CI typecheck and Android device test after dependencies can be downloaded.
-- `newId()` is a non-cryptographic local identifier; switch to platform UUIDs before cloud sync.
-- An untrusted local device can change SQLite; XP must not be trusted for public leaderboards.
+## Current Phase 3 personal-adaptation design (v0.10.0)
+
+- SQLite v5 adds `adaptive_settings`, `adaptive_decisions` and
+  `completion_modes` without rewriting older XP or quest identities.
+- `packages/game-engine/src/adaptive.ts` evaluates scheduled opportunities,
+  real completion history and recorded focus-session minutes. This is an
+  explainable on-device model, not a generative LLM.
+- `apps/mobile/src/data/adaptive.ts` owns transactional acceptance,
+  dismissal, edit validation, daily/weekly/monthly quota enforcement and
+  user consent. New quests are always inserted in Backlog.
+- A Lite recurring completion uses easy-level XP and exactly the same
+  (quest_id,period_key) uniqueness as a normal completion. One-off milestones
+  and active boss proof cannot use Lite; boss verification excludes all Lite
+  completion modes.
+- Full schema-v4 JSON exports include adaptive feedback, settings and
+  completion mode. Older backup formats continue to restore.
+- `Planner → Adapt` exposes privacy controls, energy self-report, workload
+  limits and editable proposals. Animations honor Android reduced-motion.
+- `docs/PHASE3_ADAPTIVE.md` contains rollout and default guardrails.
+
+## Known remaining limitations
+
+- Physical-device migration, external backup restore and Android notification
+  timing still require real Samsung and small-screen acceptance checks.
+- External JSON backups are plaintext; choose a private folder.
+- On-device generative AI is not included in v0.10.0; runtime model capability
+  and deterministic fallback need separate validation.
+- Native crashes before React mounts still require Android crash logs.
+- Local XP is self-reported, not suitable for public rankings without
+  trusted server-side verification.
