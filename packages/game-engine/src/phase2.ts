@@ -10,6 +10,7 @@ export type OutcomeDirection='increase'|'decrease';
 export interface GoalOutcome {
   goalId:string;target:number;value:number;unit:string;deadline:string|null;
   direction:OutcomeDirection;
+  directionReviewed:boolean;
 }
 /** Goal verification must respect whether the user's objective rises or falls. */
 export function hasReachedOutcome(outcome:Pick<GoalOutcome,'value'|'target'|'direction'>):boolean {
