@@ -343,7 +343,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         <View style={ss.metric}><T color={C.sub} size={10}>BACKLOG</T><T size={20} bold>{backlog.length}</T></View>
         <View style={ss.metric}><T color={C.sub} size={10}>PAUSED</T><T size={20} bold>{paused.length}</T></View>
       </View>
-      <TextInput value={search} onChangeText={x=>{setSearch(x);setShowCount(18);}}
+      <TextInput accessibilityLabel="Search quest library" value={search} onChangeText={x=>{setSearch(x);setShowCount(18);}}
         placeholder="Search title or description" placeholderTextColor={C.dim}
         accessibilityLabel="Search quest library" style={ss.input}/>
       <View style={ss.chips}>{(['All','active','backlog','paused'] as const).map(x=>
@@ -515,15 +515,15 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       <Section title={'Weekly review · '+isoWeekKey(today)}/>
       <Panel>
         <T color={C.sub} size={12}>What worked this week?</T>
-        <TextInput style={[ss.input,ss.notes]} multiline value={review.wins}
+        <TextInput accessibilityLabel="Weekly wins" style={[ss.input,ss.notes]} multiline value={review.wins}
           onChangeText={wins=>setReview(v=>({...v,wins}))} maxLength={1200}
           placeholder="Wins and evidence" placeholderTextColor={C.dim}/>
         <T color={C.sub} size={12}>What got in the way?</T>
-        <TextInput style={[ss.input,ss.notes]} multiline value={review.blockers}
+        <TextInput accessibilityLabel="Weekly blockers" style={[ss.input,ss.notes]} multiline value={review.blockers}
           onChangeText={blockers=>setReview(v=>({...v,blockers}))} maxLength={1200}
           placeholder="Blockers without self-blame" placeholderTextColor={C.dim}/>
         <T color={C.sub} size={12}>What will you prioritize next week?</T>
-        <TextInput style={[ss.input,ss.notes]} multiline value={review.nextFocus}
+        <TextInput accessibilityLabel="Next week's focus" style={[ss.input,ss.notes]} multiline value={review.nextFocus}
           onChangeText={nextFocus=>setReview(v=>({...v,nextFocus}))} maxLength={1200}
           placeholder="A realistic next step" placeholderTextColor={C.dim}/>
         <Action disabled={busy} onPress={()=>void run(()=>saveWeeklyReview(review),'Weekly review saved offline')}>SAVE REVIEW</Action>
@@ -556,10 +556,10 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <Chip active={!prefs.remindersEnabled} onPress={()=>setPrefs(p=>({...p,remindersEnabled:false}))}>Disabled</Chip>
         </View>
         <T color={C.sub} size={12}>Quiet hours start (HH:mm)</T>
-        <TextInput style={ss.input} value={prefs.quietStart}
+        <TextInput accessibilityLabel="Quiet hours start time" style={ss.input} value={prefs.quietStart}
           onChangeText={quietStart=>setPrefs(p=>({...p,quietStart}))} placeholder="22:00" placeholderTextColor={C.dim}/>
         <T color={C.sub} size={12}>Quiet hours end (HH:mm)</T>
-        <TextInput style={ss.input} value={prefs.quietEnd}
+        <TextInput accessibilityLabel="Quiet hours end time" style={ss.input} value={prefs.quietEnd}
           onChangeText={quietEnd=>setPrefs(p=>({...p,quietEnd}))} placeholder="07:00" placeholderTextColor={C.dim}/>
         <Action disabled={busy} onPress={saveSettings}>SAVE & SYNC REMINDERS</Action>
         {notificationsCount!==null&&<T color={C.green} size={11} style={{marginTop:10}}>{notificationsCount} local reminder schedules active (some repeat indefinitely).</T>}
@@ -650,19 +650,19 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
               onPress={()=>setEditControl(v=>v&&({...v,weekdays:v.weekdays.includes(i)?
                 v.weekdays.filter(x=>x!==i):[...v.weekdays,i]}))}>{d}</Chip>)}</View>
             <T size={12} color={C.sub}>Target date (YYYY-MM-DD, optional)</T>
-            <TextInput style={ss.input} value={editControl.dueOn??''} placeholder="YYYY-MM-DD"
+            <TextInput accessibilityLabel="Quest target date" style={ss.input} value={editControl.dueOn??''} placeholder="YYYY-MM-DD"
               placeholderTextColor={C.dim} onChangeText={dueOn=>setEditControl(v=>v&&({...v,dueOn:dueOn||null}))}/>
             <T size={12} color={C.sub}>Snooze until (optional)</T>
-            <TextInput style={ss.input} value={editControl.snoozedUntil??''} placeholder="YYYY-MM-DD"
+            <TextInput accessibilityLabel="Quest snooze until date" style={ss.input} value={editControl.snoozedUntil??''} placeholder="YYYY-MM-DD"
               placeholderTextColor={C.dim} onChangeText={snoozedUntil=>setEditControl(v=>v&&({...v,snoozedUntil:snoozedUntil||null}))}/>
             <View style={ss.chips}><Chip active={false} onPress={()=>setEditControl(v=>v&&({...v,snoozedUntil:nextDate(1)}))}>Tomorrow</Chip>
               <Chip active={false} onPress={()=>setEditControl(v=>v&&({...v,snoozedUntil:nextDate(7)}))}>Next week</Chip>
               <Chip active={false} onPress={()=>setEditControl(v=>v&&({...v,snoozedUntil:null}))}>Clear</Chip></View>
             <T size={12} color={C.sub}>Reminder time (HH:mm, optional)</T>
-            <TextInput style={ss.input} value={editControl.timeOfDay??''} placeholder="09:00"
+            <TextInput accessibilityLabel="Reminder time" style={ss.input} value={editControl.timeOfDay??''} placeholder="09:00"
               placeholderTextColor={C.dim} onChangeText={timeOfDay=>setEditControl(v=>v&&({...v,timeOfDay:timeOfDay||null}))}/>
             <T size={12} color={C.sub}>Estimated minutes</T>
-            <TextInput style={ss.input} keyboardType="number-pad" value={String(editControl.estimateMinutes)}
+            <TextInput accessibilityLabel="Estimated quest minutes" style={ss.input} keyboardType="number-pad" value={String(editControl.estimateMinutes)}
               onChangeText={estimateMinutes=>setEditControl(v=>v&&({...v,estimateMinutes:Number(estimateMinutes)||0}))}/>
             <View style={ss.chips}>
               <Chip active={editControl.reminder} onPress={()=>setEditControl(v=>v&&({...v,reminder:true}))}>Reminder on</Chip>
@@ -695,16 +695,16 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
             <Pressable onPress={()=>setSelectedGoal(null)}><T color={C.sub}>CLOSE ✕</T></Pressable></View>
           <T color={C.sub} size={13} style={{marginVertical:11}}>{selectedGoal?.title}</T>
           <T size={12} color={C.sub}>Current value</T>
-          <TextInput keyboardType="decimal-pad" style={ss.input} value={goalMetric.value}
+          <TextInput accessibilityLabel="Current goal measurement" keyboardType="decimal-pad" style={ss.input} value={goalMetric.value}
             onChangeText={value=>setGoalMetric(m=>({...m,value}))}/>
           <T size={12} color={C.sub}>Target</T>
-          <TextInput keyboardType="decimal-pad" style={ss.input} value={goalMetric.target}
+          <TextInput accessibilityLabel="Goal measurement target" keyboardType="decimal-pad" style={ss.input} value={goalMetric.target}
             onChangeText={target=>setGoalMetric(m=>({...m,target}))}/>
           <T size={12} color={C.sub}>Unit</T>
-          <TextInput style={ss.input} value={goalMetric.unit} maxLength={24}
+          <TextInput accessibilityLabel="Measurement unit" style={ss.input} value={goalMetric.unit} maxLength={24}
             onChangeText={unit=>setGoalMetric(m=>({...m,unit}))}/>
           <T size={12} color={C.sub}>Deadline (optional, YYYY-MM-DD)</T>
-          <TextInput style={ss.input} value={goalMetric.deadline} placeholder="YYYY-MM-DD"
+          <TextInput accessibilityLabel="Goal target deadline" style={ss.input} value={goalMetric.deadline} placeholder="YYYY-MM-DD"
             placeholderTextColor={C.dim} onChangeText={deadline=>setGoalMetric(m=>({...m,deadline}))}/>
           <Action disabled={busy} onPress={saveMetric}>SAVE MEASURABLE OUTCOME</Action>
         </View>
@@ -756,13 +756,13 @@ const ss=StyleSheet.create({
   metric:{flex:1,backgroundColor:C.surface,borderColor:C.border,borderWidth:1,
     borderRadius:16,padding:12,minHeight:81,justifyContent:'space-between'},
   smallButton:{borderRadius:10,borderColor:C.borderActive,borderWidth:1,paddingHorizontal:12,
-    paddingVertical:8,minHeight:38,justifyContent:'center'},
+    paddingVertical:10,minHeight:44,justifyContent:'center'},
   chips:{flexDirection:'row',flexWrap:'wrap',marginVertical:11},
   day:{alignItems:'center',justifyContent:'center',backgroundColor:C.surface,
     borderColor:C.border,borderWidth:1,borderRadius:13,width:62,minHeight:86,marginRight:8,gap:4},
   input:{backgroundColor:C.elevated,borderColor:C.border,borderWidth:1,color:C.ink,
     borderRadius:11,minHeight:46,paddingHorizontal:13,paddingVertical:10,marginVertical:8,fontSize:14},
-  notes:{height:82,textAlignVertical:'top'},
+  notes:{minHeight:88,textAlignVertical:'top'},
   chart:{height:160,flexDirection:'row',alignItems:'flex-end',marginTop:12},
   barCell:{flex:1,height:140,justifyContent:'flex-end',alignItems:'center',gap:5},
   overlay:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
