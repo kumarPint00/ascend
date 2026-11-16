@@ -17,6 +17,16 @@ The stabilization candidate fixes direction-aware goal/boss checks, synthetic me
 
 **Do not uninstall the existing app** for a candidate update. Validation requires a permanently signed APK, Android emulator cold launches, then actual Samsung in-place upgrade and backup/restore checks. The candidate must not be published until acceptance.
 
+## Phase 3 personal adaptation · v0.10.0 candidate
+
+ASCEND now includes optional **offline habit learning**, editable suggestions for lighter or stretch routines, user-approved quest/milestone/goal drafts, and strict new-workload safeguards. Lite recurring quest completions award reduced XP (max 10), while keeping the existing one-completion-per-period rule and evidence restrictions. All decisions remain private on-device and are included in the new v4 backup format.
+
+The model is **explainable local rules, not a generative LLM**. Advanced on-device natural-language AI and broader original character animations remain separately planned. No paid API, user account or mandatory cloud sync is added.
+
+[Phase 3 technical specification](docs/PHASE3_ADAPTIVE.md) · [Device acceptance](docs/DEVICE_ACCEPTANCE_PHASE3.md)
+
+**Release safety:** The latest official public release remains v0.9.1. The v0.10.0 signed candidate requires Samsung in-place migration and backup checks before publication.
+
 ## What's already implemented
 - Dashboard: XP, level, E–S rank, today's quests and primary goals.
 - Quest board: create, edit, archive and complete quests with daily / weekly / one-off recurrence.
