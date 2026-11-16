@@ -69,9 +69,12 @@ export async function decideAdaptiveProposal(
   const title=(edited?.title??proposal.title).trim();
   const minutes=edited?.minutes??proposal.estimateMinutes;
   const goalTargetCount=edited?.goalTargetCount??4;
-  if(!title||title.length>100||!Number.isInteger(minutes)||minutes<5||minutes>480||
+  const needsTitle=proposal.kind!=='ease'&&proposal.kind!=='stretch';
+  const maxTitle=proposal.kind==='milestone'?100-MILESTONE_PREFIX.length:100;
+  if((needsTitle&&(!title||title.length>maxTitle))||
+    !Number.isInteger(minutes)||minutes<5||minutes>480||
     !Number.isInteger(goalTargetCount)||goalTargetCount<1||goalTargetCount>10000)
-    throw Error('Use a title under 100 characters and effort between 5 and 480 minutes');
+    throw Error('Use a shorter title, reasonable minutes and a valid goal target');
   const db=await getDb();
   await db.withExclusiveTransactionAsync(async tx=>{
     const r=await tx.getFirstAsync<{payload:string}>('SELECT payload FROM adaptive_settings WHERE id=1');
