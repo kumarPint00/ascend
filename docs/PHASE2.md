@@ -13,7 +13,7 @@ See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring dev
 | 2.4 Skills and bosses | Six attributes, 18 unlockable skill nodes, six evidence-based achievements, goal-linked boss battles with proof checks | No fictitious XP for claiming boss victories; original visual assets only |
 | 2.5 Analytics and review | 7-day XP chart, activity-day consistency, attribute XP contribution, conservative goal projections, focus-minute ledger, weekly reviews | Forecast absent if insufficient recent evidence; XP is not a validated performance score |
 | 2.6 Motion and UX | Native icon/splash, original boss-gate visuals, skill-level progress, reduced-motion victory reveal, searchable library and focused navigation | 30-point checklist not fully signed off without device tests |
-| 2.7 Data/reliability | Additive SQLite schema v1→v2, database integrity checks, backup v2 with planner/skills/reviews and v1 import support, atomic restore transaction, local file share/picker, GitHub Actions CI, invariant tests | Optional selected-folder automatic local backups with readback verification, 2–30 retention and WorkManager catch-up; no automatic cloud backup; same JKS required |
+| 2.7 Data/reliability | Additive SQLite schema v1→v4, database integrity checks, full backup v3 with planner/skills/reviews/measurements and v1/v2 import support, atomic restore transaction, local file share/picker, GitHub Actions CI, invariant tests | Optional selected-folder automatic local backups with readback verification, 2–30 retention and WorkManager catch-up; no automatic cloud backup; same JKS required |
 
 ## User journey
 
@@ -31,7 +31,7 @@ See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring dev
 - No automatic XP on import, claimed achievements or boss creations.
 - Completion checks are transactional and prevent double-awarding an active quest period.
 - Paused/backlog quests and unmet prerequisites cannot award XP.
-- Old quests, goals, completions, XP events and stable IDs are preserved by the v2 migration.
+- Old quests, goals, completions, XP events and stable IDs are preserved by the additive v1→v4 migrations.
 - New personal import carries one-off milestone target dates into planner metadata without activating the whole backlog.
 - Backups are schema-versioned and validate all references before replacing the database in a single transaction.
 - Reminder data stays on-device and is only scheduled following explicit opt-in.
@@ -48,7 +48,7 @@ See `docs/UX_30_POINT_AUDIT.md` for visual and accessibility items requiring dev
 ## Architecture boundaries
 
 `packages/game-engine/src/phase2.ts` contains deterministic, testable rules. 
-`apps/mobile/src/data/phase2.ts` owns v2 SQLite persistence.
+`apps/mobile/src/data/phase2.ts` owns the latest SQLite persistence alongside `apps/mobile/src/data/repository.ts` (schema v4).
 `apps/mobile/src/data/backup.ts` owns external file backup/restore.
 `apps/mobile/src/phase2/reminders.ts` owns local notification scheduling.
 `apps/mobile/src/phase2/Planner.tsx` owns the interactive Phase 2 interface.
@@ -83,7 +83,7 @@ The following close the functionality gaps highlighted after v0.8.1. Implemented
 
 ### Operational notes
 
-- **Database v3 migration** preserves all prior XP, quests, goals and v2 planner data.
+- **Database v4 migration** preserves all prior XP, quests, goals and v2 planner data.
 - **JSON backup schema v3** stores goal measurements; v1/v2 imports are supported with carefully bounded history (a single existing-baseline record rather than invented older measurements).
 - **External-folder backups** are explicitly opted into. They are not added to GitHub, Firebase, Supabase or Vercel. ASCEND only prunes automatically named `ASCEND-AUTO-...` files and leaves other files alone.
 - **No automatic cloud backup:** if your phone's storage fails and your chosen folder is on that same storage, the backup can be lost too. You can choose a cloud-synced folder if its Android document provider supports persisted write access, but this is a third-party capability and not promised by ASCEND.
