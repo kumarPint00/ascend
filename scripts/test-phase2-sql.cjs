@@ -10,6 +10,8 @@ const v3=code.match(/\/\/ Additive v2→v3 migration:[\s\S]*?await tx\.execAsync
 assert.ok(v3,'Cannot find v3 goal/backup migration');
 const v4=code.match(/\/\/ v3 included synthetic baseline IDs[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
 assert.ok(v4,'Cannot find v4 baseline repair/backup ownership migration');
+const v5=code.match(/\/\/ Additive v4→v5:[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
+assert.ok(v5,'Cannot find v5 adaptive and Lite migration');
 const db=new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
 db.exec(v1[1]);
@@ -69,4 +71,17 @@ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM goal_measurements').get().n,2
 db.prepare('UPDATE backup_settings SET managed_files=? WHERE id=1')
   .run(JSON.stringify(['content://provider/document/ASCEND-AUTO-1.json']));
 assert.equal(JSON.parse(db.prepare('SELECT managed_files FROM backup_settings WHERE id=1').get().managed_files).length,1);
-console.log('Phase 2 migrations v1→v2→v3→v4: preserved XP, corrected synthetic dates and backup ownership');
+db.exec('BEGIN EXCLUSIVE');db.exec(v5[1]);db.exec('COMMIT');
+assert.equal(db.prepare('PRAGMA user_version').get().user_version,5);
+for(const name of ['adaptive_settings','adaptive_decisions','completion_modes'])
+  assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name),name);
+db.prepare('INSERT INTO adaptive_settings(id,payload) VALUES(1,?)').run(JSON.stringify({enabled:true}));
+db.prepare('INSERT INTO completion_modes(completion_id,mode) VALUES(?,?)').run('c1','lite');
+assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
+assert.equal(db.prepare('SELECT mode FROM completion_modes WHERE completion_id=?').get('c1').mode,'lite');
+assert.throws(()=>db.prepare('INSERT INTO completion_modes(completion_id,mode) VALUES(?,?)').run('bad','lite'));
+assert.throws(()=>db.prepare('INSERT INTO completion_modes(completion_id,mode) VALUES(?,?)').run('c1','fraud'));
+db.prepare('INSERT INTO adaptive_decisions(id,kind,source_id,decision,decided_at) VALUES(?,?,?,?,?)')
+  .run('s1','ease','q1','accepted','2026-11-16T10:00:00Z');
+assert.equal(db.prepare("SELECT decision FROM adaptive_decisions WHERE id='s1'").get().decision,'accepted');
+console.log('Phase 2/3 migrations v1→v5: XP preserved, completion modes and adaptive tables verified');
