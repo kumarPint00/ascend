@@ -279,8 +279,18 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         </View>
       </View>
       {dueToday&&!done&&!blocked&&
-        <View style={{marginTop:9}}>
+        <View style={{marginTop:9,gap:8}}>
           <Action secondary disabled={busy} onPress={()=>complete(quest)}>COMPLETE MISSION</Action>
+          {liteQuestIsAllowed(quest)&&c.estimateMinutes>5&&
+            !phase.bosses.some(b=>b.questId===quest.id&&!b.wonAt)&&
+            <Action secondary disabled={busy} onPress={()=>Alert.alert(
+              'Clear a Lite alternative?',
+              'Do a smaller, genuine version of this mission. It earns up to 10 XP, and cannot be counted again in this quest period.',[
+                {text:'Not now',style:'cancel'},
+                {text:'I did the Lite version',onPress:()=>complete(quest,'lite')}
+              ])}>
+              LITE TODAY · ~{liteMinutes(c.estimateMinutes)} MIN · UP TO 10 XP
+            </Action>}
         </View>}
       {done&&base.completions.some(c=>c.questId===quest.id&&
         Date.now()-Date.parse(c.completedAt)>=0&&Date.now()-Date.parse(c.completedAt)<600_000)&&
@@ -343,6 +353,109 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         <T color={C.sub} size={12}>{day.date}</T>
         <T size={13} bold style={{marginTop:3}}>{day.quests.length} planned quests</T>
       </Panel>)}
+    </>}
+
+    {area==='Adapt'&&<>
+      {heading('Adaptive Intelligence',
+        'Offline habit learning. It suggests, you decide; no automatic goals, no paid AI and no guilt for missed logs.')}
+      <LinearGradient colors={['#243C4C','#172538','#0C1528']}
+        style={{borderRadius:22,padding:18,borderWidth:1,borderColor:C.borderActive,marginBottom:15}}>
+        <View style={ss.between}>
+          <View style={{flex:1}}>
+            <T color={C.energy} size={11} bold style={{letterSpacing:1.7}}>PERSONAL LEARNING MODE</T>
+            <T size={18} bold style={{marginTop:6}}>You control your challenges</T>
+          </View>
+          <Sparkles size={30} color={C.energy}/>
+        </View>
+        <T color={C.sub} size={12} style={{marginTop:9}}>
+          Your completion history guides realistic proposals. No generated quest can activate itself or award XP.
+          Low energy and overloaded days never trigger harder quests.
+        </T>
+      </LinearGradient>
+      <Panel>
+        <T size={15} bold>Current energy</T>
+        <T color={C.sub} size={12} style={{marginTop:5}}>
+          Self-reported, not inferred from medical or private data. 1 = rest and recovery, 5 = ready for a challenge.
+        </T>
+        <View style={ss.chips}>{([1,2,3,4,5] as const).map(n=>
+          <Chip key={n} active={adaptive.settings.energy===n}
+            onPress={()=>updateAdaptivePrefs({energy:n})}>{n}</Chip>)}</View>
+        <T color={C.sub} size={12}>Maximum daily mission load</T>
+        <View style={ss.chips}>{[2,3,4,5].map(n=>
+          <Chip key={n} active={adaptive.settings.maxDailyMissions===n}
+            onPress={()=>updateAdaptivePrefs({maxDailyMissions:n})}>{n} missions</Chip>)}</View>
+        <T color={C.sub} size={12}>Maximum available focus time</T>
+        <View style={ss.chips}>{[30,60,90,120].map(n=>
+          <Chip key={n} active={adaptive.settings.dailyBudgetMinutes===n}
+            onPress={()=>updateAdaptivePrefs({dailyBudgetMinutes:n})}>{n} min</Chip>)}</View>
+        <T color={C.sub} size={12}>Maximum new quests per week</T>
+        <View style={ss.chips}>{[0,1,2,3].map(n=>
+          <Chip key={n} active={adaptive.settings.maxNewQuestsPerWeek===n}
+            onPress={()=>updateAdaptivePrefs({maxNewQuestsPerWeek:n})}>{n}</Chip>)}</View>
+        <T color={C.sub} size={12}>Maximum new goals per 30 days</T>
+        <View style={ss.chips}>{[0,1,2].map(n=>
+          <Chip key={n} active={adaptive.settings.maxNewGoalsPerMonth===n}
+            onPress={()=>updateAdaptivePrefs({maxNewGoalsPerMonth:n})}>{n}</Chip>)}</View>
+        <T color={C.sub} size={12}>Suggestions per day</T>
+        <View style={ss.chips}>{[1,2,3].map(n=>
+          <Chip key={n} active={adaptive.settings.suggestionsPerDay===n}
+            onPress={()=>updateAdaptivePrefs({suggestionsPerDay:n})}>{n}</Chip>)}</View>
+        <Action secondary onPress={()=>updateAdaptivePrefs({
+          enabled:!adaptive.settings.enabled,pauseUntil:null
+        })}>{adaptive.settings.enabled?'PAUSE ADAPTIVE SUGGESTIONS':'RESUME ADAPTIVE SUGGESTIONS'}</Action>
+        {adaptive.settings.enabled&&<View style={{height:9}}/>}
+        {adaptive.settings.enabled&&<Action secondary
+          onPress={()=>updateAdaptivePrefs({pauseUntil:nextDate(7)})}>
+          SNOOZE SUGGESTIONS FOR 7 DAYS
+        </Action>}
+        {!!adaptive.settings.pauseUntil&&<Action secondary onPress={()=>updateAdaptivePrefs({pauseUntil:null})}>
+          RESUME EARLY (SNOOZED TO {adaptive.settings.pauseUntil})
+        </Action>}
+      </Panel>
+      <Section title="Suggested next steps"/>
+      {adaptiveProposals.length?adaptiveProposals.map(proposal=>
+        <LinearGradient key={proposal.id} colors={['#253748','#17293D','#0D192A']}
+          style={{borderRadius:18,borderWidth:1,borderColor:C.borderActive,padding:16,marginBottom:13}}>
+          <View style={ss.between}>
+            <T color={C.energy} size={10} bold style={{letterSpacing:1.2}}>
+              {proposal.kind==='ease'?'EASIER ALTERNATIVE':
+                proposal.kind==='stretch'?'OPTIONAL STRETCH':
+                proposal.kind==='goal'?'NEW GOAL DRAFT':
+                proposal.kind==='milestone'?'MILESTONE DRAFT':'QUEST DRAFT'}
+            </T>
+            <Sparkles size={16} color={C.gold}/>
+          </View>
+          <T size={16} bold style={{marginTop:10}}>{proposal.title}</T>
+          <T color={C.sub} size={12} style={{marginTop:7}}>{proposal.description}</T>
+          <T color={C.gold} size={11} style={{marginTop:10}}>WHY: {proposal.reason}</T>
+          <T color={C.dim} size={11} style={{marginTop:8}}>
+            {proposal.evidence.completed}/{proposal.evidence.opportunities} recorded opportunities
+            across {proposal.evidence.periodDays} days · {proposal.estimateMinutes} min estimated
+          </T>
+          <View style={{height:12}}/>
+          <Action disabled={busy} onPress={()=>reviewAdaptive(proposal)}>REVIEW, EDIT & APPROVE</Action>
+          <View style={{height:8}}/>
+          <Action secondary disabled={busy} onPress={()=>void run(
+            ()=>decideAdaptiveProposal(proposal,'dismissed'),
+            'Dismissed. Similar suggestions are suppressed for 21 days.'
+          )}>NOT USEFUL · DISMISS</Action>
+        </LinearGradient>
+      ):<Panel>
+        <T color={C.green} bold>No new suggestions right now.</T>
+        <T color={C.sub} size={12} style={{marginTop:7}}>
+          Suggestions require enough genuine activity records (usually 5+ scheduled opportunities).
+          You can always use a Lite alternative directly from Today.
+          Rest and a quiet calendar are acceptable outcomes.
+        </T>
+      </Panel>}
+      <Panel>
+        <T size={13} bold>Privacy and trust</T>
+        <T color={C.sub} size={12} style={{marginTop:7}}>
+          All patterns are calculated on-device. ASCEND doesn't infer illness, personality or motivation
+          from incomplete logs. New quests, milestones and goals remain drafts until you accept them;
+          accepted new quests start in Backlog. Dismissal is remembered locally.
+        </T>
+      </Panel>
     </>}
 
     {area==='Calendar'&&<>
@@ -743,6 +856,45 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       </KeyboardAvoidingView>
     </Modal>
 
+    <Modal visible={editingAdaptive!==null} animationType="slide" transparent
+      onRequestClose={()=>setEditingAdaptive(null)}>
+      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
+        <View style={ss.sheet}>
+          <View style={ss.between}>
+            <T size={19} bold>Review AI-style suggestion</T>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close suggestion"
+              onPress={()=>setEditingAdaptive(null)}>
+              <T color={C.sub}>CLOSE ✕</T>
+            </Pressable>
+          </View>
+          <T color={C.sub} size={12} style={{marginTop:10}}>
+            Nothing is saved until you approve. This suggestion comes from local rules, not an external model.
+          </T>
+          {editingAdaptive?.kind!=='ease'&&editingAdaptive?.kind!=='stretch'&&
+            <View style={{marginTop:12}}>
+              <T color={C.sub} size={12}>Title</T>
+              <TextInput accessibilityLabel="Suggested quest or goal title"
+                value={adaptiveTitle} onChangeText={setAdaptiveTitle}
+                maxLength={100} style={ss.input}/>
+            </View>}
+          {editingAdaptive?.kind!=='goal'&&<>
+            <T color={C.sub} size={12} style={{marginTop:12}}>Estimated minutes</T>
+            <TextInput accessibilityLabel="Suggested effort in minutes"
+              value={adaptiveMinutes} onChangeText={setAdaptiveMinutes}
+              keyboardType="number-pad" style={ss.input}/>
+          </>}
+          <T color={C.gold} size={11} style={{marginVertical:12}}>
+            {editingAdaptive?.kind==='ease'?'Reduces the planned effort; does not inflate XP.':
+              editingAdaptive?.kind==='stretch'?'A gradual increase that you can decline at any time.':
+              'New content is created only after approval. Quests begin in Backlog.'}
+          </T>
+          <Action disabled={busy} onPress={acceptAdaptive}>APPROVE THIS CHANGE</Action>
+          <View style={{height:10}}/><Action secondary onPress={()=>setEditingAdaptive(null)}>
+            CANCEL
+          </Action>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
     <Modal visible={victoryMessage!==null} transparent animationType="fade"
       onRequestClose={()=>setVictoryMessage(null)}>
       <View style={[ss.overlay,{justifyContent:'center',padding:22}]}>
