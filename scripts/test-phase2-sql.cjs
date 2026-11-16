@@ -62,9 +62,13 @@ db.prepare('INSERT INTO goal_measurements(id,goal_id,value,unit,recorded_at) VAL
   .run('baseline:g1','g1',3,'sessions','2026-01-01T00:00:00Z');
 db.exec('BEGIN EXCLUSIVE');db.exec(v4[1]);db.exec('COMMIT');
 assert.equal(db.prepare('PRAGMA user_version').get().user_version,4);
-assert.equal(db.prepare("SELECT direction FROM goal_outcomes WHERE goal_id='g1'").get().direction,'decrease');
+assert.equal(db.prepare("SELECT direction FROM goal_outcomes WHERE goal_id='g1'").get().direction,'increase');
+assert.equal(db.prepare("SELECT direction_reviewed FROM goal_outcomes WHERE goal_id='g1'").get().direction_reviewed,0);
+db.prepare("UPDATE goal_outcomes SET direction='decrease',direction_reviewed=1 WHERE goal_id='g1'").run();
+assert.equal(db.prepare("SELECT direction_reviewed FROM goal_outcomes WHERE goal_id='g1'").get().direction_reviewed,1);
 assert.equal(db.prepare("SELECT COUNT(*) AS n FROM goal_measurements WHERE id='baseline:g1'").get().n,0);
 assert.equal(db.prepare("SELECT value FROM goal_measurements WHERE id='m1'").get().value,3);
 assert.equal(db.prepare("SELECT amount FROM xp_events WHERE id='e1'").get().amount,10);
 assert.throws(()=>db.prepare("UPDATE goal_outcomes SET direction='sideways' WHERE goal_id='g1'").run());
+assert.throws(()=>db.prepare("UPDATE goal_outcomes SET direction_reviewed=2 WHERE goal_id='g1'").run());
 console.log('Phase 2 migrations v1→v2→v3→v4: XP preserved, fake history removed, direction constrained');
