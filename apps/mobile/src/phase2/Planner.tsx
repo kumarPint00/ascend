@@ -344,8 +344,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
         <View style={ss.metric}><T color={C.sub} size={10}>PAUSED</T><T size={20} bold>{paused.length}</T></View>
       </View>
       <TextInput accessibilityLabel="Search quest library" value={search} onChangeText={x=>{setSearch(x);setShowCount(18);}}
-        placeholder="Search title or description" placeholderTextColor={C.dim}
-        accessibilityLabel="Search quest library" style={ss.input}/>
+        placeholder="Search title or description" placeholderTextColor={C.dim} style={ss.input}/>
       <View style={ss.chips}>{(['All','active','backlog','paused'] as const).map(x=>
         <Chip key={x} active={libraryStatus===x} onPress={()=>{setLibraryStatus(x);setShowCount(18);}}>{x}</Chip>)}</View>
       <T size={12} color={C.sub} style={{marginBottom:12}}>{shown.length} matching quests</T>
