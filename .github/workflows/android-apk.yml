@@ -83,7 +83,10 @@ jobs:
           set -euo pipefail
           apk='apps/mobile/android/app/build/outputs/apk/release/app-release.apk'
           test -s "$apk"
-          "${ANDROID_HOME}/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs "$apk"
+          tools="${ANDROID_HOME}/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$tools/apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/ascend-signature.txt"
+          grep -Fq 'certificate SHA-256 digest: 60b4aef9ee10d6f696063ddd45601216e277be0771fe967db156ad6dd6ec5521' "$RUNNER_TEMP/ascend-signature.txt"
+          "$tools/aapt" dump badging "$apk" | grep -Fq "package: name='${{ steps.version.outputs.package }}' versionCode='${{ steps.version.outputs.code }}' versionName='${{ steps.version.outputs.version }}'"
           cp "$apk" ascend-android.apk
       - name: Upload signed test artifact
         uses: actions/upload-artifact@v4
@@ -111,3 +114,4 @@ jobs:
           gh release create "$tag" 'ascend-android.apk#ascend-android.apk' --target "$GITHUB_SHA" --title "ASCEND v${VERSION}" --notes "$notes" --latest
 # Android SDK 58 + expo-background-task: R8 can strip reflective Room/WorkManager constructors.
 # Enforced safe default until https://github.com/expo/expo/issues/52173 is resolved.
+# v0.9.2 final source candidate: no auto publication; gate on signature, package, emulator and device QA.
