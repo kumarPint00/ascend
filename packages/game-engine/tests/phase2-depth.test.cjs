@@ -57,7 +57,7 @@ test('directional metric forecasts require observed progress in the intended dir
   const {metricForecast,measuredGoalProgress}=require('../dist/index.js');
   const make=(id,value,day)=>({id,goalId:'g',value,unit:'kg',recordedAt:day+'T08:00:00Z'});
   const falling=[make('a',75,'2026-10-01'),make('b',72,'2026-10-15'),make('c',70,'2026-11-01')];
-  assert.equal(metricForecast(falling,65,new Date(2026,10,16),'increase'),null);
+  assert.equal(metricForecast(falling,80,new Date(2026,10,16),'increase'),null);
   assert.ok(metricForecast(falling,65,new Date(2026,10,16),'decrease'));
   assert.equal(measuredGoalProgress(falling,70,65,'decrease'),.5);
   const mixed=[make('a',75,'2026-10-01'),{...make('b',72,'2026-10-15'),unit:'lb'},make('c',70,'2026-11-01')];
