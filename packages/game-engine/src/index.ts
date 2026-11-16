@@ -160,3 +160,6 @@ export {metricForecast,milestoneHistoryStatus,adaptiveMissionRecommendations,aut
 export type {MeasurementPoint,MeasurementForecast,SuggestedMission} from './phase2-depth';
 
 export {measuredGoalProgress,measuredGoalDirection,isMeasuredGoalReached,currentMeasurementSeries} from './phase2-depth';
+
+export {DEFAULT_ADAPTIVE_SETTINGS,validateAdaptiveSettings,liteMinutes,liteQuestIsAllowed,liteCompletionDifficulty,countScheduledOpportunities,buildAdaptiveProposals} from './adaptive';
+export type {AdaptiveSettings,AdaptiveDecisionRecord,AdaptiveEvidence,AdaptiveProposal,AdaptationKind,AdaptationDecision,EnergyLevel} from './adaptive';
