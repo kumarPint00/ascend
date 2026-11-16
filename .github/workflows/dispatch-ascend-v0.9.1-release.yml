@@ -1,0 +1,32 @@
+name: Dispatch verified ASCEND v0.9.1 publication
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'releases/v0.9.1.dispatch'
+permissions:
+  actions: write
+  contents: read
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm the verified signed release has not been published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v0.9.1 --repo kumarPint00/ascend >/dev/null 2>&1; then
+            echo 'v0.9.1 already exists; refusing to republish'
+            exit 1
+          fi
+      - name: Trigger the signed workflow through the same workflow_dispatch path that published v0.3.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run android-apk.yml --repo kumarPint00/ascend \
+            --ref main \
+            --field publish_release=true
+          echo 'Dispatched signed release workflow. Check the new Build signed updatable Android APK run.'
