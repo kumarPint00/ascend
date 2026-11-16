@@ -67,5 +67,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release view v0.9.1 --repo kumarPint00/ascend --json tagName,assets,isLatest
+          gh release view v0.9.1 --repo kumarPint00/ascend --json tagName,assets
           gh release view v0.9.1 --repo kumarPint00/ascend --json assets --jq '.assets[] | select(.name=="ascend-android.apk") | .url' | grep -F '/releases/download/v0.9.1/ascend-android.apk'
