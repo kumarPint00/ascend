@@ -46,6 +46,14 @@
           "color": "#51D6FF",
           "enableRemoteNotifications": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": false
+          }
+        }
       ]
     ],
     "experiments": {
