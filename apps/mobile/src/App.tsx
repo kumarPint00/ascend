@@ -524,12 +524,12 @@ export default function App() {
     <Modal visible={questModal} animationType="slide" transparent onRequestClose={()=>setQuestModal(false)}>
       <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:30}}>
-          <View style={s.between}><T size={20} bold>{editingQuest?'Edit Quest':'New Quest'}</T><Pressable onPress={()=>setQuestModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
+          <View style={s.between}><T size={20} bold>{editingQuest?'Edit Quest':'New Quest'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setQuestModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
           <T color={C.sub} style={{marginTop:18,marginBottom:7}}>Quest title</T>
-          <TextInput maxLength={100} placeholder="e.g. Practice system design" placeholderTextColor={C.dim} value={questForm.title}
+          <TextInput accessibilityLabel="Quest title" maxLength={100} placeholder="e.g. Practice system design" placeholderTextColor={C.dim} value={questForm.title}
             onChangeText={title=>setQuestForm(f=>({...f,title}))} style={s.input}/>
           <T color={C.sub} style={{marginTop:14,marginBottom:7}}>Description (optional)</T>
-          <TextInput maxLength={500} placeholder="What does success look like?" placeholderTextColor={C.dim}
+          <TextInput accessibilityLabel="Quest description and success criteria" maxLength={500} placeholder="What does success look like?" placeholderTextColor={C.dim}
             multiline value={questForm.description} onChangeText={description=>setQuestForm(f=>({...f,description}))}
             style={[s.input,{height:72,textAlignVertical:'top'}]}/>
           <T color={C.sub} style={s.formLabel}>Attribute</T>
@@ -555,15 +555,15 @@ export default function App() {
     <Modal visible={goalModal} animationType="slide" transparent onRequestClose={()=>setGoalModal(false)}>
       <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:30}}>
-          <View style={s.between}><T size={20} bold>{editingGoal?'Edit Goal':'New Questline'}</T><Pressable onPress={()=>setGoalModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
+          <View style={s.between}><T size={20} bold>{editingGoal?'Edit Goal':'New Questline'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setGoalModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
           <T color={C.sub} style={s.formLabel}>Goal title</T>
-          <TextInput value={goalTitle} onChangeText={setGoalTitle} maxLength={100}
+          <TextInput accessibilityLabel="Goal title" value={goalTitle} onChangeText={setGoalTitle} maxLength={100}
             placeholder="e.g. Develop consistent strength training" placeholderTextColor={C.dim} style={s.input}/>
           <T color={C.sub} style={s.formLabel}>Attribute</T>
           <View style={s.chips}>{ATTRIBUTES.map(a=><Chip key={a} active={goalAttribute===a}
             onPress={()=>setGoalAttribute(a)}>{LABELS[a].label}</Chip>)}</View>
           <T color={C.sub} style={s.formLabel}>Target linked quest completions</T>
-          <TextInput keyboardType="number-pad" value={goalTarget} onChangeText={setGoalTarget} style={s.input}/>
+          <TextInput accessibilityLabel="Target quest completions" keyboardType="number-pad" value={goalTarget} onChangeText={setGoalTarget} style={s.input}/>
           <T color={C.dim} size={11} style={{marginTop:8}}>This is a practice target. Record real outcome metrics and history in Planner → Goals.</T>
           <Action disabled={busy} style={{marginTop:20}} onPress={()=>run(async()=>{
             await saveGoal({title:goalTitle,attribute:goalAttribute,targetCount:Number(goalTarget)},editingGoal?.id);
@@ -574,9 +574,9 @@ export default function App() {
     </Modal>
     <Modal visible={questPackText!==null} animationType="slide" transparent onRequestClose={()=>setQuestPackText(null)}>
       <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
-        <View style={s.between}><T size={19} bold>Import private quest pack</T><Pressable onPress={()=>setQuestPackText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
+        <View style={s.between}><T size={19} bold>Import private quest pack</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setQuestPackText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
         <T color={C.sub} size={12} style={{marginVertical:12}}>Review the selected ASCEND quest-pack JSON. You can also paste JSON here. Check dates and statuses before importing.</T>
-        <TextInput multiline value={questPackText??''} onChangeText={setQuestPackText} placeholder="Paste quest-pack JSON here" placeholderTextColor={C.dim} style={[s.input,{height:250,fontSize:11,textAlignVertical:'top'}]} />
+        <TextInput accessibilityLabel="Private quest pack JSON" multiline value={questPackText??''} onChangeText={setQuestPackText} placeholder="Paste quest-pack JSON here" placeholderTextColor={C.dim} style={[s.input,{height:250,fontSize:11,textAlignVertical:'top'}]} />
         <View style={{marginTop:13}}><Action disabled={busy||!questPackText?.trim()} onPress={()=>{
           try{
             const pack=parseQuestPack(questPackText!);
@@ -596,11 +596,11 @@ export default function App() {
     <Modal visible={restoreText!==null} animationType="slide" transparent onRequestClose={()=>setRestoreText(null)}>
       <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
         <View style={s.between}><T size={19} bold>Restore your saved progress</T>
-          <Pressable onPress={()=>setRestoreText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setRestoreText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
         <T color={C.sub} size={12} style={{marginVertical:12}}>
           Paste ASCEND backup JSON. Restoring REPLACES all existing quests and XP on this phone.
         </T>
-        <TextInput multiline value={restoreText??''} onChangeText={setRestoreText}
+        <TextInput accessibilityLabel="Restore backup JSON" multiline value={restoreText??''} onChangeText={setRestoreText}
           placeholder="Paste ASCEND backup JSON here" placeholderTextColor={C.dim}
           style={[s.input,{height:250,fontSize:11,textAlignVertical:'top'}]}/>
         <View style={{marginTop:13}}><Action danger disabled={busy||!restoreText?.trim()}
@@ -616,9 +616,9 @@ export default function App() {
     </Modal>
     <Modal visible={backup!==null} animationType="fade" transparent onRequestClose={()=>setBackup(null)}>
       <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'83%'}]}>
-        <View style={s.between}><T size={19} bold>Copy your backup</T><Pressable onPress={()=>setBackup(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
+        <View style={s.between}><T size={19} bold>Copy your backup</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setBackup(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
         <T color={C.sub} size={12} style={{marginVertical:12}}>Select all text, copy, and save it somewhere safe. This is NOT an automatic backup.</T>
-        <TextInput multiline selectTextOnFocus value={backup??''} style={[s.input,{height:310,fontSize:11,textAlignVertical:'top'}]} />
+        <TextInput accessibilityLabel="Read-only backup JSON" multiline selectTextOnFocus value={backup??''} style={[s.input,{height:310,fontSize:11,textAlignVertical:'top'}]} />
         <View style={{marginTop:13}}><Action secondary onPress={()=>setBackup(null)}>DONE</Action></View>
       </View></View>
     </Modal>
