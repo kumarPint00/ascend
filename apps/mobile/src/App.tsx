@@ -24,7 +24,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useAppUpdates } from './updates/useAppUpdates';
 import {
   type Snapshot, type QuestInput, initialize, loadSnapshot, saveQuest, archiveQuest,
-  saveGoal, archiveGoal, completeQuest, wipeAllData, importQuestPack,
+  saveGoal, archiveGoal, completeQuest, undoQuestCompletion, wipeAllData, importQuestPack,
 } from './data/repository';
 
 type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More';
@@ -69,7 +69,7 @@ export default function App() {
   const [goalLimit,setGoalLimit] = useState(8);
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
-  const [reward,setReward] = useState<{xp:number;levelUp:boolean}|null>(null);
+  const [reward,setReward] = useState<{xp:number;levelUp:boolean;completionId:string|null}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
   useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
 
@@ -172,11 +172,11 @@ export default function App() {
     const reward=await completeQuest(q,new Date());
     if(reward.applied) {
       const levelUp=levelFromXP(player.totalXP+reward.xp)>player.level;
-      setReward({xp:reward.xp,levelUp});
+      setReward({xp:reward.xp,levelUp,completionId:reward.completionId});
       rewardPulse.stopAnimation(); rewardPulse.setValue(0);
       Animated.sequence([
         Animated.timing(rewardPulse,{toValue:1,duration:reduceMotion?0:180,useNativeDriver:true}),
-        Animated.delay(reduceMotion?700:850),
+        Animated.delay(reduceMotion?4000:6000),
         Animated.timing(rewardPulse,{toValue:0,duration:reduceMotion?0:300,useNativeDriver:true}),
       ]).start(()=>setReward(null));
     }
@@ -478,9 +478,16 @@ export default function App() {
     <ScrollView style={{flex:1}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:<More/>}
     </ScrollView>
-    {reward&&<Animated.View pointerEvents="none" style={[s.rewardToast,{opacity:rewardPulse,transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[0.85,1]})}]}]}>
+    {reward&&<Animated.View pointerEvents="box-none" accessibilityLiveRegion="polite"
+      style={[s.rewardToast,{opacity:rewardPulse,transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[reduceMotion?1:0.85,1]})}]}]}>
       <T color={C.energy} bold size={12}>{reward.levelUp?'✦ LEVEL UP ✦':'QUEST CLEARED'}</T>
       <T color={C.gold} bold size={23}>{reward.xp>0?`+${reward.xp} XP`:'XP CAP REACHED'}</T>
+      {!!reward.completionId&&<Pressable accessibilityRole="button" accessibilityLabel="Undo last quest completion"
+        disabled={busy} onPress={()=>{const id=reward.completionId!;rewardPulse.stopAnimation();setReward(null);
+          void run(async()=>{const removed=await undoQuestCompletion(id);Alert.alert('Quest restored',`Removed ${removed} XP; completion undone.`);});}}
+        style={{paddingVertical:8,paddingHorizontal:14,minHeight:44,justifyContent:'center'}}>
+        <T color={C.frost} size={13} bold>UNDO COMPLETION</T>
+      </Pressable>}
     </Animated.View>}
     <View style={s.nav}>
       {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable accessibilityRole="tab"
