@@ -37,3 +37,11 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: bash scripts/android-cold-start-smoke.sh
+      - name: Preserve sanitized emulator screenshots for UX review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascend-emulator-smoke-screenshots
+          path: test-output/*.png
+          retention-days: 14
+          if-no-files-found: ignore
