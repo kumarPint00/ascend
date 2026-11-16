@@ -3,6 +3,7 @@ import {
   type Attribute, type Quest, type Goal, type Completion, type XPEvent,
   type Difficulty, type RepeatRule, ATTRIBUTES, cleanQuestInput, periodKey,
   localDayKey, awardForCompletion, parseQuestPack, importGoalId, importQuestId,
+   liteQuestIsAllowed,DEFAULT_ADAPTIVE_SETTINGS,
   importedQuestTitle, importedQuestDescription,
 } from '@ascend/game-engine';
 
@@ -40,7 +41,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 4) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 5) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -176,6 +177,31 @@ export async function initialize(): Promise<void> {
       `);
     });
   }
+  if ((version?.user_version ?? 0) < 5) {
+    // Additive v4→v5: private adaptive feedback and completion variants.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        CREATE TABLE IF NOT EXISTS adaptive_settings (
+          id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS adaptive_decisions (
+          id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL CHECK(kind IN ('ease','stretch','quest','milestone','goal')),
+          source_id TEXT NOT NULL,
+          decision TEXT NOT NULL CHECK(decision IN ('accepted','dismissed')),
+          decided_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_adaptive_decisions_date ON adaptive_decisions(decided_at);
+        CREATE TABLE IF NOT EXISTS completion_modes (
+          completion_id TEXT PRIMARY KEY REFERENCES completions(id) ON DELETE CASCADE,
+          mode TEXT NOT NULL CHECK(mode IN ('standard','lite'))
+        );
+        PRAGMA user_version = 5;
+      `);
+      await tx.runAsync('INSERT OR IGNORE INTO adaptive_settings(id,payload) VALUES(1,?)',
+        JSON.stringify(DEFAULT_ADAPTIVE_SETTINGS));
+    });
+  }
   const seedFlag = await db.getFirstAsync<{ value: string }>(
     "SELECT value FROM app_state WHERE key = 'starter_seeded'"
   );
@@ -309,7 +335,11 @@ export async function archiveGoal(id: string): Promise<void> {
   await db.runAsync('UPDATE goals SET archived=1 WHERE id=?', id);
 }
 
-export async function completeQuest(quest: Quest, now = new Date()): Promise<{ applied: boolean; xp: number }> {
+export async function completeQuest(quest: Quest, now = new Date(),
+  mode:'standard'|'lite'='standard'): Promise<{ applied: boolean; xp: number }> {
+  if(!['standard','lite'].includes(mode))throw Error('Unknown completion mode');
+  if(mode==='lite'&&!liteQuestIsAllowed(quest))
+    throw Error('Lite completion is only available for recurring quests');
   if (quest.archived) throw new Error('Cannot complete an archived quest');
   const db = await getDb();
   const today = localDayKey(now);
@@ -321,6 +351,13 @@ export async function completeQuest(quest: Quest, now = new Date()): Promise<{ a
       'SELECT archived,repeat_rule,difficulty,attribute FROM quests WHERE id=?', quest.id
     );
     if (!current || current.archived) throw new Error('Quest no longer exists');
+    if(mode==='lite'&&current.repeat_rule==='once')
+      throw Error('One-time milestones require their normal evidence');
+    if(mode==='lite'){
+      const proof=await tx.getFirstAsync<{id:string}>(
+        'SELECT id FROM boss_battles WHERE quest_id=? AND won_at IS NULL LIMIT 1',quest.id);
+      if(proof)throw Error('This quest is an active boss proof and cannot use Lite mode');
+    }
     const control=await tx.getFirstAsync<{
       status:string;weekdays:string;due_on:string|null;snoozed_until:string|null
     }>('SELECT status,weekdays,due_on,snoozed_until FROM quest_state WHERE quest_id=?',quest.id);
@@ -355,7 +392,7 @@ export async function completeQuest(quest: Quest, now = new Date()): Promise<{ a
     const result = await tx.getFirstAsync<{ xp: number }>(
       'SELECT COALESCE(SUM(amount),0) AS xp FROM xp_events WHERE day_key=?', today
     );
-    const xp = awardForCompletion(current.difficulty, result?.xp ?? 0);
+    const xp = awardForCompletion(mode==='lite'?'easy':current.difficulty, result?.xp ?? 0);
     const completionId = newId();
     await tx.runAsync(
       'INSERT INTO completions (id,quest_id,period_key,completed_at) VALUES (?,?,?,?)',
@@ -365,6 +402,7 @@ export async function completeQuest(quest: Quest, now = new Date()): Promise<{ a
       'INSERT INTO xp_events (id,completion_id,day_key,amount,attribute,created_at) VALUES (?,?,?,?,?,?)',
       newId(), completionId, today, xp, current.attribute, timestamp
     );
+    await tx.runAsync('INSERT INTO completion_modes(completion_id,mode) VALUES(?,?)',completionId,mode);
     resultForCaller = { applied: true, xp };
   });
   return resultForCaller;
@@ -419,6 +457,9 @@ export async function exportJSON(): Promise<string> {
 export async function wipeAllData(): Promise<void> {
   const db = await getDb();
   await db.withExclusiveTransactionAsync(async tx => {
+    await tx.runAsync('DELETE FROM adaptive_decisions');
+    await tx.runAsync('DELETE FROM completion_modes');
+    await tx.runAsync('UPDATE adaptive_settings SET payload=? WHERE id=1',JSON.stringify(DEFAULT_ADAPTIVE_SETTINGS));
     await tx.runAsync('DELETE FROM xp_events');
     await tx.runAsync('DELETE FROM completions');
     await tx.runAsync('DELETE FROM quest_dependencies');
