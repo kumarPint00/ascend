@@ -167,6 +167,8 @@ export async function initialize(): Promise<void> {
     // without erasing the recorded value or any legitimate observations.
     await db.withExclusiveTransactionAsync(async tx=>{
       await tx.execAsync(`
+        ALTER TABLE backup_settings
+        ADD COLUMN managed_files TEXT NOT NULL DEFAULT '[]';
         UPDATE goal_measurements
         SET recorded_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
         WHERE substr(id,1,9)='baseline:';
