@@ -24,7 +24,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useAppUpdates } from './updates/useAppUpdates';
 import {
   type Snapshot, type QuestInput, initialize, loadSnapshot, saveQuest, archiveQuest,
-  saveGoal, archiveGoal, completeQuest, wipeAllData, importQuestPack,
+  saveGoal, archiveGoal, completeQuest, undoRecentCompletion, wipeAllData, importQuestPack,
 } from './data/repository';
 
 type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More';
@@ -207,6 +207,19 @@ export default function App() {
           {editable&& <Pressable accessibilityRole="button" onPress={()=>Alert.alert('Archive quest?', 'Your XP history stays intact.',[
             {text:'Cancel',style:'cancel'}, {text:'Archive',style:'destructive',onPress:()=>run(()=>archiveQuest(quest.id))},
           ])}><T color={C.danger} size={12}>Archive</T></Pressable>}
+          {done&&data.completions.some(c=>c.questId===quest.id&&
+            Date.now()-Date.parse(c.completedAt)>=0&&Date.now()-Date.parse(c.completedAt)<600_000)&&
+            <Pressable accessibilityRole="button" accessibilityLabel={'Undo completion of '+quest.title}
+              disabled={busy} style={[s.finish,{backgroundColor:C.elevated}]}
+              onPress={()=>Alert.alert('Undo quest completion?',
+                'This removes the completion and its awarded XP. This cannot be reversed.',[
+                  {text:'Cancel',style:'cancel'},
+                  {text:'Undo',style:'destructive',onPress:()=>void run(async()=>{
+                    await undoRecentCompletion(quest.id);
+                  })},
+                ])}>
+              <T color={C.frost} bold size={12}>UNDO</T>
+            </Pressable>}
           {!done&&due&&!blocked&&<Pressable accessibilityRole="button" disabled={busy} style={s.finish} onPress={()=>finish(quest)}>
             <T color={C.bg} bold size={12}>COMPLETE</T>
           </Pressable>}
