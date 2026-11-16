@@ -43,3 +43,33 @@ test('downward-goal progress uses recorded baseline and ignores mixed units',()=
  assert.equal(measuredGoalProgress(h.slice(0,2),69,64),1/6);
  assert.equal(metricForecast(h,64,new Date(2026,10,16,12)),null);
 });
+
+test('boss goals require correct direction and do not confuse lower with higher',()=>{
+ const {isMeasuredGoalReached,measuredGoalDirection,measuredGoalProgress}=require('../dist/index.js');
+ const down=[
+  {id:'start',goalId:'finance',value:20000,unit:'INR',recordedAt:'2026-10-01T10:00:00Z'},
+  {id:'now',goalId:'finance',value:15000,unit:'INR',recordedAt:'2026-11-01T10:00:00Z'}];
+ assert.equal(measuredGoalDirection(down,10000,15000),'decrease');
+ assert.equal(isMeasuredGoalReached(down,15000,10000),false);
+ assert.equal(isMeasuredGoalReached(down,10000,10000),true);
+ assert.equal(measuredGoalProgress(down,15000,10000),.5);
+ const up=[{id:'first',goalId:'learn',value:0,unit:'hours',recordedAt:'2026-10-01T10:00:00Z'}];
+ assert.equal(isMeasuredGoalReached(up,3,10),false);
+ assert.equal(isMeasuredGoalReached(up,10,10),true);
+ assert.equal(measuredGoalProgress(up,5,10),.5);
+});
+test('unit changes start new measurement segment and synthetic baselines cannot fabricate trends',()=>{
+ const {currentMeasurementSeries,measuredGoalProgress,metricForecast}=require('../dist/index.js');
+ const points=[
+  {id:'a',goalId:'g',value:70,unit:'kg',recordedAt:'2026-09-01T09:00:00Z'},
+  {id:'b',goalId:'g',value:69,unit:'kg',recordedAt:'2026-09-10T09:00:00Z'},
+  {id:'c',goalId:'g',value:154,unit:'lb',recordedAt:'2026-11-01T09:00:00Z'},
+  {id:'d',goalId:'g',value:153,unit:'lb',recordedAt:'2026-11-06T09:00:00Z'}];
+ assert.deepEqual(currentMeasurementSeries(points).map(p=>p.id),['c','d']);
+ assert.equal(measuredGoalProgress(points,153,140),1/14);
+ const legacy=[
+  {id:'baseline:g',goalId:'g',value:180,unit:'lb',recordedAt:'2026-10-01T09:00:00Z'},
+  {id:'new1',goalId:'g',value:170,unit:'lb',recordedAt:'2026-10-20T09:00:00Z'},
+  {id:'new2',goalId:'g',value:160,unit:'lb',recordedAt:'2026-11-01T09:00:00Z'}];
+ assert.equal(metricForecast(legacy,150,new Date(2026,10,16,12)),null);
+});
