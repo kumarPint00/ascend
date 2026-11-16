@@ -38,7 +38,7 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
       - name: Build standalone TEST release APK
         working-directory: apps/mobile/android
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon -Pandroid.enableMinifyInReleaseBuilds=false
       - name: Verify and rename test build
         shell: bash
         run: |
@@ -57,3 +57,7 @@ jobs:
           path: out/ascend-v0.8.0-test.apk
           retention-days: 30
           if-no-files-found: error
+# Android startup crash guard (Expo SDK 58 + expo-background-task):
+# R8 can strip WorkManager/Room constructors, causing native crash before React renders.
+# Use -Pandroid.enableMinifyInReleaseBuilds=false until the upstream issue is fixed.
+# https://github.com/expo/expo/issues/52173
