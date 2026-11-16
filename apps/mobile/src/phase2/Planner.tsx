@@ -4,7 +4,7 @@ import {ActivityIndicator,Alert,Animated,AccessibilityInfo,KeyboardAvoidingView,
 import {Flag,Swords,CalendarDays,Medal,BarChart3,Settings2,Clock3,
   ChevronRight,ShieldCheck,Lock,CheckCircle2,Trophy,Sparkles,Flame} from 'lucide-react-native';
 import {LinearGradient} from 'expo-linear-gradient';
-import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences} from '@ascend/game-engine';
+import type {Quest,Goal,QuestControl,GoalOutcome,SchedulePreferences,OutcomeDirection} from '@ascend/game-engine';
 import {ATTRIBUTES,SKILL_NODES,activeMissionList,occurrencesForDays,defaultQuestControl,
   questDueOn,blockedByDependencies,isCompleted,localDayKey,isoWeekKey,
   derivedSkills,derivedAchievements,canUnlockSkill,outcomeProgress,xpTrend,focusMinutesForWeek,
@@ -37,7 +37,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
   const [selectedQuest,setSelectedQuest]=useState<Quest|null>(null);
   const [editControl,setEditControl]=useState<QuestControl|null>(null);
   const [selectedGoal,setSelectedGoal]=useState<Goal|null>(null);
-  const [goalMetric,setGoalMetric]=useState({value:'0',target:'10',unit:'sessions',deadline:''});
+  const [goalMetric,setGoalMetric]=useState<{value:string;target:string;unit:string;deadline:string;direction:OutcomeDirection}>({value:'0',target:'10',unit:'sessions',deadline:'',direction:'increase'});
   const [libraryStatus,setLibraryStatus]=useState<'All'|'active'|'backlog'|'paused'>('All');
   const [search,setSearch]=useState(''),[showCount,setShowCount]=useState(18);
   const [chosenDay,setChosenDay]=useState(localDayKey(new Date()));
@@ -171,12 +171,12 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     setSelectedGoal(g);
     const m=phase.outcomes[g.id];
     setGoalMetric({value:String(m?.value??0),target:String(m?.target??g.targetCount),
-      unit:m?.unit??'units',deadline:m?.deadline??''});
+      unit:m?.unit??'units',deadline:m?.deadline??'',direction:m?.direction??'increase'});
   };
   const saveMetric=()=>{if(!selectedGoal)return;
     void run(async()=>{
       await saveGoalOutcome(selectedGoal.id,{value:Number(goalMetric.value),target:Number(goalMetric.target),
-        unit:goalMetric.unit,deadline:goalMetric.deadline.trim()||null});
+        unit:goalMetric.unit,deadline:goalMetric.deadline.trim()||null,direction:goalMetric.direction});
       setSelectedGoal(null);
     },'Outcome saved. XP remains separate from this metric.');
   };
@@ -333,8 +333,8 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       {allGoals.slice(0,30).map(g=>{
         const m=phase.outcomes[g.id];
         const history=milestoneHistoryStatus(phase.goalMeasurements,g.id);
-        const measuredTrend=m?metricForecast(history,m.target,today):null;
-        const recorded=m?measuredGoalProgress(history,m.value,m.target):Math.min(1,base.completions.filter(c=>
+        const measuredTrend=m?metricForecast(history,m.target,today,m.direction):null;
+        const recorded=m?measuredGoalProgress(history,m.value,m.target,m.direction):Math.min(1,base.completions.filter(c=>
           base.quests.some(q=>q.id===c.questId&&q.goalId===g.id)).length/g.targetCount);
         const milestoneCount=allQuests.filter(q=>q.goalId===g.id&&q.title.startsWith('◆ ')).length;
         return <Panel key={g.id}>
@@ -674,6 +674,14 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <T size={12} color={C.sub}>Target</T>
           <TextInput keyboardType="decimal-pad" style={ss.input} value={goalMetric.target}
             onChangeText={target=>setGoalMetric(m=>({...m,target}))}/>
+          <T size={12} color={C.sub}>Goal direction</T>
+          <View style={ss.chips}>
+            <Chip active={goalMetric.direction==='increase'} onPress={()=>setGoalMetric(m=>({...m,direction:'increase'}))}>Increase to target</Chip>
+            <Chip active={goalMetric.direction==='decrease'} onPress={()=>setGoalMetric(m=>({...m,direction:'decrease'}))}>Decrease to target</Chip>
+          </View>
+          <T color={C.sub} size={11} style={{marginBottom:8}}>
+            Choose decrease for spending, weight or debt reduction. This affects verified boss victories.
+          </T>
           <T size={12} color={C.sub}>Unit</T>
           <TextInput style={ss.input} value={goalMetric.unit} maxLength={24}
             onChangeText={unit=>setGoalMetric(m=>({...m,unit}))}/>
