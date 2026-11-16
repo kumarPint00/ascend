@@ -116,3 +116,5 @@ jobs:
 # Android SDK 58 + expo-background-task: R8 can strip reflective Room/WorkManager constructors.
 # Enforced safe default until https://github.com/expo/expo/issues/52173 is resolved.
 # v0.9.2 final source candidate: no auto publication; gate on signature, package, emulator and device QA.
+# v0.10.0 signed adaptive candidate: SQLite v5, Lite XP, offline habit learning,
+# AI-style suggestions only with explicit approval; no public release before device QA.
