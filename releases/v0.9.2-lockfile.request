@@ -1,0 +1,4 @@
+Generate the npm workspace lockfile for ASCEND v0.9.2.
+Only package-lock.json may be committed by the automation.
+No credentials or user quest data should be included.
+The lockfile must pass npm ci on Node 22.
