@@ -1,5 +1,8 @@
 name: Android startup smoke test (signed APK)
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/android-startup-smoke.yml']
   workflow_run:
     workflows: ["Build signed updatable Android APK"]
     types: [completed]
@@ -9,17 +12,17 @@ permissions:
   actions: read
 jobs:
   launch:
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Download signed APK from the completed build
+      - name: Download signed APK
         uses: actions/download-artifact@v4
         with:
           name: ascend-android-v0.9.1-build11
           path: apk
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || 43780164463 }}
           github-token: ${{ github.token }}
       - name: Verify APK download
         run: test -s apk/ascend-android.apk
@@ -28,7 +31,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Cold-start smoke test on Android emulator
+      - name: Three cold-launch checks on Android 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -36,24 +39,4 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: |
-            set -euo pipefail
-            adb install -r apk/ascend-android.apk
-            for run in 1 2 3; do
-              echo "Cold launch $run / 3"
-              adb logcat -c
-              adb shell am force-stop com.ascendrpg.personal || true
-              adb shell am start -W -n com.ascendrpg.personal/.MainActivity
-              sleep 12
-              if ! adb shell pidof com.ascendrpg.personal; then
-                echo 'ASCEND process exited after cold start'
-                adb logcat -d -b crash | tail -n 180 || true
-                exit 1
-              fi
-              if adb logcat -d -b crash | grep -E 'WorkDatabase_Impl|WorkManagerInitializer|com\\.ascendrpg\\.personal'; then
-                echo 'Detected startup crash in Android crash buffer'
-                adb logcat -d -b crash | tail -n 180
-                exit 1
-              fi
-            done
-            echo 'PASS: 3 cold starts with live app process and no crash buffer entries'
+          script: bash scripts/android-cold-start-smoke.sh
