@@ -15,7 +15,7 @@ import {C} from '../theme';
 import {T,Panel,Action,Chip,Section} from '../components/Elements';
 import {listConnectedSources,setContextSourceEnabled,importContextItems,
   listContextItems,deleteContextItem,disconnectContextSource,
-  recordContextDecision,exportProtectedContext,restoreProtectedContext,
+  recordContextDecision,setContextRetention,exportProtectedContext,restoreProtectedContext,
   purgeExpiredContext,type ContextItem,type SourceState} from '../data/context';
 import {connectGoogle,syncCalendar,syncGmail,syncDrive,
   connectGitHubToken,syncGitHub,syncHealth,healthStatus,requestHealthPermissions,revokeGoogle} from './providers';
@@ -252,6 +252,12 @@ export function ConnectHub({onBack,initialShare,onShareConsumed}:{
           <T color={C.dim} size={10} style={{marginTop:8}}>
             {state.count} local items · Last sync: {state.lastSyncedAt?new Date(state.lastSyncedAt).toLocaleDateString():'never'}
           </T>
+          <View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'center',marginTop:7}}>
+            <T color={C.dim} size={10}>Retention: </T>
+            {([7,14,30,90,180] as const).map(days=><Chip key={days}
+              active={state.retentionDays===days} onPress={()=>void run(
+                ()=>setContextRetention(source,days))}>{days}d</Chip>)}
+          </View>
           <View style={st.actions}>
             {(['calendar','gmail','drive','github'] as ContextSource[]).includes(source)&&
               <Action secondary onPress={()=>{setConnection(source);setClientInput('');}}>
