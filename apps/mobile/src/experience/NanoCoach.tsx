@@ -126,7 +126,12 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[]}:{
   const approve=async()=>{
     if(!draft||busy)return;
     setBusy(true);
-    try{await onAccept(draft);setDraft(null);setIntent('');onClose();}
+    try{
+      if(!draft.title.trim()||draft.title.length>95||
+        (draft.kind==='goal'&&(!Number.isInteger(draft.targetCount)||draft.targetCount<1||draft.targetCount>40)))
+        throw Error('Review the title and goal target before saving');
+      await onAccept(draft);setDraft(null);setIntent('');onClose();
+    }
     catch(e){Alert.alert('Could not save the draft',e instanceof Error?e.message:String(e));}
     finally{setBusy(false);}
   };
@@ -206,8 +211,21 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[]}:{
               {draft.origin==='gemini-nano'?'GEMINI NANO DRAFT':'OFFLINE STARTER DRAFT'}
             </T>
           </View>
-          <T size={21} bold style={{marginTop:12}}>{draft.title}</T>
-          <T size={13} color={C.sub} style={{marginTop:8}}>{draft.description}</T>
+          <T size={10} color={C.sub} bold style={{marginTop:14}}>EDIT TITLE BEFORE APPROVAL</T>
+          <TextInput accessibilityLabel="Edit AI quest title" value={draft.title}
+            onChangeText={title=>setDraft(x=>x?{...x,title}:null)}
+            maxLength={95} style={ss.draftInput}/>
+          <T size={10} color={C.sub} bold style={{marginTop:12}}>EDIT SUCCESS CRITERIA</T>
+          <TextInput accessibilityLabel="Edit AI quest description" value={draft.description}
+            onChangeText={description=>setDraft(x=>x?{...x,description}:null)}
+            multiline maxLength={400} style={[ss.draftInput,{minHeight:75,textAlignVertical:'top'}]}/>
+          {draft.kind==='goal'&&<>
+            <T size={10} color={C.sub} bold style={{marginTop:12}}>QUEST COMPLETION TARGET</T>
+            <TextInput accessibilityLabel="AI goal target count"
+              value={String(draft.targetCount)} keyboardType="number-pad"
+              onChangeText={x=>setDraft(d=>d?{...d,targetCount:Number(x)}:null)}
+              style={ss.draftInput}/>
+          </>}
           <View style={ss.tags}>
             <Chip active={true} onPress={()=>{}}>{draft.attribute}</Chip>
             <Chip active={true} onPress={()=>{}}>{draft.difficulty}</Chip>
@@ -245,5 +263,7 @@ const ss=StyleSheet.create({
   square:{width:24,height:24,borderRadius:7,borderColor:'#6D87AC',
     borderWidth:1,alignItems:'center',justifyContent:'center'},
   draft:{marginTop:20,padding:17,borderRadius:20,borderWidth:1,borderColor:'#886BB7'},
+  draftInput:{color:C.ink,backgroundColor:'#13233C',borderWidth:1,borderColor:'#5B6F9D',
+    borderRadius:13,padding:12,minHeight:47,marginTop:7,fontSize:14},
   tags:{flexDirection:'row',flexWrap:'wrap',marginTop:12,marginBottom:4},
 });
