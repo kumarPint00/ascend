@@ -163,3 +163,6 @@ export {measuredGoalProgress,measuredGoalDirection,isMeasuredGoalReached,current
 
 export {DEFAULT_ADAPTIVE_SETTINGS,validateAdaptiveSettings,liteMinutes,liteQuestIsAllowed,liteCompletionDifficulty,countScheduledOpportunities,buildAdaptiveProposals} from './adaptive';
 export type {AdaptiveSettings,AdaptiveDecisionRecord,AdaptiveEvidence,AdaptiveProposal,AdaptationKind,AdaptationDecision,EnergyLevel} from './adaptive';
+
+export {CONTEXT_SOURCES,MAX_CONTEXT_CHARS,contextKey,validateContextCandidate,fromSharedText,parseChatGPTConversations,extractChatGPTSelection,inferContextDraft,deduplicateCandidates} from './context';
+export type {ContextSource,ContextKind,ContextSensitivity,ContextCandidate,ChatGPTConversation,ContextDraft} from './context';
