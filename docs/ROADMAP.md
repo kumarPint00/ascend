@@ -44,6 +44,23 @@
 
 See [Phase 3 design](PHASE3_ADAPTIVE.md) and [device acceptance checklist](DEVICE_ACCEPTANCE_PHASE3.md).
 
+## ASCEND // NOCTURNE cinematic AI experience (v0.11.0 release candidate)
+
+- [x] Original real-time GPU/WebGL 3D ascension emblem and orbital star scene on Home and Hunter
+- [x] New cosmic visual system, animated star/nebula backdrop, premium navigation/cards, cinematic level/rank rewards
+- [x] New immersive Quest Architect screen with user opt-in, safety prompt, editable draft review
+- [x] Native Android Gemini Nano/AICore ML Kit direct-model bridge behind runtime capability checks
+- [x] Explicit model-download consent, on-device generation and private history sharing controls
+- [x] Fail-safe deterministic offline draft when AICore model is not available
+- [x] AI-approved creations use existing SQLite safety transaction, quotas and inactive Backlog status
+- [ ] Native APK signing and emulator cold starts (tracked by CI)
+- [ ] Gemini Nano model readiness and inference verified on Samsung S25 Ultra
+- [ ] Actual visual quality, GPU perf, battery and large-font accessibility verified on physical device
+- [ ] Optional rigged 3D humanoid character and story-scene asset pipeline; current renderer is an abstract 3D emblem
+- [ ] Public release after backup/upgrade/AI model acceptance on actual device
+
+[Nocturne technical spec and acceptance gates](PHASE3_CINEMATIC_NANO.md)
+
 ## Future public beta (not in personal Phase 3)
 
 - [ ] Opt-in multi-user authentication and RLS, reliable multi-device sync and recovery
