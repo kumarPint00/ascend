@@ -67,7 +67,7 @@ export async function readSourceConfig<T extends Record<string,unknown>>(source:
   return JSON.parse(await decryptContext(row.config_cipher)) as T;
 }
 export async function importContextItems(source:ContextSource,items:readonly ContextCandidate[],
-  bypassConsent=false):Promise<{added:number;skipped:number}>{
+  bypassConsent=false,refreshExisting=false):Promise<{added:number;skipped:number;refreshed:number}>{
   if(!bypassConsent)await requirePermission(source);
   if(items.length>150)throw Error('Import no more than 150 records per batch');
   const filtered=deduplicateCandidates(items);
@@ -78,7 +78,7 @@ export async function importContextItems(source:ContextSource,items:readonly Con
     origin:v.originUrl?await encryptContext(v.originUrl):null,
   })));
   const db=await getDb(),now=new Date().toISOString();
-  let added=0;
+  let added=0,refreshed=0;
   await db.withExclusiveTransactionAsync(async tx=>{
     // Recheck permission INSIDE the transaction to prevent races with revocation.
     if(!bypassConsent){
@@ -90,18 +90,36 @@ export async function importContextItems(source:ContextSource,items:readonly Con
         (source,enabled,retention_days) VALUES(?,0,90)`,source);
     }
     for(const {v,title,excerpt,origin} of encrypted){
-      const result=await tx.runAsync(`INSERT OR IGNORE INTO context_items
-        (id,source,external_id,kind,title_cipher,excerpt_cipher,occurred_at,
-          origin_cipher,sensitivity,imported_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-        id(),v.source,v.externalId,v.kind,title,excerpt,v.occurredAt,origin,
-        v.sensitivity,now);
-      added+=result.changes;
+      const existing=await tx.getFirstAsync<{id:string}>(
+        'SELECT id FROM context_items WHERE source=? AND external_id=?',v.source,v.externalId);
+      if(existing){
+        // Refresh provider records in-place; do not duplicate reminders or
+        // erase the user's accepted/dismissed suggestion decisions.
+        // Restored archives deliberately never overwrite records on this phone.
+        if(refreshExisting&&!bypassConsent){
+          await tx.runAsync(`UPDATE context_items
+            SET kind=?,title_cipher=?,excerpt_cipher=?,occurred_at=?,
+              origin_cipher=?,sensitivity=?,imported_at=?
+            WHERE id=?`,v.kind,title,excerpt,v.occurredAt,origin,v.sensitivity,now,existing.id);
+          refreshed++;
+        }
+      }else{
+        const result=await tx.runAsync(`INSERT OR IGNORE INTO context_items
+          (id,source,external_id,kind,title_cipher,excerpt_cipher,occurred_at,
+            origin_cipher,sensitivity,imported_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+          id(),v.source,v.externalId,v.kind,title,excerpt,v.occurredAt,origin,
+          v.sensitivity,now);
+        added+=result.changes;
+      }
     }
     await tx.runAsync('UPDATE connected_sources SET last_synced_at=? WHERE source=?',now,source);
     await tx.runAsync('INSERT INTO context_audit(id,source,event,count,occurred_at) VALUES(?,?,?,?,?)',
       id(),source,'import',added,now);
+    if(refreshed)await tx.runAsync(
+      'INSERT INTO context_audit(id,source,event,count,occurred_at) VALUES(?,?,?,?,?)',
+      id(),source,'refresh',refreshed,now);
   });
-  return {added,skipped:filtered.length-added};
+  return {added,skipped:filtered.length-added-refreshed,refreshed};
 }
 export async function listContextItems(source?:ContextSource,limit=65):Promise<ContextItem[]>{
   const db=await getDb();
