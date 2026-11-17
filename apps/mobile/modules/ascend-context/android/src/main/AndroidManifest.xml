@@ -5,6 +5,7 @@
   <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
   <queries><package android:name="com.google.android.apps.healthdata" /></queries>
   <application>
+    <activity android:name="expo.modules.ascendcontext.HealthPermissionsActivity" android:exported="false" />
     <activity android:name="expo.modules.ascendcontext.HealthRationaleActivity"
       android:exported="true">
       <intent-filter>
