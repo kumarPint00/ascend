@@ -19,7 +19,7 @@ import {CelestialBackdrop} from './experience/CelestialBackdrop';
 import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
 import {decideAdaptiveProposal} from './data/adaptive';
 import {ConnectHub} from './connect/ConnectHub';
-import {pollIncomingShare} from '../modules/ascend-context';
+import {pollIncomingShare,listenToIncomingShares} from '../modules/ascend-context';
 import {CinematicReward} from './experience/CinematicReward';
 import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
@@ -128,10 +128,13 @@ export default function App() {
       }catch{}
     };
     void checkShare();
+    const shareListener=listenToIncomingShares(text=>{
+      if(mounted){setIncomingShare(text);setTab('Connect');}
+    });
     const sub=AppState.addEventListener('change',state=>{
       if(state==='active')void checkShare();
     });
-    return ()=>{mounted=false;sub.remove();};
+    return ()=>{mounted=false;sub.remove();shareListener.remove();};
   },[]);
   const selectQuestPackFile=async()=>{
     try{
