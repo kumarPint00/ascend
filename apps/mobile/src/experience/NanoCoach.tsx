@@ -68,9 +68,9 @@ function makePrompt(intent:string,hints:readonly string[]):string{
     'Optional approved recent quest titles: '+JSON.stringify(context),
   ].join('\n');
 }
-export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[]}:{
+export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initialIntent}:{
   visible:boolean;onClose:()=>void;onAccept:(draft:NanoDraft)=>Promise<void>;
-  recentQuestTitles?:string[];
+  recentQuestTitles?:string[];initialIntent?:string|null;
 }){
   const [status,setStatus]=useState<Status>('checking');
   const [consent,setConsent]=useState(false);
@@ -80,6 +80,9 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[]}:{
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const nonce=useRef(0);
+  useEffect(()=>{
+    if(visible&&initialIntent?.trim())setIntent(initialIntent.slice(0,420));
+  },[visible,initialIntent]);
   useEffect(()=>{
     if(!visible)return;
     let alive=true;
