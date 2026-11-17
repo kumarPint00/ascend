@@ -379,7 +379,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
     </Panel>
     <Modal visible={connection!==null} transparent animationType="slide" onRequestClose={()=>setConnection(null)}>
       <View style={st.overlay}><View style={st.sheet}>
-        <View style={st.between}><T bold size={19}>
+        <View style={st.between}><T bold size={19} style={{flexShrink:1}}>
           Connect {connection?names[connection]:''}</T>
           <Pressable accessibilityRole="button" onPress={()=>setConnection(null)}>
             <T color={C.sub}>CLOSE ✕</T>
@@ -398,7 +398,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
     <Modal visible={shareText!==null} transparent animationType="slide" onRequestClose={()=>setShareText(null)}>
       <View style={st.overlay}><View style={st.sheet}>
         <View style={st.between}>
-          <T bold size={18}>Capture selected message</T>
+          <T bold size={18} style={{flexShrink:1}}>Capture selected message</T>
           <Pressable accessibilityRole="button" onPress={()=>setShareText(null)}>
             <T color={C.sub}>CLOSE ✕</T>
           </Pressable>
@@ -415,7 +415,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
       onRequestClose={()=>setShowChatImport(false)}>
       <View style={st.overlay}><View style={[st.sheet,{maxHeight:'85%'}]}>
         <View style={st.between}>
-          <T bold size={18}>Select ChatGPT conversations</T>
+          <T bold size={18} style={{flexShrink:1}}>Select ChatGPT conversations</T>
           <Pressable accessibilityRole="button" onPress={()=>setShowChatImport(false)}>
             <T color={C.sub}>CLOSE ✕</T>
           </Pressable>
@@ -448,7 +448,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
       onRequestClose={()=>setExportMode(null)}>
       <View style={st.overlay}><View style={st.sheet}>
         <View style={st.between}>
-          <T size={18} bold>{exportMode==='export'?'Protected context export':'Restore protected context'}</T>
+          <T size={18} bold style={{flexShrink:1}}>{exportMode==='export'?'Protected context export':'Restore protected context'}</T>
           <Pressable accessibilityRole="button" onPress={()=>setExportMode(null)}>
             <T color={C.sub}>CLOSE ✕</T>
           </Pressable>
