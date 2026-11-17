@@ -54,7 +54,10 @@ class AscendContextModule : Module() {
     if(intent==null)return null
     if(intent.action!=Intent.ACTION_SEND && intent.action!=Intent.ACTION_SEND_MULTIPLE)return null
     // No arbitrary content URI reads or Android notification scraping.
-    val text=intent.getStringExtra(Intent.EXTRA_TEXT) ?: return null
+    val single=intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+    val multi=if(intent.action==Intent.ACTION_SEND_MULTIPLE)
+      intent.getStringArrayListExtra(Intent.EXTRA_TEXT)?.take(5)?.joinToString("\\n") else null
+    val text=single?:multi?:return null
     return text.take(3500).takeIf { it.isNotBlank() }
   }
   @Synchronized
