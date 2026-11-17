@@ -2,8 +2,8 @@ package expo.modules.ascendnano
 
 import android.os.Build
 import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.prompt.Generation
-import com.google.mlkit.genai.prompt.DownloadStatus
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.functions.Coroutine
