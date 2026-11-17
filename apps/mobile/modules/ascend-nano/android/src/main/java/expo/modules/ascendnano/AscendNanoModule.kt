@@ -18,38 +18,52 @@ class AscendNanoModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("AscendNano")
 
-    AsyncFunction("status") Coroutine {
-      if (Build.VERSION.SDK_INT < 26) return@Coroutine "unsupported"
-      try {
-        val model = Generation.getClient()
-        when (model.checkStatus()) {
-          FeatureStatus.AVAILABLE -> "available"
-          FeatureStatus.DOWNLOADABLE -> "downloadable"
-          FeatureStatus.DOWNLOADING -> "downloading"
-          else -> "unavailable"
+    // Explicit zero-argument suspend function types avoid an overload ambiguity
+    // in Expo Modules Kotlin Coroutine DSL for no-parameter async functions.
+    val statusHandler: suspend () -> String = {
+      if (Build.VERSION.SDK_INT < 26) {
+        "unsupported"
+      } else {
+        try {
+          val model = Generation.getClient()
+          when (model.checkStatus()) {
+            FeatureStatus.AVAILABLE -> "available"
+            FeatureStatus.DOWNLOADABLE -> "downloadable"
+            FeatureStatus.DOWNLOADING -> "downloading"
+            else -> "unavailable"
+          }
+        } catch (_: Exception) {
+          "unavailable"
         }
-      } catch (_: Exception) {
-        "unavailable"
       }
     }
+    AsyncFunction("status") Coroutine statusHandler
 
-    AsyncFunction("download") Coroutine {
-      if (Build.VERSION.SDK_INT < 26) return@Coroutine false
-      val model = Generation.getClient()
-      if (model.checkStatus() == FeatureStatus.AVAILABLE) return@Coroutine true
-      if (model.checkStatus() != FeatureStatus.DOWNLOADABLE &&
-          model.checkStatus() != FeatureStatus.DOWNLOADING)
-        return@Coroutine false
-      var ready = false
-      withTimeout(120000L) {
-        model.download().collect { state ->
-          if (state == DownloadStatus.DownloadCompleted) ready = true
-          if (state is DownloadStatus.DownloadFailed)
-            throw IllegalStateException("Model download not available")
+    val downloadHandler: suspend () -> Boolean = {
+      if (Build.VERSION.SDK_INT < 26) {
+        false
+      } else {
+        val model = Generation.getClient()
+        val initialStatus = model.checkStatus()
+        if (initialStatus == FeatureStatus.AVAILABLE) {
+          true
+        } else if (initialStatus != FeatureStatus.DOWNLOADABLE &&
+                   initialStatus != FeatureStatus.DOWNLOADING) {
+          false
+        } else {
+          var ready = false
+          withTimeout(120000L) {
+            model.download().collect { state ->
+              if (state == DownloadStatus.DownloadCompleted) ready = true
+              if (state is DownloadStatus.DownloadFailed)
+                throw IllegalStateException("Model download not available")
+            }
+          }
+          ready || model.checkStatus() == FeatureStatus.AVAILABLE
         }
       }
-      ready || model.checkStatus() == FeatureStatus.AVAILABLE
     }
+    AsyncFunction("download") Coroutine downloadHandler
 
     AsyncFunction("generate") Coroutine { prompt: String ->
       require(prompt.length in 1..2800) { "Prompt must be under 2800 characters" }
