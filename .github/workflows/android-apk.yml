@@ -128,3 +128,5 @@ jobs:
 # Retest v0.11.0 build 14: fix Expo Kotlin Coroutine overload in on-device Nano module.
 
 # ASCEND Nocturne v0.11.1 build 15: require visible animated SVG fallback on blank Android emulator GL.
+
+# v0.11.2 build 16: cinematic 3D responsive composition, signed device candidate.
