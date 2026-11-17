@@ -64,6 +64,8 @@ jobs:
       - name: Generate Android native project
         run: npx expo prebuild --platform android --clean --no-install
         working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ vars.ASCEND_GOOGLE_ANDROID_CLIENT_ID }}
       - name: Assert native startup-safe R8 setting
         run: |
           grep -q '^android.enableMinifyInReleaseBuilds=false$' apps/mobile/android/gradle.properties
