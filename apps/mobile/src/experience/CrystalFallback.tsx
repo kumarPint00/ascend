@@ -1,6 +1,6 @@
 import React,{useEffect,useRef} from 'react';
 import {Animated,StyleSheet,View} from 'react-native';
-import Svg,{Circle,Defs,Ellipse,G,LinearGradient as SvgGradient,Path,Polygon,RadialGradient,Stop} from 'react-native-svg';
+import Svg,{Circle,Defs,Ellipse,LinearGradient as SvgGradient,Path,Polygon,RadialGradient,Stop} from 'react-native-svg';
 
 /**
  * GPU-independent animated isometric crystal and orbital glyph.
