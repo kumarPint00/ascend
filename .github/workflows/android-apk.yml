@@ -135,3 +135,5 @@ jobs:
 # v0.11.2 build 16: cinematic 3D responsive composition, signed device candidate.
 # ASCEND Connect v0.12.0 build 17: private encrypted context, Health Connect, Android Share Sheet and scoped external connectors.
 # Test-only signed artifact; never publish without consent, phone acceptance, and OAuth project configuration.
+
+# v0.12.0 build17 native Health Connect fix: register permission contract before activity start; verify signed APK and emulator.
