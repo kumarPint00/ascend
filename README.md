@@ -37,6 +37,28 @@ The 3D scene is an **original abstract emblem**, not a full animated humanoid av
 
 See [Nocturne implementation details and acceptance criteria](docs/PHASE3_CINEMATIC_NANO.md).
 
+## ASCEND Connect v0.12.0 — Personal Context Hub
+
+ASCEND now includes a new optional **More → ASCEND Connect** area for approved
+sources: selected ChatGPT conversations, WhatsApp/Android Share Sheet text,
+Health Connect/Samsung Health summaries, local file selection, Google Calendar,
+Gmail, Google Drive metadata and GitHub assigned issues. Data ingestion is
+manually authorized and does not automatically create XP, recurring quests,
+medical goals or external actions.
+
+Sensitive context fields and provider credentials use Android Keystore-backed
+AES-GCM encryption. Private source records are excluded from the regular
+plaintext progress backup; use **protected Context Export** with a passphrase
+before changing devices. User-approved suggestions become Backlog quests using
+the existing adaptive safeguards.
+
+Some connectors require a Google OAuth client configured outside the app and
+scoped provider consent. Samsung Health sync, actual Gemini Nano generation,
+Google authorization and physical device migration remain acceptance tests,
+**not claims of completed real-account integration**.
+
+[Connection setup and privacy documentation](docs/ASCEND_CONNECT.md)
+
 ## What's already implemented
 - Dashboard: XP, level, E–S rank, today's quests and primary goals.
 - Quest board: create, edit, archive and complete quests with daily / weekly / one-off recurrence.
