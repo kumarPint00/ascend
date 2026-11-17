@@ -212,6 +212,6 @@ export async function restoreProtectedContext(blob:string,passphrase:string):Pro
   // A restored archive does not convey permission to sync a provider.
   // Pause *all* sources, including sources previously enabled on this phone.
   const db=await getDb();
-  await db.runAsync('UPDATE connected_sources SET enabled=0,granted_at=NULL');
+  await db.runAsync('UPDATE connected_sources SET enabled=0,granted_at=NULL,config_cipher=NULL');
   return added;
 }
