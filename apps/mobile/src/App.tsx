@@ -269,7 +269,7 @@ export default function App() {
 
   const Home=()=> <>
     <View style={s.worldHero}>
-      <WorldScene active={tab==='Home'} reduceMotion={reduceMotion} height={333} rank={player.rank}/>
+      <WorldScene active={tab==='Home'} reduceMotion={reduceMotion} height={400} rank={player.rank}/>
       <View pointerEvents="none" style={s.worldCaption}>
         <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
           <View style={s.liveDot}/>
