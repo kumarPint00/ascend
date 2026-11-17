@@ -139,3 +139,5 @@ jobs:
 # v0.12.0 build17 native Health Connect fix: register permission contract before activity start; verify signed APK and emulator.
 
 # Final ASCEND Connect v0.12.0 build 17 source snapshot: v6 vault, source consent, Health Connect, share-intent smoke and OAuth guardrails.
+
+# Final v0.12.0 build17 QA pass: wraps privacy dialog titles and verifies full selected-text share intent.
