@@ -569,10 +569,7 @@ export async function restoreJSON(source: string): Promise<void> {
   }
   const db=await getDb();
   await db.withExclusiveTransactionAsync(async tx=>{
-    await tx.runAsync('DELETE FROM context_decisions');
-    await tx.runAsync('DELETE FROM context_items');
-    await tx.runAsync('DELETE FROM connected_sources');
-    await tx.runAsync('DELETE FROM context_audit');
+    // Legacy quest restores do not touch the separate encrypted context vault.
     await tx.runAsync('DELETE FROM adaptive_decisions');
     await tx.runAsync('DELETE FROM completion_modes');
     await tx.runAsync('UPDATE adaptive_settings SET payload=? WHERE id=1',JSON.stringify(DEFAULT_ADAPTIVE_SETTINGS));
