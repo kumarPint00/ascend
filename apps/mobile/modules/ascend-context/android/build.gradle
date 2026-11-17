@@ -1,0 +1,10 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'expo.modules.ascendcontext'
+version = '1.0.0'
+android { namespace 'expo.modules.ascendcontext' }
+dependencies {
+  implementation 'androidx.health.connect:connect-client:1.1.0'
+}
