@@ -78,6 +78,7 @@ export default function App() {
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
   const [nanoVisible,setNanoVisible] = useState(false);
+  const [nanoContextIntent,setNanoContextIntent]=useState<string|null>(null);
   const [incomingShare,setIncomingShare]=useState<string|null>(null);
   const [reward,setReward] = useState<{xp:number;levelUp:boolean;rankUp:boolean;newLevel:number;newRank:string}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
@@ -604,7 +605,8 @@ export default function App() {
     <Animated.ScrollView style={{flex:1,opacity:pagePulse,
       transform:[{translateY:pagePulse.interpolate({inputRange:[0,1],outputRange:[14,0]})}]}}
       contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:tab==='Connect'?<ConnectHub onBack={()=>setTab('More')} initialShare={incomingShare} onShareConsumed={()=>setIncomingShare(null)}/>:<More/>}
+      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:tab==='Connect'?<ConnectHub onBack={()=>setTab('More')} initialShare={incomingShare} onShareConsumed={()=>setIncomingShare(null)}
+         onAnalyzeWithAI={excerpt=>{setNanoContextIntent(excerpt);setNanoVisible(true);}}/>:<More/>}
     </Animated.ScrollView>
     {reward&&<CinematicReward reward={reward} pulse={rewardPulse}
       reduceMotion={reduceMotion}/>}
@@ -618,7 +620,8 @@ export default function App() {
         <T size={9} bold={active} color={active?C.frost:C.sub}>{t.tab.toUpperCase()}</T>
       </Pressable>;})}
     </View>
-    <NanoCoach visible={nanoVisible} onClose={()=>setNanoVisible(false)}
+    <NanoCoach visible={nanoVisible} initialIntent={nanoContextIntent}
+      onClose={()=>{setNanoVisible(false);setNanoContextIntent(null);}}
       recentQuestTitles={data.quests.filter(q=>!q.archived).slice(0,5).map(q=>q.title)}
       onAccept={async(draft:NanoDraft)=>{
         // Generated content always enters the same bounded, transactional
