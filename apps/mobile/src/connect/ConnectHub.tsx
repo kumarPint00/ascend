@@ -6,8 +6,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import {BookOpen,CalendarDays,CheckCircle2,ChevronLeft,DatabaseBackup,FilePlus2,
-  Github,HeartPulse,Inbox,KeyRound,Mail,RefreshCw,ShieldCheck,Trash2,
-  UserRound,LockKeyhole} from 'lucide-react-native';
+  GitBranch,HeartPulse,Inbox,KeyRound,Mail,RefreshCw,ShieldCheck,Trash2,
+  LockKeyhole} from 'lucide-react-native';
 import {type ContextCandidate,type ContextSource,
   type ChatGPTConversation,parseChatGPTConversations,extractChatGPTSelection,
   fromSharedText,validateContextCandidate} from '@ascend/game-engine';
@@ -37,7 +37,7 @@ const descriptions:Record<ContextSource,string>={
 };
 const icons:Record<ContextSource,typeof Inbox>={
   share:Inbox,chatgpt:BookOpen,health:HeartPulse,calendar:CalendarDays,
-  gmail:Mail,github:Github,drive:FilePlus2,file:FilePlus2
+  gmail:Mail,github:GitBranch,drive:FilePlus2,file:FilePlus2
 };
 const sources:ContextSource[]=['share','chatgpt','health','calendar','gmail','github','drive','file'];
 const nonce=()=>Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);
