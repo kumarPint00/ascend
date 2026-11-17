@@ -2,7 +2,7 @@ name: Generate reproducible npm lockfile
 on:
   push:
     branches: [main]
-    paths: ['releases/v0.11.0-lockfile.request']
+    paths: ['releases/connect-lockfile.request']
 permissions:
   contents: write
 jobs:
