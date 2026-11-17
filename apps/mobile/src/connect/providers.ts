@@ -80,7 +80,7 @@ const iso=(s:unknown):string|null=>{
   if(typeof s!=='string')return null;
   const date=new Date(s);return Number.isFinite(date.getTime())?date.toISOString():null;
 };
-export async function syncCalendar():Promise<{added:number;skipped:number}>{
+export async function syncCalendar():Promise<{added:number;skipped:number;refreshed?:number}>{
   const from=new Date(Date.now()-7*86400_000).toISOString(),to=new Date(Date.now()+45*86400_000).toISOString();
   const url='https://www.googleapis.com/calendar/v3/calendars/primary/events?'+
     new URLSearchParams({singleEvents:'true',orderBy:'startTime',maxResults:'80',
@@ -95,9 +95,9 @@ export async function syncCalendar():Promise<{added:number;skipped:number}>{
     occurredAt:iso(e.start?.dateTime??e.start?.date),sensitivity:'private' as const,
     originUrl:e.htmlLink?.startsWith('https://')?e.htmlLink:null
   }));
-  return importContextItems('calendar',items);
+  return importContextItems('calendar',items,false,true);
 }
-export async function syncGmail():Promise<{added:number;skipped:number}>{
+export async function syncGmail():Promise<{added:number;skipped:number;refreshed?:number}>{
   const params=new URLSearchParams({maxResults:'18',q:'newer_than:14d -category:promotions'});
   const list=await googleGet<{messages?:{id:string}[]}>(
     'gmail','https://gmail.googleapis.com/gmail/v1/users/me/messages?'+params.toString());
@@ -117,9 +117,9 @@ export async function syncGmail():Promise<{added:number;skipped:number}>{
       sensitivity:'private' as const,originUrl:null
     });
   });
-  return importContextItems('gmail',items);
+  return importContextItems('gmail',items,false,true);
 }
-export async function syncDrive():Promise<{added:number;skipped:number}>{
+export async function syncDrive():Promise<{added:number;skipped:number;refreshed?:number}>{
   // Google Drive v3 uses camelCase pageSize/pageToken, not page_size.
   // Bound discovery to 150 records and never download document bodies.
   const found:{id:string;name?:string;description?:string;modifiedTime?:string;webViewLink?:string}[]=[];
@@ -145,7 +145,7 @@ export async function syncDrive():Promise<{added:number;skipped:number}>{
     occurredAt:iso(f.modifiedTime),sensitivity:'private' as const,
     originUrl:f.webViewLink?.startsWith('https://')?f.webViewLink:null
   }));
-  return importContextItems('drive',items);
+  return importContextItems('drive',items,false,true);
 }
 export async function connectGitHubToken(token:string):Promise<void>{
   if(!/^github_pat_[\w]{20,}$|^gh[pousr]_[\w]{20,}$/.test(token.trim()))
@@ -158,7 +158,7 @@ export async function connectGitHubToken(token:string):Promise<void>{
   if(!r.ok)throw Error('GitHub token validation failed (HTTP '+r.status+')');
   await updateSourceConfig('github',{token:token.trim()});
 }
-export async function syncGitHub():Promise<{added:number;skipped:number}>{
+export async function syncGitHub():Promise<{added:number;skipped:number;refreshed?:number}>{
   const config=await readSourceConfig<{token:string}>('github');
   if(!config?.token)throw Error('Connect GitHub with a read-only token first');
   const res=await fetch('https://api.github.com/issues?filter=assigned&state=open&per_page=40',{
@@ -174,10 +174,10 @@ export async function syncGitHub():Promise<{added:number;skipped:number}>{
     occurredAt:iso(issue.updated_at),sensitivity:'private' as const,
     originUrl:issue.html_url?.startsWith('https://github.com/')?issue.html_url:null
   }));
-  return importContextItems('github',items);
+  return importContextItems('github',items,false,true);
 }
 export {healthStatus,requestHealthPermissions};
-export async function syncHealth(days=7):Promise<{added:number;skipped:number}>{
+export async function syncHealth(days=7):Promise<{added:number;skipped:number;refreshed?:number}>{
   const status=await healthStatus();
   if(!status.available)throw Error('Health Connect is unavailable on this Android device');
   if(!status.granted.length)throw Error('Grant Health Connect read permissions first');
@@ -194,7 +194,7 @@ export async function syncHealth(days=7):Promise<{added:number;skipped:number}>{
     source:'health',kind:'health_summary',externalId:date+':'+days,
     title:'Personal health summary · '+days+' days',excerpt:details,
     occurredAt:now(),sensitivity:'health',originUrl:null
-  })]);
+  })],false,true);
 }
 export async function revokeGoogle(source:GoogleSource):Promise<void>{
   const config=await readSourceConfig<GoogleConfig>(source);
