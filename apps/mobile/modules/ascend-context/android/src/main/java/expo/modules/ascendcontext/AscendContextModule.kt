@@ -39,6 +39,7 @@ import javax.crypto.spec.SecretKeySpec
 class AscendContextModule : Module() {
   private val alias="ASCEND_CONTEXT_AES_V1"
   private var pendingText:String?=null
+  private var initialIntentConsumed=false
   private var permissionLauncher:ActivityResultLauncher<Set<String>>?=null
 
   private val requestedPermissions by lazy {
@@ -56,6 +57,7 @@ class AscendContextModule : Module() {
     val text=intent.getStringExtra(Intent.EXTRA_TEXT) ?: return null
     return text.take(3500).takeIf { it.isNotBlank() }
   }
+  @Synchronized
   private fun localKey():SecretKey {
     val store=KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
     val existing=store.getKey(alias,null)
@@ -94,8 +96,11 @@ class AscendContextModule : Module() {
       sharedText(intent)?.let { pendingText=it;sendEvent("onShare",mapOf("text" to it)) }
     }
     val poll:suspend ()->String = {
-      val found=pendingText?:sharedText(appContext.currentActivity?.intent)?:""
+      val pending=pendingText
+      val found=if(pending!=null)pending else if(!initialIntentConsumed)
+        sharedText(appContext.currentActivity?.intent)?:"" else ""
       pendingText=null
+      initialIntentConsumed=true
       found
     }
     AsyncFunction("pollShare") Coroutine poll
@@ -147,7 +152,9 @@ class AscendContextModule : Module() {
         throw IllegalStateException("Health Connect unavailable")
       val launcher=permissionLauncher
         ?:throw IllegalStateException("Health permission contract unavailable")
-      launcher.launch(requestedPermissions)
+      val activity=appContext.currentActivity
+        ?:throw IllegalStateException("Android activity not available")
+      activity.runOnUiThread { launcher.launch(requestedPermissions) }
     }
     val healthRead:suspend (Int)->Map<String,Any?> = { requestedDays:Int ->
       require(requestedDays in 1..30) { "Health history must be within 30 days" }
