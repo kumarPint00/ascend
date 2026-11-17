@@ -40,6 +40,11 @@ export async function setContextSourceEnabled(source:ContextSource,enabled:boole
       id(),source,enabled?'grant':'pause',0,now);
   });
 }
+export async function setContextRetention(source:ContextSource,days:7|14|30|90|180):Promise<void>{
+  if(!has(source)||![7,14,30,90,180].includes(days))throw Error('Invalid retention policy');
+  const db=await getDb();
+  await db.runAsync('UPDATE connected_sources SET retention_days=? WHERE source=?',days,source);
+}
 async function requirePermission(source:ContextSource):Promise<void>{
   const db=await getDb();
   const row=await db.getFirstAsync<{enabled:number}>('SELECT enabled FROM connected_sources WHERE source=?',source);
