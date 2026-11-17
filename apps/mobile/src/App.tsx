@@ -542,7 +542,7 @@ export default function App() {
     <ActivityIndicator color={C.energy} size="small" style={{marginTop:26}}/>
   </View>;
   return <View style={s.root}>
-    <StatusBar barStyle="light-content" backgroundColor="#050912"/>
+    <StatusBar barStyle="light-content"/>
     <CelestialBackdrop reduceMotion={reduceMotion}/>
     <View style={s.top}>
       <View style={{flexDirection:'row',alignItems:'center',gap:11}}>
