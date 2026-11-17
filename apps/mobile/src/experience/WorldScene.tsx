@@ -191,7 +191,7 @@ export function WorldScene({active=true,reduceMotion=false,height=300,rank='E'}:
       style={StyleSheet.absoluteFill}/>
     {/* Deliberately retain a visible animated ceremonial core even if GPU
         shaders report success but produce a black frame on an emulator. */}
-    <CrystalFallback active={active} reduceMotion={reduceMotion} opacity={failed?.98:.87}/>
+    <CrystalFallback active={active} reduceMotion={reduceMotion} opacity={failed?.98:.87} home={height>=370}/>
     <View pointerEvents="none" style={styles.corner}>
       <View style={styles.dot}/><View><View style={{height:1,width:28,backgroundColor:'#6AAFF7'}}/></View>
     </View>
