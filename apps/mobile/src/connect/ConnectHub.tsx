@@ -61,6 +61,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
   const [chatPreview,setChatPreview]=useState<ChatGPTConversation[]>([]);
   const [selectedChat,setSelectedChat]=useState<string[]>([]);
   const [showChatImport,setShowChatImport]=useState(false);
+  const [healthDays,setHealthDays]=useState<7|14|30>(7);
   const [healthAccess,setHealthAccess]=useState<{available:boolean;granted:string[]}>({
     available:false,granted:[]
   });
@@ -96,7 +97,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
     else if(source==='gmail')result=await syncGmail();
     else if(source==='drive')result=await syncDrive();
     else if(source==='github')result=await syncGitHub();
-    else if(source==='health')result=await syncHealth();
+    else if(source==='health')result=await syncHealth(healthDays);
     else throw Error('Use import or Share Sheet to capture this source');
     Alert.alert('Sync completed',result.added+' new · '+result.skipped+' already imported');
   });
@@ -266,6 +267,10 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
               </Action>}
             {(['calendar','gmail','drive','github','health'] as ContextSource[]).includes(source)&&
               <Action secondary disabled={busy} onPress={()=>sync(source)}>SYNC READ-ONLY</Action>}
+            {source==='health'&&<View style={{flexDirection:'row',flexWrap:'wrap'}}>
+              {([7,14,30] as const).map(days=><Chip key={days}
+                active={healthDays===days} onPress={()=>setHealthDays(days)}>{days} days</Chip>)}
+            </View>}
             {source==='health'&&<Action secondary disabled={busy}
               onPress={()=>void run(async()=>{await requestHealthPermissions();
                 Alert.alert('Health permissions','Approve the selected data types in Android Health Connect and return to ASCEND.');
