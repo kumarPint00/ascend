@@ -2,14 +2,14 @@
   "expo": {
     "name": "ASCEND",
     "slug": "ascend-real-life-rpg",
-    "version": "0.11.2",
+    "version": "0.12.0",
     "orientation": "portrait",
     "scheme": "ascendrpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#050913",
     "android": {
       "package": "com.ascendrpg.personal",
-      "versionCode": 16,
+      "versionCode": 17,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
@@ -20,6 +20,30 @@
         "android.permission.INTERNET",
         "android.permission.REQUEST_INSTALL_PACKAGES",
         "android.permission.POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "android.intent.action.SEND",
+          "category": [
+            "android.intent.category.DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "text/plain"
+            }
+          ]
+        },
+        {
+          "action": "android.intent.action.SEND_MULTIPLE",
+          "category": [
+            "android.intent.category.DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "text/plain"
+            }
+          ]
+        }
       ]
     },
     "ios": {
@@ -55,7 +79,8 @@
             "minSdkVersion": 26
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "tsconfigPaths": true
