@@ -24,10 +24,10 @@ export function CelestialBackdrop({reduceMotion=false}:{reduceMotion?:boolean}){
       r:rand()*1.1+.35,opacity:rand()*.5+.14,id:i,
     }));
   },[width,height]);
-  return <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
     <LinearGradient colors={['#090D25','#060A18','#050A15']}
-      style={StyleSheet.absoluteFillObject}/>
-    <Animated.View style={[StyleSheet.absoluteFillObject,{
+      style={StyleSheet.absoluteFill}/>
+    <Animated.View style={[StyleSheet.absoluteFill,{
       opacity:drift.interpolate({inputRange:[0,1],outputRange:[.45,.9]}),
       transform:[{translateY:drift.interpolate({inputRange:[0,1],outputRange:[0,-20]})}],
     }]}>
