@@ -64,13 +64,17 @@ GitHub repository. No source content is transmitted to hosted AI by ASCEND.
    types to Android Health Connect, grant ASCEND read-only permissions in its
    permission dialog, and then run **SYNC READ-ONLY**. Some device sensors or
    watch data types may not be synchronized.
-7. For Google: create/configure a Google OAuth installed-app client ID for
-   Android package `com.ascendrpg.personal` with the official signing
-   certificate and configure the OAuth consent screen in Google Cloud.
-   Enter the public client ID under the relevant source. Never put a client
-   secret into ASCEND. Android redirect scheme is `ascendrpg://oauth`;
-   check current Google redirect requirements and device compatibility.
-   Google OAuth/provider approval is a **device acceptance gate** until tested.
+7. For Google: create a Google OAuth **Android installed-app** client for
+   package `com.ascendrpg.personal` with ASCEND's permanent signing SHA-1
+   and configure the consent screen/scopes in Google Cloud. Set the public
+   client ID (NOT a secret) in GitHub repository Actions Variable
+   `ASCEND_GOOGLE_ANDROID_CLIENT_ID` and rebuild. Only that registered ID
+   is accepted in the connection UI; a build without the variable explicitly
+   blocks sign-in. Android redirect is
+   `com.googleusercontent.apps.<client-id-guid>:/oauth2redirect`, registered
+   in the native manifest at build time. Google may require enabling custom
+   URI-scheme support and OAuth verification for restricted scopes.
+   Actual provider authorization remains a **physical device acceptance gate**.
 8. For GitHub: create a minimal-scope fine-grained token with only necessary
    issue read permissions. Enter it inside the encrypted connector dialog.
 9. Open the inbox to review items and possible commitments. Accepting a
