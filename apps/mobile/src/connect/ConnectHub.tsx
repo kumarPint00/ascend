@@ -42,8 +42,9 @@ const icons:Record<ContextSource,typeof Inbox>={
 const sources:ContextSource[]=['share','chatgpt','health','calendar','gmail','github','drive','file'];
 const nonce=()=>Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);
 const warn=(title:string,error:unknown)=>Alert.alert(title,error instanceof Error?error.message:String(error));
-export function ConnectHub({onBack,initialShare,onShareConsumed}:{
+export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}:{
   onBack:()=>void;initialShare?:string|null;onShareConsumed?:()=>void;
+  onAnalyzeWithAI?:(text:string)=>void;
 }){
   const [statuses,setStatuses]=useState<SourceState[]>([]);
   const [items,setItems]=useState<ContextItem[]>([]);
@@ -307,6 +308,16 @@ export function ConnectHub({onBack,initialShare,onShareConsumed}:{
       </View>
       <T bold size={14} style={{marginTop:6}}>{item.title}</T>
       <T size={11} color={C.sub} style={{marginTop:6}}>{item.excerpt.slice(0,550)}</T>
+      {onAnalyzeWithAI&&item.sensitivity!=='health'&&
+        <View style={{marginTop:10}}>
+          <Action secondary onPress={()=>onAnalyzeWithAI(
+            (item.title+' · '+item.excerpt).slice(0,420))}>
+            REVIEW WITH ON-DEVICE AI
+          </Action>
+          <T color={C.dim} size={10} style={{marginTop:4}}>
+            Sends only this selected excerpt to Gemini Nano after its own consent screen.
+          </T>
+        </View>}
       {!!item.draft&&!item.decision&&<View style={{marginTop:12,gap:7}}>
         <T color={C.gold} size={11}>{item.draft.reason}</T>
         <Action onPress={()=>Alert.alert('Create draft quest?',item.draft?.description??'',[
