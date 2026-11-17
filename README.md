@@ -27,6 +27,16 @@ The model is **explainable local rules, not a generative LLM**. Advanced on-devi
 
 **Release safety:** The latest official public release remains v0.9.1. The v0.10.0 signed candidate requires Samsung in-place migration and backup checks before publication.
 
+## ASCEND // NOCTURNE v0.11.0 (signed candidate)
+
+The personal RPG is being redesigned around a real-time **procedural WebGL 3D ascension realm** and a **native on-device Gemini Nano Quest Architect**. The new experience includes animated nebula and stars, luminous panels and navigation, cinematic rank/level rewards, and an opt-in AI draft workflow with explicit approval and offline fallback.
+
+Gemini Nano is available only when Android AICore reports readiness, and generation is performed on-device in the foreground. Users may opt to include a small number of quest titles; no private data is sent to an ASCEND server. AI suggestions go through the same creation limits and Backlog-first policy as existing adaptive rules.
+
+The 3D scene is an **original abstract emblem**, not a full animated humanoid avatar. Native AI generation, 3D performance and device migration have not yet been tested on the owner's Samsung S25 Ultra.
+
+See [Nocturne implementation details and acceptance criteria](docs/PHASE3_CINEMATIC_NANO.md).
+
 ## What's already implemented
 - Dashboard: XP, level, E–S rank, today's quests and primary goals.
 - Quest board: create, edit, archive and complete quests with daily / weekly / one-off recurrence.
