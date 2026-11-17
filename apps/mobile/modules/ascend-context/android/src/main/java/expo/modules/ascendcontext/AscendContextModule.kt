@@ -176,11 +176,12 @@ class AscendContextModule : Module() {
       val exercises=if(granted.contains(exercisePermission))
         client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class,timeRangeFilter=window,pageSize=200))
           .records.size else null
-      val heart=if(granted.contains(heartPermission))
-        client.readRecords(ReadRecordsRequest(HeartRateRecord::class,timeRangeFilter=window,pageSize=200))
-          .records.flatMap { it.samples }.map { it.beatsPerMinute }.let {
-            if(it.isNotEmpty())it.average() else null
-          } else null
+      // Aggregate across the full permitted interval rather than averaging
+      // only the first page of high-frequency heart-rate samples.
+      val heart=if(granted.contains(heartPermission)) {
+        val aggregate=client.aggregate(AggregateRequest(setOf(HeartRateRecord.BPM_AVG),window))
+        aggregate[HeartRateRecord.BPM_AVG]?.toDouble()
+      } else null
       mapOf("days" to requestedDays,"steps" to steps,"sleepMinutes" to sleep,
         "exerciseSessions" to exercises,"meanHeartRate" to heart,
         "from" to start.toString(),"to" to end.toString())
