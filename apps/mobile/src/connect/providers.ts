@@ -27,7 +27,11 @@ function checkClientId(clientId:string):string{
 }
 export async function connectGoogle(source:GoogleSource,clientId:string):Promise<void>{
   const id=checkClientId(clientId);
-  const redirectUri=AuthSession.makeRedirectUri({scheme:'ascendrpg',path:'oauth'});
+  const registered=(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID||'').trim();
+  if(!registered||id!==registered)
+    throw Error('Google OAuth is not configured for this signed APK. Register the Android client ID in GitHub Actions Variables as ASCEND_GOOGLE_ANDROID_CLIENT_ID and rebuild.');
+  const scheme='com.googleusercontent.apps.'+id.replace(/\.apps\.googleusercontent\.com$/,'');
+  const redirectUri=AuthSession.makeRedirectUri({native:scheme+':/oauth2redirect'});
   const request=new AuthSession.AuthRequest({
     clientId:id,redirectUri,responseType:AuthSession.ResponseType.Code,
     scopes:scopes[source],usePKCE:true,
