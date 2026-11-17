@@ -2,19 +2,19 @@
   "expo": {
     "name": "ASCEND",
     "slug": "ascend-real-life-rpg",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "orientation": "portrait",
     "scheme": "ascendrpg",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#090F1D",
+    "backgroundColor": "#050913",
     "android": {
       "package": "com.ascendrpg.personal",
-      "versionCode": 13,
+      "versionCode": 14,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
         "monochromeImage": "./assets/adaptive-monochrome.png",
-        "backgroundColor": "#090F1D"
+        "backgroundColor": "#050913"
       },
       "permissions": [
         "android.permission.INTERNET",
@@ -51,7 +51,8 @@
         "expo-build-properties",
         {
           "android": {
-            "enableMinifyInReleaseBuilds": false
+            "enableMinifyInReleaseBuilds": false,
+            "minSdkVersion": 26
           }
         }
       ]
