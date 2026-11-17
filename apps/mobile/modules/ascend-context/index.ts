@@ -31,3 +31,13 @@ export const unprotectContextExport=(value:string,password:string)=>moduleOrErro
 export const healthStatus=()=>native?.healthStatus()??Promise.resolve({available:false,granted:[]});
 export const requestHealthPermissions=()=>moduleOrError().requestHealthPermissions();
 export const readHealthSummary=(days=7)=>moduleOrError().readHealth(days);
+
+export function listenToIncomingShares(listener:(text:string)=>void):{remove():void}{
+  if(!native)return {remove:()=>{}};
+  return native.addListener('onShare',(event:unknown)=>{
+    if(event&&typeof event==='object'&&'text' in event){
+      const text=(event as {text?:unknown}).text;
+      if(typeof text==='string'&&text.trim())listener(text);
+    }
+  });
+}
