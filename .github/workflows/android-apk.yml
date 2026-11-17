@@ -75,6 +75,7 @@ jobs:
       - name: Build signed release APK
         working-directory: apps/mobile/android
         env:
+          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ vars.ASCEND_GOOGLE_ANDROID_CLIENT_ID }}
           ASCEND_KEYSTORE_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEYSTORE_PASSWORD }}
           ASCEND_KEY_ALIAS: ${{ secrets.ASCEND_ANDROID_KEY_ALIAS }}
           ASCEND_KEY_PASSWORD: ${{ secrets.ASCEND_ANDROID_KEY_PASSWORD }}
