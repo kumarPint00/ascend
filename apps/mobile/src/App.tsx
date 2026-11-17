@@ -17,6 +17,7 @@ import {Planner} from './phase2/Planner';
 import {WorldScene} from './experience/WorldScene';
 import {CelestialBackdrop} from './experience/CelestialBackdrop';
 import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
+import {decideAdaptiveProposal} from './data/adaptive';
 import {CinematicReward} from './experience/CinematicReward';
 import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
@@ -590,12 +591,20 @@ export default function App() {
     <NanoCoach visible={nanoVisible} onClose={()=>setNanoVisible(false)}
       recentQuestTitles={data.quests.filter(q=>!q.archived).slice(0,5).map(q=>q.title)}
       onAccept={async(draft:NanoDraft)=>{
-        if(draft.kind==='goal')
-          await saveGoal({title:draft.title,attribute:draft.attribute,targetCount:draft.targetCount});
-        else
-          await saveQuest({title:draft.title,description:draft.description,
-            attribute:draft.attribute,difficulty:draft.difficulty,
-            repeatRule:draft.repeatRule,goalId:null});
+        // Generated content always enters the same bounded, transactional
+        // approval path as rule-based suggestions; never activates quests.
+        const key=(draft.kind+':'+draft.title.toLocaleLowerCase()).split('').reduce(
+          (hash,char)=>(Math.imul(hash,31)+char.charCodeAt(0))>>>0,2166136261);
+        await decideAdaptiveProposal({
+          id:'nano:'+key.toString(36),kind:draft.kind,sourceId:'nano:manual',
+          title:draft.title,description:draft.description,
+          reason:'User explicitly requested and reviewed a local AI draft.',
+          attribute:draft.attribute,goalId:null,difficulty:draft.difficulty,
+          repeatRule:draft.repeatRule,estimateMinutes:draft.minutes,
+          status:'backlog',evidence:{basis:'user-preference',periodDays:0,
+            opportunities:0,completed:0,ratio:0},
+        },'accepted',{title:draft.title,minutes:draft.minutes,
+          goalTargetCount:draft.targetCount});
         await refresh();
       }}/>
 
