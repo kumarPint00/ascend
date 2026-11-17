@@ -5,9 +5,7 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import androidx.activity.result.ActivityResultLauncher
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -40,7 +38,6 @@ class AscendContextModule : Module() {
   private val alias="ASCEND_CONTEXT_AES_V1"
   private var pendingText:String?=null
   private var initialIntentConsumed=false
-  private var permissionLauncher:ActivityResultLauncher<Set<String>>?=null
 
   private val requestedPermissions by lazy {
     setOf(
@@ -141,23 +138,16 @@ class AscendContextModule : Module() {
       }
     }
     AsyncFunction("healthStatus") Coroutine healthStatus
-    RegisterActivityContracts {
-      permissionLauncher=registerForActivityResult(
-        PermissionController.createRequestPermissionResultContract()
-      ) { _, granted ->
-        sendEvent("onHealthPermissions",mapOf("granted" to granted.toList()))
-      }
-    }
     AsyncFunction("requestHealthPermissions") {
       val context=appContext.reactContext
         ?:throw IllegalStateException("Application context unavailable")
       if(HealthConnectClient.getSdkStatus(context)!=HealthConnectClient.SDK_AVAILABLE)
         throw IllegalStateException("Health Connect unavailable")
-      val launcher=permissionLauncher
-        ?:throw IllegalStateException("Health permission contract unavailable")
       val activity=appContext.currentActivity
         ?:throw IllegalStateException("Android activity not available")
-      activity.runOnUiThread { launcher.launch(requestedPermissions) }
+      activity.runOnUiThread {
+        activity.startActivity(Intent(activity,HealthPermissionsActivity::class.java))
+      }
     }
     val healthRead:suspend (Int)->Map<String,Any?> = { requestedDays:Int ->
       require(requestedDays in 1..30) { "Health history must be within 30 days" }
@@ -176,9 +166,10 @@ class AscendContextModule : Module() {
       val sleepPermission=HealthPermission.getReadPermission(SleepSessionRecord::class)
       val exercisePermission=HealthPermission.getReadPermission(ExerciseSessionRecord::class)
       val heartPermission=HealthPermission.getReadPermission(HeartRateRecord::class)
-      val steps=if(granted.contains(stepsPermission))
-        client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL),window))
-          [StepsRecord.COUNT_TOTAL] ?:0L else null
+      val steps=if(granted.contains(stepsPermission)) {
+        val result=client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL),window))
+        result[StepsRecord.COUNT_TOTAL] ?: 0L
+      } else null
       val sleep=if(granted.contains(sleepPermission))
         client.readRecords(ReadRecordsRequest(SleepSessionRecord::class,timeRangeFilter=window,pageSize=200))
           .records.sumOf { ChronoUnit.MINUTES.between(it.startTime,it.endTime) } else null
