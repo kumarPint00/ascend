@@ -209,6 +209,9 @@ export async function restoreProtectedContext(blob:string,passphrase:string):Pro
       added+=result.added;
     }
   }
-  // Restored contents are PAUSED; source permissions must be newly authorized.
+  // A restored archive does not convey permission to sync a provider.
+  // Pause *all* sources, including sources previously enabled on this phone.
+  const db=await getDb();
+  await db.runAsync('UPDATE connected_sources SET enabled=0,granted_at=NULL');
   return added;
 }
