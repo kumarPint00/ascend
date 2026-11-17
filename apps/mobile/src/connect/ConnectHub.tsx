@@ -95,14 +95,14 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
     await setContextSourceEnabled(source,!enabled(source));
   });
   const sync=(source:ContextSource)=>void run(async()=>{
-    let result:{added:number;skipped:number};
+    let result:{added:number;skipped:number;refreshed?:number};
     if(source==='calendar')result=await syncCalendar();
     else if(source==='gmail')result=await syncGmail();
     else if(source==='drive')result=await syncDrive();
     else if(source==='github')result=await syncGitHub();
     else if(source==='health')result=await syncHealth(healthDays);
     else throw Error('Use import or Share Sheet to capture this source');
-    Alert.alert('Sync completed',result.added+' new · '+result.skipped+' already imported');
+    Alert.alert('Sync completed',result.added+' new · '+(result.refreshed??0)+' refreshed · '+result.skipped+' unchanged');
   });
   const connect=()=>void run(async()=>{
     if(!connection)return;
