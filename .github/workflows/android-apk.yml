@@ -141,3 +141,5 @@ jobs:
 # Final ASCEND Connect v0.12.0 build 17 source snapshot: v6 vault, source consent, Health Connect, share-intent smoke and OAuth guardrails.
 
 # Final v0.12.0 build17 QA pass: wraps privacy dialog titles and verifies full selected-text share intent.
+
+# Final ASCEND Connect v0.12.0 build17: Drive v3 pageSize/pagination + in-place provider refresh with dedupe preserved.
