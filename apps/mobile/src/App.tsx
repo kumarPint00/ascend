@@ -18,6 +18,8 @@ import {WorldScene} from './experience/WorldScene';
 import {CelestialBackdrop} from './experience/CelestialBackdrop';
 import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
 import {decideAdaptiveProposal} from './data/adaptive';
+import {ConnectHub} from './connect/ConnectHub';
+import {pollIncomingShare} from '../modules/ascend-context';
 import {CinematicReward} from './experience/CinematicReward';
 import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
@@ -33,7 +35,7 @@ import {
   saveGoal, archiveGoal, completeQuest, undoRecentCompletion, wipeAllData, importQuestPack,
 } from './data/repository';
 
-type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More';
+type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More' | 'Connect';
 const TABS = [
   {tab:'Home' as const, Icon:House},
   {tab:'Quests' as const, Icon:Swords},
@@ -76,6 +78,7 @@ export default function App() {
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
   const [nanoVisible,setNanoVisible] = useState(false);
+  const [incomingShare,setIncomingShare]=useState<string|null>(null);
   const [reward,setReward] = useState<{xp:number;levelUp:boolean;rankUp:boolean;newLevel:number;newRank:string}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
   const pagePulse = useRef(new Animated.Value(1)).current;
@@ -113,6 +116,22 @@ export default function App() {
     return ()=>sub.remove();
   },[refresh]);
 
+  useEffect(()=>{
+    let mounted=true;
+    const checkShare=async()=>{
+      try{
+        const shared=await pollIncomingShare();
+        if(mounted&&shared.trim()){
+          setIncomingShare(shared);setTab('Connect');
+        }
+      }catch{}
+    };
+    void checkShare();
+    const sub=AppState.addEventListener('change',state=>{
+      if(state==='active')void checkShare();
+    });
+    return ()=>{mounted=false;sub.remove();};
+  },[]);
   const selectQuestPackFile=async()=>{
     try{
       const selection=await DocumentPicker.getDocumentAsync({type:'*/*',copyToCacheDirectory:true});
@@ -492,6 +511,17 @@ export default function App() {
   const More=()=> <>
     <Section title="System Settings"/>
     <Panel>
+      <T size={15} bold color={C.energy}>ASCEND Connect · Personal Context Hub</T>
+      <T size={12} color={C.sub} style={{marginTop:8}}>
+        Link approved sources, import selected ChatGPT conversations, review shared messages,
+        sync Health Connect or read-only Google and GitHub data. Sensitive context stays
+        encrypted and separate from your plaintext progress backup.
+      </T>
+      <View style={{marginTop:12}}>
+        <Action onPress={()=>setTab('Connect')}>OPEN MY CONNECTIONS</Action>
+      </View>
+    </Panel>
+    <Panel>
       <T bold>Offline mode is active</T>
       <T color={C.sub} size={13} style={{marginTop:8}}>Your data is stored in the SQLite database on this phone. No account, paid cloud service or internet connection is required.</T>
     </Panel>
@@ -574,7 +604,7 @@ export default function App() {
     <Animated.ScrollView style={{flex:1,opacity:pagePulse,
       transform:[{translateY:pagePulse.interpolate({inputRange:[0,1],outputRange:[14,0]})}]}}
       contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:<More/>}
+      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:tab==='Connect'?<ConnectHub onBack={()=>setTab('More')} initialShare={incomingShare} onShareConsumed={()=>setIncomingShare(null)}/>:<More/>}
     </Animated.ScrollView>
     {reward&&<CinematicReward reward={reward} pulse={rewardPulse}
       reduceMotion={reduceMotion}/>}
