@@ -17,6 +17,7 @@ import {Planner} from './phase2/Planner';
 import {WorldScene} from './experience/WorldScene';
 import {CelestialBackdrop} from './experience/CelestialBackdrop';
 import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
+import {CinematicReward} from './experience/CinematicReward';
 import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
 import {syncMaintenanceRegistration,maintainAppData} from './phase2/maintenance';
@@ -76,6 +77,13 @@ export default function App() {
   const [nanoVisible,setNanoVisible] = useState(false);
   const [reward,setReward] = useState<{xp:number;levelUp:boolean;rankUp:boolean;newLevel:number;newRank:string}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
+  const pagePulse = useRef(new Animated.Value(1)).current;
+  useEffect(()=>{
+    pagePulse.stopAnimation();
+    if(reduceMotion){pagePulse.setValue(1);return;}
+    pagePulse.setValue(0);
+    Animated.timing(pagePulse,{toValue:1,duration:245,useNativeDriver:true}).start();
+  },[tab,reduceMotion,pagePulse]);
   useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
 
   const refresh = useCallback(async () => {
@@ -562,27 +570,13 @@ export default function App() {
         </T>
       </Pressable>
     </View>
-    <ScrollView style={{flex:1}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <Animated.ScrollView style={{flex:1,opacity:pagePulse,
+      transform:[{translateY:pagePulse.interpolate({inputRange:[0,1],outputRange:[14,0]})}]}}
+      contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:<More/>}
-    </ScrollView>
-    {reward&&<Animated.View pointerEvents="none" accessibilityLiveRegion="polite"
-      style={[s.rewardToast,{opacity:rewardPulse,
-        transform:[{scale:rewardPulse.interpolate({inputRange:[0,1],outputRange:[reduceMotion?1:.88,1]})}]}]}>
-      <LinearGradient colors={reward.rankUp?['#41304D','#142F49','#0E1D32']:
-        reward.levelUp?['#303C5E','#172C48']:['#18334E','#10223A']}
-        style={{borderRadius:14,paddingHorizontal:21,paddingVertical:12,alignItems:'center'}}>
-        <Sparkles color={C.gold} size={reward.rankUp?31:22}/>
-        <T color={C.energy} bold size={13} style={{letterSpacing:2,marginTop:7}}>
-          {reward.rankUp?'RANK ASCENSION':reward.levelUp?'LEVEL UP':'QUEST CLEARED'}
-        </T>
-        {reward.levelUp&&<T color={C.frost} bold size={21} style={{marginTop:5}}>
-          {reward.rankUp?`${reward.newRank}-RANK UNLOCKED`:`LEVEL ${reward.newLevel} REACHED`}
-        </T>}
-        <T color={C.gold} bold size={24} style={{marginTop:4}}>
-          {reward.xp>0?`+${reward.xp} XP`:'XP CAP REACHED'}
-        </T>
-      </LinearGradient>
-    </Animated.View>}
+    </Animated.ScrollView>
+    {reward&&<CinematicReward reward={reward} pulse={rewardPulse}
+      reduceMotion={reduceMotion}/>}
     <View style={s.nav}>
       {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable
         accessibilityRole="tab" accessibilityLabel={t.tab}
