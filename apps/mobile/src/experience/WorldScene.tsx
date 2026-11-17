@@ -3,6 +3,7 @@ import {StyleSheet,View} from 'react-native';
 import {GLView,type ExpoWebGLRenderingContext} from 'expo-gl';
 import {LinearGradient} from 'expo-linear-gradient';
 import {C} from '../theme';
+import {CrystalFallback} from './CrystalFallback';
 
 type Props={active?:boolean;reduceMotion?:boolean;height?:number;rank?:string};
 
@@ -175,7 +176,11 @@ export function WorldScene({active=true,reduceMotion=false,height=300,rank='E'}:
           frame.current=requestAnimationFrame(draw);
       };
       frame.current=requestAnimationFrame(draw);
-    }catch{
+    }catch(error){
+      // Native rendering failure should never result in an empty hero.
+      // Only static shader context is logged, not personal or quest data.
+      console.warn('[ASCEND/3D] WebGL unavailable; animated crystal fallback active.',
+        error instanceof Error?error.message:'unknown renderer error');
       if(live.current)setFailed(true);
     }
   },[]);
@@ -184,6 +189,9 @@ export function WorldScene({active=true,reduceMotion=false,height=300,rank='E'}:
     {!failed&&<GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate}/>}
     <LinearGradient pointerEvents="none" colors={['transparent','#05091400','#050914C5']}
       style={StyleSheet.absoluteFill}/>
+    {/* Deliberately retain a visible animated ceremonial core even if GPU
+        shaders report success but produce a black frame on an emulator. */}
+    <CrystalFallback active={active} reduceMotion={reduceMotion} opacity={failed?.98:.87}/>
     <View pointerEvents="none" style={styles.corner}>
       <View style={styles.dot}/><View><View style={{height:1,width:28,backgroundColor:'#6AAFF7'}}/></View>
     </View>
