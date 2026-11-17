@@ -12,6 +12,8 @@ const v4=code.match(/\/\/ v3 included synthetic baseline IDs[\s\S]*?await tx\.ex
 assert.ok(v4,'Cannot find v4 baseline repair/backup ownership migration');
 const v5=code.match(/\/\/ Additive v4→v5:[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
 assert.ok(v5,'Cannot find v5 adaptive and Lite migration');
+const v6=code.match(/\/\/ Additive v5→v6:[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
+assert.ok(v6,'Cannot find SQLite v6 private context migration');
 const db=new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
 db.exec(v1[1]);
@@ -84,4 +86,23 @@ assert.throws(()=>db.prepare('INSERT INTO completion_modes(completion_id,mode) V
 db.prepare('INSERT INTO adaptive_decisions(id,kind,source_id,decision,decided_at) VALUES(?,?,?,?,?)')
   .run('s1','ease','q1','accepted','2026-11-16T10:00:00Z');
 assert.equal(db.prepare("SELECT decision FROM adaptive_decisions WHERE id='s1'").get().decision,'accepted');
-console.log('Phase 2/3 migrations v1→v5: XP preserved, completion modes and adaptive tables verified');
+db.exec('BEGIN EXCLUSIVE');db.exec(v6[1]);db.exec('COMMIT');
+assert.equal(db.prepare('PRAGMA user_version').get().user_version,6);
+for(const name of ['connected_sources','context_items','context_decisions','context_audit'])
+  assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name),name);
+db.prepare('INSERT INTO connected_sources(source,enabled,granted_at,retention_days) VALUES(?,?,?,?)')
+  .run('chatgpt',1,'2026-11-18T00:00:00Z',90);
+db.prepare(`INSERT INTO context_items
+  (id,source,external_id,kind,title_cipher,excerpt_cipher,occurred_at,origin_cipher,sensitivity,imported_at)
+  VALUES(?,?,?,?,?,?,?,?,?,?)`).run('ctx1','chatgpt','conversation123','conversation',
+  'ascend-local-v1:test','ascend-local-v1:encrypted',null,null,'private','2026-11-18T00:00:00Z');
+assert.throws(()=>db.prepare(`INSERT INTO context_items
+  (id,source,external_id,kind,title_cipher,excerpt_cipher,sensitivity,imported_at)
+  VALUES(?,?,?,?,?,?,?,?)`).run('ctx2','chatgpt','conversation123','conversation','cipher','cipher','private','2026-11-18T00:00:00Z'));
+assert.throws(()=>db.prepare(`INSERT INTO context_items
+  (id,source,external_id,kind,title_cipher,excerpt_cipher,sensitivity,imported_at)
+  VALUES(?,?,?,?,?,?,?,?)`).run('bad','not-a-provider','missing','note','x','y','general','2026-11-18T00:00:00Z'));
+assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
+db.prepare('DELETE FROM connected_sources WHERE source=?').run('chatgpt');
+assert.equal(db.prepare('SELECT COUNT(*) n FROM context_items').get().n,0);
+console.log('ASCEND v1→v6: XP preserved, encrypted context schema, FK/deletion and dedupe verified');
