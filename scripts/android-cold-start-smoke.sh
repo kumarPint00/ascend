@@ -40,4 +40,23 @@ if ! adb shell pidof "$APP" >/dev/null; then
 fi
 adb exec-out screencap -p > test-output/ascend-large-font.png
 test -s test-output/ascend-large-font.png
-echo 'PASS: 3 Android emulator cold launches plus 1 large-font launch without recorded crash'
+# Exercise the Android Share Sheet entry point (selected text, never private chats).
+# This verifies that the exported intent route does not crash Android startup.
+adb logcat -c || true
+adb shell am force-stop "$APP" || true
+adb shell am start -W -n "$APP/.MainActivity" -a android.intent.action.SEND \
+  -t text/plain --es android.intent.extra.TEXT 'ASCEND QA: please review a sample task'
+sleep 9
+if ! adb shell pidof "$APP" >/dev/null; then
+  echo 'FAIL: app stopped when receiving a selected text share'
+  adb logcat -d -b crash | tail -n 150 || true
+  exit 1
+fi
+if adb logcat -d -b crash | grep -F "$APP"; then
+  echo 'FAIL: Android crashed during shared text intake'
+  adb logcat -d -b crash | tail -n 150
+  exit 1
+fi
+adb exec-out screencap -p > test-output/ascend-share-review.png
+test -s test-output/ascend-share-review.png
+echo 'PASS: 3 emulator cold launches, large font, and Android text share route without recorded crash'
