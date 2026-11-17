@@ -180,10 +180,10 @@ export function WorldScene({active=true,reduceMotion=false,height=300,rank='E'}:
     }
   },[]);
   return <View style={[styles.shell,{height}]} accessible accessibilityLabel="Animated three-dimensional ascension crystal with luminous orbit rings">
-    <LinearGradient colors={['#0B1930','#080B20','#120D2C']} style={StyleSheet.absoluteFillObject}/>
-    {!failed&&<GLView style={StyleSheet.absoluteFillObject} onContextCreate={onContextCreate}/>}
+    <LinearGradient colors={['#0B1930','#080B20','#120D2C']} style={StyleSheet.absoluteFill}/>
+    {!failed&&<GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate}/>}
     <LinearGradient pointerEvents="none" colors={['transparent','#05091400','#050914C5']}
-      style={StyleSheet.absoluteFillObject}/>
+      style={StyleSheet.absoluteFill}/>
     <View pointerEvents="none" style={styles.corner}>
       <View style={styles.dot}/><View><View style={{height:1,width:28,backgroundColor:'#6AAFF7'}}/></View>
     </View>
