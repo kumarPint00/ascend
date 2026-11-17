@@ -119,3 +119,8 @@ jobs:
 # v0.10.0 signed adaptive candidate: SQLite v5, Lite XP, offline habit learning,
 # AI-style suggestions only with explicit approval; no public release before device QA.
 # Re-run signed v0.10.0 build 13 after adaptive title/back-up compatibility fix.
+
+# ASCEND NOCTURNE v0.11.0 build 14: signed test candidate only.
+# Gemini Nano is a runtime-optional AICore module; no paid API, no cloud AI.
+# Real GPU 3D via Expo GL, preserve original package/signing certificate.
+# Do not publish to GitHub Releases until Samsung device acceptance.
