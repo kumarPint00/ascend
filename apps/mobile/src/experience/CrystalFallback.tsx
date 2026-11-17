@@ -7,8 +7,8 @@ import Svg,{Circle,Defs,Ellipse,LinearGradient as SvgGradient,Path,Polygon,Radia
  * This visual fallback stays perceptible when an emulator cannot produce
  * working WebGL shader output. No remote assets or native subscriptions.
  */
-export function CrystalFallback({active=true,reduceMotion=false,opacity=.92}:{
-  active?:boolean;reduceMotion?:boolean;opacity?:number;
+export function CrystalFallback({active=true,reduceMotion=false,opacity=.92,home=false}:{
+  active?:boolean;reduceMotion?:boolean;opacity?:number;home?:boolean;
 }){
   const spin=useRef(new Animated.Value(0)).current;
   const bob=useRef(new Animated.Value(0)).current;
@@ -29,7 +29,8 @@ export function CrystalFallback({active=true,reduceMotion=false,opacity=.92}:{
   const reverse=spin.interpolate({inputRange:[0,1],outputRange:['0deg','-360deg']});
   const floatY=bob.interpolate({inputRange:[0,1],outputRange:[0,-7]});
   const scale=bob.interpolate({inputRange:[0,1],outputRange:[1,1.055]});
-  return <View pointerEvents="none" style={[styles.stage,{opacity}]}
+  return <View pointerEvents="none" style={[styles.stage,{opacity},
+    home&&{transform:[{scale:.72},{translateX:10},{translateY:15}]}]}
     accessible accessibilityLabel="Luminous animated ascension crystal">
     <Svg width="295" height="250" viewBox="0 0 295 250" style={StyleSheet.absoluteFill}>
       <Defs>
