@@ -44,8 +44,7 @@ test -s test-output/ascend-large-font.png
 # This verifies that the exported intent route does not crash Android startup.
 adb logcat -c || true
 adb shell am force-stop "$APP" || true
-adb shell am start -W -n "$APP/.MainActivity" -a android.intent.action.SEND \
-  -t text/plain --es android.intent.extra.TEXT 'ASCEND QA: please review a sample task'
+adb shell "am start -W -n $APP/.MainActivity -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT 'ASCEND QA: please review a sample task'"
 sleep 9
 if ! adb shell pidof "$APP" >/dev/null; then
   echo 'FAIL: app stopped when receiving a selected text share'
