@@ -1,0 +1,1 @@
+Resolve v0.12.0 Expo SDK 58 dependencies: auth-session, web-browser, secure-store, crypto. Preserve all locks.
