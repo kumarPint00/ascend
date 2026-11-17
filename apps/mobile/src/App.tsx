@@ -14,6 +14,9 @@ import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
 import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
 import {Planner} from './phase2/Planner';
+import {WorldScene} from './experience/WorldScene';
+import {CelestialBackdrop} from './experience/CelestialBackdrop';
+import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
 import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
 import {syncMaintenanceRegistration,maintainAppData} from './phase2/maintenance';
@@ -70,6 +73,7 @@ export default function App() {
   const [goalLimit,setGoalLimit] = useState(8);
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
+  const [nanoVisible,setNanoVisible] = useState(false);
   const [reward,setReward] = useState<{xp:number;levelUp:boolean;rankUp:boolean;newLevel:number;newRank:string}|null>(null);
   const rewardPulse = useRef(new Animated.Value(0)).current;
   useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
@@ -255,46 +259,78 @@ export default function App() {
   };
 
   const Home=()=> <>
-    <LinearGradient colors={['#183456','#102541','#0A172B']} start={{x:0,y:0}} end={{x:1,y:1}} style={s.hero}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Open your hunter profile" onPress={()=>setTab('Hunter')}>
-        <View style={[s.between,{alignItems:'flex-start'}]}>
-          <View style={{flex:1}}>
-            <View style={{flexDirection:'row',alignItems:'center',gap:7,marginBottom:7}}>
-              <Sparkles color={C.energy} size={14}/>
-              <T color={C.energy} size={10} bold style={{letterSpacing:1.7}}>YOUR ASCENSION</T>
-            </View>
-            <T size={34} bold style={{letterSpacing:-.9}}>LEVEL {player.level}</T>
-            <T color={C.sub} size={13}>The Architect · {player.rank}-Rank</T>
-          </View>
-          <Image source={require('../assets/icon.png')} style={{height:90,width:90,borderRadius:20,marginLeft:8}} accessible accessibilityLabel="ASCEND crystalline sigil"/>
+    <View style={s.worldHero}>
+      <WorldScene active={tab==='Home'} reduceMotion={reduceMotion} height={333} rank={player.rank}/>
+      <View pointerEvents="none" style={s.worldCaption}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
+          <View style={s.liveDot}/>
+          <T size={10} bold color="#A8E4FF" style={{letterSpacing:2.5}}>ASCENSION REALM · LIVE</T>
         </View>
-        <View style={[s.between,{marginTop:22,marginBottom:9}]}>
-          <T color={C.sub} size={11} bold style={{letterSpacing:.8}}>NEXT LEVEL</T>
-          <T color={C.energy} size={12} bold>{player.currentLevelXP} / {player.xpForNextLevel} XP</T>
+        <T size={40} bold color="#FFFFFF" style={{letterSpacing:-2,marginTop:5}}>LEVEL {player.level}</T>
+        <T size={12} bold color={C.gold} style={{letterSpacing:1.5}}>
+          {player.rank}-RANK · THE ARCHITECT
+        </T>
+      </View>
+      <View style={s.worldFooter}>
+        <View style={{flex:1,marginRight:10}}>
+          <T size={10} bold color="#A2CAE7" style={{letterSpacing:1.5}}>YOUR NEXT ASCENSION</T>
+          <View style={{marginTop:7}}><Meter value={player.progress} height={9}/></View>
+          <T size={11} color={C.sub} style={{marginTop:6}}>
+            {player.currentLevelXP} / {player.xpForNextLevel} XP · {player.totalXP.toLocaleString()} earned
+          </T>
         </View>
-        <Meter value={player.progress} height={9}/>
-        <View style={[s.between,{marginTop:13}]}>
-          <T color={C.sub} size={11}>{player.totalXP.toLocaleString()} lifetime XP</T>
-          <T color={C.green} size={11}>+{todayXP} today</T>
-        </View>
-        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',marginTop:13,gap:4}}>
-          <T color={C.energy} size={11} bold>VIEW CHARACTER</T><ChevronRight color={C.energy} size={14}/>
-        </View>
-      </Pressable>
-    </LinearGradient>
-    <View style={s.statRow}>
-      <Panel style={[s.miniPanel,{marginRight:5}]}><T color={C.sub} size={11}>TODAY'S QUESTS</T><T bold size={25}>{completedToday.length}<T size={15} color={C.dim}> completed</T></T></Panel>
-      <Panel style={[s.miniPanel,{marginLeft:5}]}><T color={C.sub} size={11}>PENDING</T><T color={C.energy} bold size={25}>{todayBoard.length}</T></Panel>
+        <Pressable accessibilityRole="button" accessibilityLabel="Explore your animated character"
+          onPress={()=>setTab('Hunter')} style={s.worldButton}>
+          <ChevronRight size={23} color={C.frost}/>
+        </Pressable>
+      </View>
     </View>
-    <Section title="Today's Missions" right={<Pressable accessibilityRole="button" onPress={()=>{setQuestFilter('Today');setTab('Quests');}}><T color={C.energy} size={12}>VIEW BOARD →</T></Pressable>}/>
-    {todayBoard.length===0?<Panel><T color={C.green} bold>All daily quests cleared ✦</T><T color={C.sub} size={13}>Enjoy your progress. More quests can wait until tomorrow.</T></Panel>:
-      todayBoard.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
-    <T color={C.dim} size={11} style={{marginBottom:13}}>Small, repeatable actions win. You can review weekly and milestone quests separately.</T>
-    <Action onPress={()=>openQuest()} secondary style={{marginBottom:10}}>+ CREATE NEW QUEST</Action>
-    <Section title="Main Questlines" right={<Pressable onPress={()=>setTab('Goals')}><T color={C.energy} size={12}>All goals →</T></Pressable>}/>
-    {goals.length===0 ? <Panel><T color={C.sub}>Create a long-term goal and link quests to it.</T>
-      <View style={{marginTop:12}}><Action onPress={()=>openGoal()} secondary>ADD YOUR FIRST GOAL</Action></View></Panel>:
-      goals.slice(0,2).map(g=><GoalCard key={g.id} goal={g}/>)}
+    <Pressable accessibilityRole="button" accessibilityLabel="Open Gemini Nano Quest Architect"
+      onPress={()=>setNanoVisible(true)} style={{marginBottom:18}}>
+      <LinearGradient colors={['#352653','#20294A','#14253C']} start={{x:0,y:0}}
+        end={{x:1,y:1}} style={s.oracleCard}>
+        <View style={s.oracleOrb}><Sparkles size={26} color="#F4D5FF"/></View>
+        <View style={{flex:1}}>
+          <T color="#E7C8FF" size={10} bold style={{letterSpacing:2}}>THE ORACLE / GEMINI NANO</T>
+          <T size={17} bold style={{marginTop:2}}>Forge your next quest</T>
+          <T size={11} color={C.sub} style={{marginTop:3}}>
+            Create a personalized draft on-device. Review before saving.
+          </T>
+        </View>
+        <ChevronRight size={20} color="#D7BAFF"/>
+      </LinearGradient>
+    </Pressable>
+    <View style={s.statRow}>
+      <Panel style={[s.miniPanel,{marginRight:5}]}>
+        <T color={C.sub} size={10} bold style={{letterSpacing:1.4}}>QUESTS CLEARED</T>
+        <T bold size={26} color={C.green}>{completedToday.length}</T>
+        <T color={C.dim} size={10}>today</T>
+      </Panel>
+      <Panel style={[s.miniPanel,{marginLeft:5}]}>
+        <T color={C.sub} size={10} bold style={{letterSpacing:1.4}}>ACTIVE MISSIONS</T>
+        <T bold size={26} color={C.energy}>{todayBoard.length}</T>
+        <T color={C.dim} size={10}>ready for you</T>
+      </Panel>
+    </View>
+    <Section title="Your Mission Board"
+      right={<Pressable accessibilityRole="button" onPress={()=>{setQuestFilter('Today');setTab('Quests');}}>
+        <T color={C.energy} size={11} bold>OPEN BOARD ›</T>
+      </Pressable>}/>
+    {todayBoard.length===0?<Panel>
+      <T color={C.green} size={17} bold>The realm is calm ✦</T>
+      <T color={C.sub} size={12} style={{marginTop:7}}>No missions demand attention. Recovery counts as progress.</T>
+    </Panel>:todayBoard.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
+    <View style={{marginBottom:12}}>
+      <Action onPress={()=>openQuest()} secondary>＋ FORGE A NEW QUEST</Action>
+    </View>
+    <Section title="Epic Questlines"
+      right={<Pressable accessibilityRole="button" onPress={()=>setTab('Goals')}>
+        <T color={C.energy} size={11} bold>ALL GOALS ›</T>
+      </Pressable>}/>
+    {goals.length===0?<Panel>
+      <T color={C.sub}>No active questlines. Begin with one meaningful goal.</T>
+      <View style={{marginTop:12}}><Action onPress={()=>openGoal()} secondary>CREATE YOUR FIRST GOAL</Action></View>
+    </Panel>:goals.slice(0,2).map(g=><GoalCard key={g.id} goal={g}/>)}
   </>;
 
   const Quests=()=> <>
@@ -383,20 +419,30 @@ export default function App() {
   </>;
 
   const Hunter=()=> <>
-    <Panel style={{alignItems:'center',paddingVertical:28}}>
-      <View style={s.avatar}><T size={48} color={C.energy}>♜</T></View>
-      <T color={C.energy} size={11} bold style={{marginTop:15}}>THE ARCHITECT</T>
-      <T size={29} bold style={{marginTop:4}}>Rank {player.rank} Hunter</T>
-      <T color={C.sub} size={13}>Level {player.level} · {player.totalXP} lifetime XP</T>
+    <WorldScene active={tab==='Hunter'} reduceMotion={reduceMotion} height={310} rank={player.rank}/>
+    <Panel style={{alignItems:'center',paddingVertical:25}}>
+      <T color={C.gold} size={10} bold style={{letterSpacing:2.5}}>YOUR HUNTER IDENTITY</T>
+      <T size={28} bold style={{marginTop:7}}>Rank {player.rank} · Level {player.level}</T>
+      <T size={12} color={C.sub} style={{marginTop:7}}>{player.totalXP.toLocaleString()} lifetime XP</T>
+      <View style={{width:'100%',marginTop:14}}>
+        <Meter value={player.progress} tint={C.energy} height={10}/>
+      </View>
+      <T color={C.dim} size={11} style={{marginTop:12,textAlign:'center'}}>
+        The animated core evolves with your progress. Character armor and customizable avatars are later additions.
+      </T>
     </Panel>
     <Section title="Character Attributes"/>
     {ATTRIBUTES.map(a=><Panel key={a}>
       <View style={s.between}>
-        <T bold size={15}>{LABELS[a].glyph}  {LABELS[a].label}</T>
+        <T bold size={14}>{LABELS[a].glyph}  {LABELS[a].label}</T>
         <T color={LABELS[a].tint} bold>{player.attributes[a]} XP</T>
       </View>
-      <View style={{marginTop:11}}><Meter tint={LABELS[a].tint} value={(player.attributes[a] % 300)/300}/></View>
-      <T color={C.dim} size={10} style={{marginTop:8}}>Attribute XP tracks activity, not innate ability.</T>
+      <View style={{marginTop:12}}>
+        <Meter tint={LABELS[a].tint} value={(player.attributes[a] % 300)/300}/>
+      </View>
+      <T color={C.dim} size={10} style={{marginTop:8}}>
+        Your actual activity, not an estimate of innate ability.
+      </T>
     </Panel>)}
   </>;
 
@@ -496,12 +542,17 @@ export default function App() {
     <ActivityIndicator color={C.energy} size="small" style={{marginTop:26}}/>
   </View>;
   return <View style={s.root}>
-    <StatusBar barStyle="light-content"/>
+    <StatusBar barStyle="light-content" backgroundColor="#050912"/>
+    <CelestialBackdrop reduceMotion={reduceMotion}/>
     <View style={s.top}>
       <View style={{flexDirection:'row',alignItems:'center',gap:11}}>
-        <Image source={require('../assets/icon.png')} style={{width:40,height:40,borderRadius:11}}/>
-        <View><T color={C.frost} size={17} bold style={{letterSpacing:2}}>ASCEND</T>
-          <T color={C.sub} size={11}>{fmt(clock)}</T></View>
+        <LinearGradient colors={['#344D7C','#172340']} style={s.brand}>
+          <Sparkles size={20} color={C.energy}/>
+        </LinearGradient>
+        <View>
+          <T color={C.frost} size={17} bold style={{letterSpacing:3.2}}>ASCEND</T>
+          <T color={C.sub} size={10} style={{letterSpacing:.6}}>CHRONICLES · {fmt(clock)}</T>
+        </View>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={updates.available?'Update available, open settings':'Open hunter profile'}
         onPress={()=>setTab(updates.available?'More':tab==='Hunter'?'Home':'Hunter')} style={s.levelPill}>
@@ -533,13 +584,26 @@ export default function App() {
       </LinearGradient>
     </Animated.View>}
     <View style={s.nav}>
-      {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable accessibilityRole="tab"
-        accessibilityLabel={t.tab} accessibilityState={{selected:active}} key={t.tab}
-        style={[s.navTab,active&&{backgroundColor:'#1B3653',borderColor:'#345F83'}]} onPress={()=>setTab(t.tab)}>
-        <NavIcon size={21} color={active?C.energy:C.sub} strokeWidth={active?2.35:1.7}/>
-        <T size={10} bold={active} color={active?C.frost:C.sub}>{t.tab}</T>
+      {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable
+        accessibilityRole="tab" accessibilityLabel={t.tab}
+        accessibilityState={{selected:active}} key={t.tab}
+        style={[s.navTab,active&&{backgroundColor:'#273C61',borderColor:'#749BC9'}]}
+        onPress={()=>setTab(t.tab)}>
+        <NavIcon size={20} color={active?C.energy:C.sub} strokeWidth={active?2.6:1.7}/>
+        <T size={9} bold={active} color={active?C.frost:C.sub}>{t.tab.toUpperCase()}</T>
       </Pressable>;})}
     </View>
+    <NanoCoach visible={nanoVisible} onClose={()=>setNanoVisible(false)}
+      recentQuestTitles={data.quests.filter(q=>!q.archived).slice(0,5).map(q=>q.title)}
+      onAccept={async(draft:NanoDraft)=>{
+        if(draft.kind==='goal')
+          await saveGoal({title:draft.title,attribute:draft.attribute,targetCount:draft.targetCount});
+        else
+          await saveQuest({title:draft.title,description:draft.description,
+            attribute:draft.attribute,difficulty:draft.difficulty,
+            repeatRule:draft.repeatRule,goalId:null});
+        await refresh();
+      }}/>
 
     <Modal visible={questModal} animationType="slide" transparent onRequestClose={()=>setQuestModal(false)}>
       <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
@@ -647,11 +711,30 @@ export default function App() {
 
 const s=StyleSheet.create({
   root:{flex:1,backgroundColor:C.bg},
-  top:{paddingTop:Platform.OS==='android'?(StatusBar.currentHeight??26)+12:52,paddingHorizontal:17,paddingBottom:13,
-    flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderColor:C.border},
+  brand:{width:42,height:42,borderRadius:14,borderWidth:1,borderColor:'#587BAC',
+    alignItems:'center',justifyContent:'center'},
+  worldHero:{marginBottom:5,position:'relative'},
+  worldCaption:{position:'absolute',top:20,left:21,right:20},
+  worldFooter:{position:'absolute',bottom:28,left:20,right:20,flexDirection:'row',
+    alignItems:'center',justifyContent:'space-between',
+    padding:13,backgroundColor:'#071222CF',borderRadius:16,
+    borderWidth:1,borderColor:'#29476A'},
+  worldButton:{width:45,height:45,borderRadius:15,
+    borderWidth:1,borderColor:'#70BCDE',backgroundColor:'#18466B',
+    alignItems:'center',justifyContent:'center'},
+  liveDot:{height:7,width:7,borderRadius:5,backgroundColor:'#79EFDF'},
+  oracleCard:{borderRadius:22,borderWidth:1,borderColor:'#8266AF',
+    flexDirection:'row',alignItems:'center',gap:12,padding:15},
+  oracleOrb:{height:52,width:52,borderRadius:18,
+    backgroundColor:'#574482',borderWidth:1,borderColor:'#AC8BCE',
+    alignItems:'center',justifyContent:'center'},
+  top:{paddingTop:Platform.OS==='android'?(StatusBar.currentHeight??26)+12:52,
+    paddingHorizontal:18,paddingBottom:16,
+    flexDirection:'row',alignItems:'center',justifyContent:'space-between',
+    borderBottomWidth:1,borderColor:'#384567',backgroundColor:'#080F20EC'},
   levelPill:{paddingHorizontal:12,paddingVertical:10,borderColor:'#907443',borderWidth:1,borderRadius:14,backgroundColor:'#292738',flexDirection:'row',alignItems:'center',gap:6,minHeight:44},
   content:{padding:16,paddingBottom:42},
-  hero:{borderRadius:23,borderWidth:1,borderColor:'#416D98',padding:19,marginBottom:15,overflow:'hidden'},
+  hero:{borderRadius:25,borderWidth:1,borderColor:'#5D7EB7',padding:20,marginBottom:15,overflow:'hidden'},
   searchRow:{flexDirection:'row',gap:10,alignItems:'center',backgroundColor:C.elevated,borderColor:C.border,borderWidth:1,borderRadius:13,paddingHorizontal:13,marginBottom:13,minHeight:48},
   searchInput:{flex:1,color:C.ink,fontSize:14,minHeight:47,paddingVertical:10},
   between:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
