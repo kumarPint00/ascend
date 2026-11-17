@@ -41,7 +41,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 5) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 6) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -200,6 +200,40 @@ export async function initialize(): Promise<void> {
       `);
       await tx.runAsync('INSERT OR IGNORE INTO adaptive_settings(id,payload) VALUES(1,?)',
         JSON.stringify(DEFAULT_ADAPTIVE_SETTINGS));
+    });
+  }
+  if ((version?.user_version ?? 0) < 6) {
+    // Additive v5→v6: encrypted context records, no changes to XP or quests.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        CREATE TABLE IF NOT EXISTS connected_sources (
+          source TEXT PRIMARY KEY CHECK(source IN ('share','chatgpt','health','calendar','gmail','github','drive','file')),
+          enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+          granted_at TEXT, last_synced_at TEXT,
+          retention_days INTEGER NOT NULL DEFAULT 30 CHECK(retention_days BETWEEN 1 AND 365),
+          config_cipher TEXT
+        );
+        CREATE TABLE IF NOT EXISTS context_items (
+          id TEXT PRIMARY KEY,
+          source TEXT NOT NULL REFERENCES connected_sources(source) ON DELETE CASCADE,
+          external_id TEXT NOT NULL,kind TEXT NOT NULL,
+          title_cipher TEXT NOT NULL,excerpt_cipher TEXT NOT NULL,
+          occurred_at TEXT,origin_cipher TEXT,sensitivity TEXT NOT NULL,
+          imported_at TEXT NOT NULL,UNIQUE(source,external_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_context_items_source ON context_items(source,imported_at);
+        CREATE TABLE IF NOT EXISTS context_decisions (
+          id TEXT PRIMARY KEY,source TEXT NOT NULL,external_id TEXT NOT NULL,
+          decision TEXT NOT NULL CHECK(decision IN ('accepted','dismissed')),
+          decided_at TEXT NOT NULL,UNIQUE(source,external_id)
+        );
+        CREATE TABLE IF NOT EXISTS context_audit (
+          id TEXT PRIMARY KEY,source TEXT NOT NULL,event TEXT NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0,occurred_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_context_audit_date ON context_audit(occurred_at);
+        PRAGMA user_version = 6;
+      `);
     });
   }
   const seedFlag = await db.getFirstAsync<{ value: string }>(
@@ -457,6 +491,10 @@ export async function exportJSON(): Promise<string> {
 export async function wipeAllData(): Promise<void> {
   const db = await getDb();
   await db.withExclusiveTransactionAsync(async tx => {
+    await tx.runAsync('DELETE FROM context_decisions');
+    await tx.runAsync('DELETE FROM context_items');
+    await tx.runAsync('DELETE FROM connected_sources');
+    await tx.runAsync('DELETE FROM context_audit');
     await tx.runAsync('DELETE FROM adaptive_decisions');
     await tx.runAsync('DELETE FROM completion_modes');
     await tx.runAsync('UPDATE adaptive_settings SET payload=? WHERE id=1',JSON.stringify(DEFAULT_ADAPTIVE_SETTINGS));
@@ -531,6 +569,10 @@ export async function restoreJSON(source: string): Promise<void> {
   }
   const db=await getDb();
   await db.withExclusiveTransactionAsync(async tx=>{
+    await tx.runAsync('DELETE FROM context_decisions');
+    await tx.runAsync('DELETE FROM context_items');
+    await tx.runAsync('DELETE FROM connected_sources');
+    await tx.runAsync('DELETE FROM context_audit');
     await tx.runAsync('DELETE FROM adaptive_decisions');
     await tx.runAsync('DELETE FROM completion_modes');
     await tx.runAsync('UPDATE adaptive_settings SET payload=? WHERE id=1',JSON.stringify(DEFAULT_ADAPTIVE_SETTINGS));
