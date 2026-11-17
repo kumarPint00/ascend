@@ -20,6 +20,9 @@ import {listConnectedSources,setContextSourceEnabled,importContextItems,
 import {connectGoogle,syncCalendar,syncGmail,syncDrive,
   connectGitHubToken,syncGitHub,syncHealth,healthStatus,requestHealthPermissions,revokeGoogle} from './providers';
 import {decideAdaptiveProposal} from '../data/adaptive';
+import {encryptContext,decryptContext} from '../../modules/ascend-context';
+import {verifyLocalDatabase} from '../data/backup';
+import {nanoStatus} from '../../modules/ascend-nano';
 
 const names:Record<ContextSource,string>={
   share:'Share to ASCEND',chatgpt:'ChatGPT',health:'Health Connect',
@@ -202,6 +205,25 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
     if(!data.trim().startsWith('ascend-private-v1:'))throw Error('Not a protected ASCEND context file');
     setRestoreBlob(data);
   });
+  const selfTest=()=>void run(async()=>{
+    const challenge='ASCEND-LOCAL-CRYPTO-CHECK-'+Date.now();
+    const ciphertext=await encryptContext(challenge);
+    const plain=await decryptContext(ciphertext);
+    if(plain!==challenge||ciphertext.includes(challenge))
+      throw Error('Android Keystore encryption roundtrip failed');
+    const result=await verifyLocalDatabase();
+    if(result.integrity!=='ok'||result.foreignKeyErrors!==0)
+      throw Error('SQLite integrity problem: '+result.integrity+
+        ', foreign key issues: '+result.foreignKeyErrors);
+    const [health,nano]=await Promise.all([healthStatus(),nanoStatus()]);
+    Alert.alert('ASCEND Connect Diagnostics',
+      'Encrypted local record: PASS\\n'+
+      'SQLite integrity: PASS ('+result.tables+' tables)\\n'+
+      'Health Connect installed: '+(health.available?'YES':'NO')+'\\n'+
+      'Health grants: '+health.granted.length+'\\n'+
+      'Gemini Nano runtime: '+nano.toUpperCase()+'\\n'+
+      'Provider authorizations and device upgrade still require separate tests.');
+  });
   const disconnect=(source:ContextSource)=>Alert.alert('Disconnect '+names[source]+'?',
     'Delete all locally imported records, source settings, and pending decisions? Original data in the provider is not deleted.',[
       {text:'Cancel',style:'cancel'},
@@ -348,6 +370,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
           const count=await purgeExpiredContext();
           Alert.alert('Retention complete',count+' expired context records deleted');
         })}>DELETE EXPIRED CONTEXT</Action>
+        <Action secondary disabled={busy} onPress={selfTest}>RUN LOCAL PRIVACY & DEVICE CHECK</Action>
       </View>
       <T color={C.dim} size={11} style={{marginTop:12}}>
         Disconnecting a source deletes its local data and credentials, not the original provider data.
