@@ -61,6 +61,25 @@ See [Phase 3 design](PHASE3_ADAPTIVE.md) and [device acceptance checklist](DEVIC
 
 [Nocturne technical spec and acceptance gates](PHASE3_CINEMATIC_NANO.md)
 
+## ASCEND Connect — Personal Context Hub (v0.12.0 signed candidate)
+
+- [x] Additive SQLite v6 migration for permissioned, encrypted per-source context
+- [x] Android Keystore AES-256-GCM and separate passphrase-protected context export/restore
+- [x] Android Share Sheet (selected text only), private capture preview and deduplication
+- [x] User-selected ChatGPT conversation export importer (user-authored text, no automatic full access)
+- [x] Health Connect native read-only permission request + optional 1–30 day activity summaries
+- [x] Google Calendar, Gmail and Drive scoped OAuth connector code and manual read-only sync
+- [x] GitHub fine-grained token connector for assigned issue summaries
+- [x] Local text file and document metadata import; PDFs/images do not yet have OCR
+- [x] Source permission dashboard, per-source retention, audit, disconnect/delete and inbox search
+- [x] Context-to-quest review via bounded adaptive transaction; explicit opt-in Nano handoff
+- [x] Deterministic import and database migration tests
+- [ ] Verify Health Connect, OAuth, Share Sheet and Gemini Nano on user's Samsung S25 Ultra with user consent
+- [ ] Confirm v5→v6 real-phone migration, encrypted context export recovery and device rendering
+- [ ] Encrypted multi-device sync, optional PDF OCR and expanded background delta sync deferred
+
+[Connection setup and native acceptance checklist](ASCEND_CONNECT.md)
+
 ## Future public beta (not in personal Phase 3)
 
 - [ ] Opt-in multi-user authentication and RLS, reliable multi-device sync and recovery
