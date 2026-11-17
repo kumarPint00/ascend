@@ -120,12 +120,25 @@ export async function syncGmail():Promise<{added:number;skipped:number}>{
   return importContextItems('gmail',items);
 }
 export async function syncDrive():Promise<{added:number;skipped:number}>{
-  const q=new URLSearchParams({page_size:'50',fields:'nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink,description)',
-    orderBy:'modifiedTime desc',q:'trashed=false'});
-  const value=await googleGet<{files?:{id:string;name?:string;description?:string;
-    modifiedTime?:string;webViewLink?:string}[]}>(
-    'drive','https://www.googleapis.com/drive/v3/files?'+q.toString());
-  const items=(value.files??[]).map(f=>validateContextCandidate({
+  // Google Drive v3 uses camelCase pageSize/pageToken, not page_size.
+  // Bound discovery to 150 records and never download document bodies.
+  const found:{id:string;name?:string;description?:string;modifiedTime?:string;webViewLink?:string}[]=[];
+  let nextPageToken:string|undefined;
+  for(let page=0;page<3;page++){
+    const q=new URLSearchParams({
+      pageSize:'50',
+      fields:'nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink,description)',
+      orderBy:'modifiedTime desc',
+      q:'trashed=false',
+    });
+    if(nextPageToken)q.set('pageToken',nextPageToken);
+    const value=await googleGet<{nextPageToken?:string;files:typeof found}>(
+      'drive','https://www.googleapis.com/drive/v3/files?'+q.toString());
+    found.push(...(value.files??[]));
+    nextPageToken=value.nextPageToken;
+    if(!nextPageToken)break;
+  }
+  const items=found.map(f=>validateContextCandidate({
     source:'drive' as const,kind:'document' as const,externalId:f.id,
     title:short(f.name,140)||'Google Drive file',
     excerpt:short(f.description,1200)||'File metadata only; no file contents imported.',
