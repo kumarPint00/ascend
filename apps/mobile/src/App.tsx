@@ -248,7 +248,7 @@ export default function App() {
       <View style={s.between}>
         <View style={{flex:1,marginRight:10}}>
           <T size={15} bold color={done?C.sub:C.ink}>{isMilestoneQuest(quest)?quest.title.slice(MILESTONE_PREFIX.length):quest.title}</T>
-          {!!quest.description && <T size={12} color={C.sub} style={{marginTop:4}}>{quest.description}</T>}
+          {!!quest.description && <T size={12} color={C.sub} numberOfLines={2} style={{marginTop:4}}>{quest.description}</T>}
         </View>
         <View style={[s.reward,{borderColor:done?C.green:C.energy}]}>
           <T color={done?C.green:C.energy} bold size={12}>{done?'✓':`+${XP_BY_DIFFICULTY[quest.difficulty]}`}</T>
@@ -257,7 +257,7 @@ export default function App() {
       </View>
       <View style={[s.between,{marginTop:12}]}>
         <T color={LABELS[quest.attribute].tint} size={11}>
-          {isMilestoneQuest(quest)?'◆ Milestone · ':''}{LABELS[quest.attribute].glyph} {LABELS[quest.attribute].label} · {quest.difficulty} · {quest.repeatRule}
+          {isMilestoneQuest(quest)?'◆ Milestone · ':''}{LABELS[quest.attribute].glyph} {LABELS[quest.attribute].label} · {quest.difficulty} · {quest.repeatRule} · ~{phaseSummary.controls[quest.id]?.estimateMinutes??25}m
         </T>
         <View style={{flexDirection:'row',gap:9,alignItems:'center'}}>
           {editable&& <Pressable accessibilityRole="button" onPress={()=>openQuest(quest)}><T color={C.sub} size={12}>Edit</T></Pressable>}
@@ -394,7 +394,19 @@ export default function App() {
   </>;
 
   const Quests=()=> <>
-    <Section title="Quest Board" right={<Action onPress={()=>openQuest()} style={{paddingHorizontal:13}}>+ QUEST</Action>}/>
+    <Section title="Mission Board" right={<Action onPress={()=>openQuest()} style={{paddingHorizontal:13}}>+ QUEST</Action>}/>
+    <Panel style={{borderColor:'#537CA7'}}>
+      <T size={10} bold color={C.energy} style={{letterSpacing:1.8}}>DAILY RAID STATUS</T>
+      <View style={[s.between,{marginTop:7,marginBottom:9}]}>
+        <T color={C.frost} size={22} bold>{completedToday.length} missions cleared</T>
+        <T color={C.gold} size={12} bold>+{todayXP} XP</T>
+      </View>
+      <Meter value={completedToday.length/Math.max(1,completedToday.length+todayBoard.length)}
+        height={9} tint={C.green}/>
+      <T size={11} color={C.sub} style={{marginTop:8}}>
+        {todayBoard.length} missions on today's board. Recovery and rest remain valid choices.
+      </T>
+    </Panel>
     <T color={C.sub} size={13} style={{marginBottom:12}}>Choose your next move. No pressure to clear every mission at once.</T>
     <View style={s.searchRow}>
       <SearchIcon color={C.sub} size={17}/>
@@ -402,8 +414,11 @@ export default function App() {
         value={questSearch} onChangeText={x=>{setQuestSearch(x);setQuestLimit(20);}}
         autoCorrect={false} style={s.searchInput}/>
     </View>
-    <View style={s.chips}>{(['Today','Weekly','Milestones','Pending','Done','All'] as const).map(f=>
-      <Chip key={f} active={questFilter===f} onPress={()=>{setQuestFilter(f);setQuestLimit(20);}}>{f}</Chip>)}</View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{paddingRight:15,paddingBottom:4}} style={{maxHeight:58}}>
+      {(['Today','Weekly','Milestones','Pending','Done','All'] as const).map(f=>
+        <Chip key={f} active={questFilter===f} onPress={()=>{setQuestFilter(f);setQuestLimit(20);}}>{f}</Chip>)}
+    </ScrollView>
     <View style={[s.between,{marginTop:3,marginBottom:12}]}>
       <T color={C.sub} size={12}>{filteredQuests.length} {filteredQuests.length===1?'mission':'missions'}</T>
       <T color={C.dim} size={11}>{questFilter==='Today'?'Daily focus':questFilter==='Milestones'?'One-time objectives':'Your board'}</T>
@@ -519,7 +534,14 @@ export default function App() {
     });
     const max=Math.max(50,...days.map(x=>x.xp));
     return <>
-      <Section title="Progress Report"/>
+      <Section title="Hunter Intelligence"/>
+    <Panel>
+      <T color={C.energy} bold size={11} style={{letterSpacing:1.4}}>PROGRESS SNAPSHOT</T>
+      <T size={15} bold style={{marginTop:7}}>{completedToday.length} completed today · {todayXP} XP earned</T>
+      <T size={11} color={C.sub} style={{marginTop:7}}>
+        This shows recorded actions, not a judgment of health, talent or personal value.
+      </T>
+    </Panel>
       <View style={s.statRow}>
         <Panel style={[s.miniPanel,{marginRight:5}]}><T size={11} color={C.sub}>LIFETIME XP</T><T bold size={25}>{player.totalXP}</T></Panel>
         <Panel style={[s.miniPanel,{marginLeft:5}]}><T size={11} color={C.sub}>TOTAL COMPLETIONS</T><T bold size={25}>{data.completions.length}</T></Panel>

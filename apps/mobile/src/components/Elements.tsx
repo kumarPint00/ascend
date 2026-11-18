@@ -3,10 +3,11 @@ import {Text,View,Pressable,StyleSheet,type ViewStyle,type TextStyle,type StyleP
 import {LinearGradient} from 'expo-linear-gradient';
 import {C} from '../theme';
 
-export function T({children,size=15,color=C.ink,bold=false,style}:{
-  children:React.ReactNode;size?:number;color?:string;bold?:boolean;style?:StyleProp<TextStyle>;
+export function T({children,size=15,color=C.ink,bold=false,style,numberOfLines}:{
+  children:React.ReactNode;size?:number;color?:string;bold?:boolean;
+  style?:StyleProp<TextStyle>;numberOfLines?:number;
 }){
-  return <Text allowFontScaling maxFontSizeMultiplier={2} style={[
+  return <Text allowFontScaling maxFontSizeMultiplier={2} numberOfLines={numberOfLines} style={[
     {fontSize:size,color,fontWeight:bold?'700':'400',lineHeight:Math.ceil(size*1.48)},style,
   ]}>{children}</Text>;
 }

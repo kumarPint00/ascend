@@ -256,6 +256,16 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
         Export it separately with a passphrase.
       </T>
     </LinearGradient>
+    <View style={{flexDirection:'row',gap:9}}>
+      <Panel style={{flex:1,marginBottom:4}}>
+        <T color={C.sub} size={10} bold>APPROVED SOURCES</T>
+        <T color={C.energy} size={27} bold>{statuses.filter(s=>s.enabled).length}</T>
+      </Panel>
+      <Panel style={{flex:1,marginBottom:4}}>
+        <T color={C.sub} size={10} bold>PRIVATE RECORDS</T>
+        <T color={C.green} size={27} bold>{statuses.reduce((n,s)=>n+s.count,0)}</T>
+      </Panel>
+    </View>
     <Section title="Connected Sources"/>
     {sources.map(source=>{
       const Icon=icons[source],state=statuses.find(s=>s.source===source);

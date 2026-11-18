@@ -163,6 +163,17 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
             </T>
           </View>
         </LinearGradient>
+        <T size={12} color={C.sub} bold style={{marginBottom:9}}>
+          QUICK START · CHOOSE AN INTENTION
+        </T>
+        <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:12}}>
+          {[
+            'Practice a skill for 15 minutes',
+            'Make progress on a project',
+            'Build a sustainable daily routine'
+          ].map(example=><Chip key={example} active={intent===example}
+            onPress={()=>setIntent(example)}>{example}</Chip>)}
+        </View>
         <View style={ss.notice}>
           <LockKeyhole size={16} color="#8CDDF3"/>
           <View style={{flex:1}}>
