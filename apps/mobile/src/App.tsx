@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, Animated, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Vibration,
+  Alert, Animated, AppState, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Vibration,
   StyleSheet, TextInput, View, Image, ActivityIndicator, AccessibilityInfo,
 } from 'react-native';
 import {
@@ -98,6 +98,15 @@ export default function App() {
   const [nanoContextIntent,setNanoContextIntent]=useState<string|null>(null);
   const [incomingShare,setIncomingShare]=useState<string|null>(null);
   const [reward,setReward] = useState<{xp:number;levelUp:boolean;rankUp:boolean;newLevel:number;newRank:string}|null>(null);
+  useEffect(()=>{
+    const subscription=BackHandler.addEventListener('hardwareBackPress',()=>{
+      if(nanoVisible){setNanoVisible(false);return true;}
+      if(tab==='Connect'){setTab('More');return true;}
+      if(tab!=='Home'){setTab('Home');return true;}
+      return false;
+    });
+    return ()=>subscription.remove();
+  },[tab,nanoVisible]);
   const rewardPulse = useRef(new Animated.Value(0)).current;
   const pagePulse = useRef(new Animated.Value(1)).current;
   useEffect(()=>{
