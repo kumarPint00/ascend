@@ -104,6 +104,12 @@ class AscendContextModule : Module() {
       found
     }
     AsyncFunction("pollShare") Coroutine poll
+    AsyncFunction("publishWidgets") { json:String ->
+      val context=appContext.reactContext
+        ?:throw IllegalStateException("Application context unavailable")
+      AscendWidgetRenderer.publish(context,json)
+      true
+    }
     AsyncFunction("encryptLocal") { plain:String ->
       require(plain.length<=12000) { "Context entry too long" }
       "ascend-local-v1:"+encoded(cipherSeal(localKey(),plain.toByteArray(Charsets.UTF_8)))

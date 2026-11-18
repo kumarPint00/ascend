@@ -5,6 +5,22 @@
   <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
   <queries><package android:name="com.google.android.apps.healthdata" /></queries>
   <application>
+    <receiver android:name="expo.modules.ascendcontext.DailyQuestWidget" android:exported="true">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/ascend_widget_daily" />
+    </receiver>
+    <receiver android:name="expo.modules.ascendcontext.HunterStatusWidget" android:exported="true">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/ascend_widget_hunter" />
+    </receiver>
+    <receiver android:name="expo.modules.ascendcontext.FocusPlannerWidget" android:exported="true">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/ascend_widget_planner" />
+    </receiver>
+    <receiver android:name="expo.modules.ascendcontext.ProgressWidget" android:exported="true">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/ascend_widget_progress" />
+    </receiver>
     <activity android:name="expo.modules.ascendcontext.HealthPermissionsActivity" android:exported="false" />
     <activity android:name="expo.modules.ascendcontext.HealthRationaleActivity"
       android:exported="true">

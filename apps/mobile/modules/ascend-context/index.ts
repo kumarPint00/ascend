@@ -8,6 +8,7 @@ export interface HealthSummary {
 export interface HealthAccess {available:boolean;granted:string[]}
 interface ContextBridge{
   pollShare():Promise<string>;
+  publishWidgets(json:string):Promise<boolean>;
   encryptLocal(text:string):Promise<string>;
   decryptLocal(value:string):Promise<string>;
   protectExport(text:string,password:string):Promise<string>;
@@ -23,6 +24,7 @@ const moduleOrError=():ContextBridge=>{
   return native;
 };
 export const contextAvailable=()=>!!native;
+export const publishHomeWidgets=(json:string)=>moduleOrError().publishWidgets(json);
 export const pollIncomingShare=()=>native?.pollShare()??Promise.resolve('');
 export const encryptContext=(value:string)=>moduleOrError().encryptLocal(value);
 export const decryptContext=(value:string)=>moduleOrError().decryptLocal(value);
