@@ -149,7 +149,9 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
       // GPU budget can starve the emulator launcher even if ASCEND stays alive.
       // Reduce both mesh complexity and frame cadence in those environments.
       const renderer=String(gl.getParameter(gl.RENDERER)??'');
-      const software=/swiftshader|software|llvmpipe|emulator/i.test(renderer);
+      const vendor=String(gl.getParameter(gl.VENDOR)??'');
+      const software=/swiftshader|software|llvmpipe|emulator|google inc\./i.test(renderer+' '+vendor);
+      console.info('[ASCEND/Hunter] renderer profile:',software?'software-safe':'hardware');
       const g=setup(gl,software);
       gl.viewport(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight);
       gl.clearColor(0,0,0,0);
