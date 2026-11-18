@@ -127,13 +127,16 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
   height=350,rank='E',level=1,inspect=false,armor='azure'}:Props){
   const activeRef=useRef(active),motionRef=useRef(reduceMotion),qualityRef=useRef(quality);
   const turnRef=useRef(0),frame=useRef<number|null>(null),live=useRef(true),foreground=useRef(true);
+  const wake=useRef<()=>void>(()=>{}),invalidate=useRef<()=>void>(()=>{});
   const [error,setError]=useState(false);
   const [turn,setTurn]=useState(0);
-  useEffect(()=>{activeRef.current=active;motionRef.current=reduceMotion;qualityRef.current=quality;},
-    [active,reduceMotion,quality]);
-  useEffect(()=>{turnRef.current=turn;},[turn]);
+  useEffect(()=>{activeRef.current=active;motionRef.current=reduceMotion;qualityRef.current=quality;
+    invalidate.current();},[active,reduceMotion,quality]);
+  useEffect(()=>{turnRef.current=turn;invalidate.current();},[turn]);
   useEffect(()=>{
-    const s=AppState.addEventListener('change',state=>{foreground.current=state==='active';});
+    const s=AppState.addEventListener('change',state=>{
+      foreground.current=state==='active';if(foreground.current)wake.current();
+    });
     return ()=>{s.remove();live.current=false;if(frame.current!==null)cancelAnimationFrame(frame.current);};
   },[]);
   const onContextCreate=useCallback((gl:ExpoWebGLRenderingContext)=>{
@@ -145,13 +148,12 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
       gl.enableVertexAttribArray(g.a);
       let previous=0,origin=0,drawnStill=false;
       const render=(stamp:number)=>{
-        if(!live.current)return;
-        frame.current=requestAnimationFrame(render);
-        if(!activeRef.current||!foreground.current)return;
+        frame.current=null;
+        if(!live.current||!activeRef.current||!foreground.current)return;
         const still=motionRef.current||qualityRef.current==='battery';
         if(still&&drawnStill)return;
         const spacing=qualityRef.current==='immersive'?22:33;
-        if(!still&&stamp-previous<spacing)return;
+        if(!still&&stamp-previous<spacing){frame.current=requestAnimationFrame(render);return;}
         previous=stamp;if(!origin)origin=stamp;
         const t=still?0:(stamp-origin)/1000;
         const rankColor=tint[rank]??tint.E;
@@ -206,8 +208,16 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
         }
         gl.flush();gl.endFrameEXP();
         drawnStill=still;
+        // A frozen battery-saver or reduced-motion scene must not wake JS
+        // on every display refresh. It resumes only when invalidated.
+        if(!still&&live.current)frame.current=requestAnimationFrame(render);
       };
-      frame.current=requestAnimationFrame(render);
+      wake.current=()=>{
+        if(live.current&&activeRef.current&&foreground.current&&frame.current===null)
+          frame.current=requestAnimationFrame(render);
+      };
+      invalidate.current=()=>{drawnStill=false;wake.current();};
+      wake.current();
     }catch(e){
       console.warn('[ASCEND/Hunter] GPU scene unavailable; using accessible fallback',
         e instanceof Error?e.message:'unknown graphics issue');
