@@ -97,7 +97,7 @@ function shader(gl:ExpoWebGLRenderingContext,type:number,source:string){
   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s)||'Hunter shader failure');
   return s;
 }
-function setup(gl:ExpoWebGLRenderingContext){
+function setup(gl:ExpoWebGLRenderingContext,software=false){
   const p=gl.createProgram();if(!p)throw Error('Hunter GPU program unavailable');
   const v=shader(gl,gl.VERTEX_SHADER,VS),f=shader(gl,gl.FRAGMENT_SHADER,FS);
   gl.attachShader(p,v);gl.attachShader(p,f);gl.linkProgram(p);
@@ -115,7 +115,8 @@ function setup(gl:ExpoWebGLRenderingContext){
   return {p,a,center:uniform('uCenter'),size:uniform('uSize'),turn:uniform('uTurn'),
     swing:uniform('uSwing'),time:uniform('uTime'),aspect:uniform('uAspect'),
     mode:uniform('uMode'),color:uniform('uColor'),
-    body:create(sphere()),points:create(particles()),ring:create(halo())};
+    body:create(software?sphere(8,12):sphere()),
+    points:create(software?particles().slice(0,180):particles()),ring:create(halo())};
 }
 const tint:Record<string,[number,number,number]>={
   E:[.31,.53,.75],D:[.22,.71,.92],C:[.39,.77,.83],
@@ -144,7 +145,12 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
   },[]);
   const onContextCreate=useCallback((gl:ExpoWebGLRenderingContext)=>{
     try{
-      const g=setup(gl);
+      // SwiftShader and llvmpipe are software renderers. A normal 30–45 fps
+      // GPU budget can starve the emulator launcher even if ASCEND stays alive.
+      // Reduce both mesh complexity and frame cadence in those environments.
+      const renderer=String(gl.getParameter(gl.RENDERER)??'');
+      const software=/swiftshader|software|llvmpipe|emulator/i.test(renderer);
+      const g=setup(gl,software);
       gl.viewport(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight);
       gl.clearColor(0,0,0,0);
       gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
@@ -155,7 +161,7 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
         if(!live.current||!activeRef.current||!foreground.current)return;
         const still=motionRef.current||qualityRef.current==='battery';
         if(still&&drawnStill)return;
-        const spacing=qualityRef.current==='immersive'?22:33;
+        const spacing=software?100:(qualityRef.current==='immersive'?22:33);
         if(!still&&stamp-previous<spacing){frame.current=requestAnimationFrame(render);return;}
         previous=stamp;if(!origin)origin=stamp;
         const t=still?0:(stamp-origin)/1000;
