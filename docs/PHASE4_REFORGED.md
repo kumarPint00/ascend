@@ -1,4 +1,4 @@
-# ASCEND // REFORGED — Phase 4 UX Candidate (v0.13.0, build 18)
+# ASCEND // REFORGED — Phase 4 UX Candidate (v0.13.1, build 19)
 
 ## Shipped in source
 
@@ -19,13 +19,14 @@
   use the existing guarded completion transaction.
 - Reorganized bottom navigation: Realm, Missions, Journey, Hunter, Hub.
   Planner, Insights, Oracle and Connections remain available from real controls.
+  Android hardware Back returns to a predictable parent screen.
 - Hero/action dock, today's mission counts/XP, horizontal mission filters, more
   readable quest cards, Oracle quick-start ideas and Connect source summary.
 - Design language and motion: coherent glass surfaces and legible controls,
   native-driver page transitions, existing cinematic rank/boss effects,
   short quest-completion vibration with permission.
 - Graphics controls are stored in Expo SecureStore:
-  Immersive (~45fps budget), Balanced (~30fps), Battery Saver (one static GPU frame).
+  Immersive (~45fps budget), Balanced (~30fps), Battery Saver (one static GPU frame, then JS animation loop stops).
   OS reduced-motion preferences override ongoing graphics animation.
 - No added mandatory cloud, new paid SDK or tracking. Existing SQLite v6 and
   signing package com.ascendrpg.personal remain unchanged.

@@ -1,10 +1,12 @@
 # ASCEND — Real-Life Leveling System
 
-## ASCEND // REFORGED v0.13.0 (signed candidate)
+## ASCEND // REFORGED v0.13.1 (signed candidate)
 
 The Phase 4 UX foundation now includes an original **procedurally articulated 3D Hunter** in a celestial sanctuary, inspect/rotation controls, rank-aware colors, level-driven equipment, and three locally saved armor styles. A new **Realm / Missions / Journey / Hunter / Hub** bottom navigation separates routine tasks from immersive character screens. The accessible **Sanctuary Gates** world map opens six functional app areas; mission cards have a compact view, today's raid summary, and one-tap completion. Questlines show real milestone states in an interactive journey path. Oracle includes suggested starting intents. Connect shows concise private-source totals. GPU quality settings offer Immersive, Balanced and Battery modes, with reduced-motion compliance.
 
 **Implementation limit:** The character is custom procedural WebGL geometry with limb motion, **not a professionally rigged glTF humanoid**. One sanctuary scene and an interactive navigational map exist, not a multi-world game, animated NPC campaign, or a complete cinematic equipment inventory. Google, Gemini Nano, Health Connect and physical migration still require real-account/device acceptance. No user data is moved into the public repository.
+
+**v0.13.1 hardening:** Android hardware Back navigates immersive screens predictably, and Battery Saver/reduced-motion rendering no longer schedules recurring animation frames.
 
 **Candidate testing:** signed APK and Android 15 emulator smoke through GitHub Actions; do not promote the release feed until Samsung S25 Ultra upgrade, backups, GPU rendering, and provider permissions are verified.
 
