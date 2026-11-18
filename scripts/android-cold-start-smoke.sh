@@ -58,4 +58,22 @@ if adb logcat -d -b crash | grep -F "$APP"; then
 fi
 adb exec-out screencap -p > test-output/ascend-share-review.png
 test -s test-output/ascend-share-review.png
-echo 'PASS: 3 emulator cold launches, large font, and Android text share route without recorded crash'
+# Ensure all four native receivers merged into the signed Android APK.
+PACKAGE_DUMP="$(adb shell dumpsys package "$APP")"
+for widget in DailyQuestWidget HunterStatusWidget FocusPlannerWidget ProgressWidget; do
+  if ! printf '%s\n' "$PACKAGE_DUMP" | grep -Fq "$widget"; then
+    echo "FAIL: widget receiver $widget missing from installed APK"
+    exit 1
+  fi
+done
+# Exercise the same URI that widget PendingIntents launch. No XP writes here.
+adb shell am start -W -a android.intent.action.VIEW \
+  -d 'ascendrpg://widget/quests' -n "$APP/.MainActivity"
+sleep 6
+if ! adb shell pidof "$APP" >/dev/null; then
+  echo 'FAIL: widget deep link terminated ASCEND'
+  exit 1
+fi
+adb exec-out screencap -p > test-output/ascend-widget-deep-link.png
+test -s test-output/ascend-widget-deep-link.png
+echo 'PASS: 3 emulator launches, large font, share route, four widget receivers and widget deep link'
