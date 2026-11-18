@@ -46,6 +46,7 @@ function halo():Float32Array{
   return new Float32Array(points);
 }
 const VS=[
+  'precision mediump float;',
   'attribute vec3 aPosition;',
   'uniform vec3 uCenter;',
   'uniform vec3 uSize;',
@@ -100,7 +101,9 @@ function setup(gl:ExpoWebGLRenderingContext){
   const p=gl.createProgram();if(!p)throw Error('Hunter GPU program unavailable');
   const v=shader(gl,gl.VERTEX_SHADER,VS),f=shader(gl,gl.FRAGMENT_SHADER,FS);
   gl.attachShader(p,v);gl.attachShader(p,f);gl.linkProgram(p);
-  if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error('Hunter GPU link failure');
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))
+    throw Error('Hunter GPU link failure: '+(gl.getProgramInfoLog(p)||'unknown GPU program error'));
+
   gl.deleteShader(v);gl.deleteShader(f);gl.useProgram(p);
   const a=gl.getAttribLocation(p,'aPosition');
   const uniform=(key:string)=>{const u=gl.getUniformLocation(p,key);if(!u)throw Error('Missing Hunter uniform '+key);return u;};
