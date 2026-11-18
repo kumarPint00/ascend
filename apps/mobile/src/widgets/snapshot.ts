@@ -40,8 +40,9 @@ export function buildWidgetProjection(
   const denominator=finishedToday+remaining;
   const donePercent=ratio(finishedToday,denominator);
   const next=due[0];
-  const timed=due.find(q=>!!phase.controls[q.id]?.timeOfDay);
-  const schedule=timed?phase.controls[timed.id]?.timeOfDay:null;
+  const schedule=due.map(q=>phase.controls[q.id]?.timeOfDay).filter(
+    (time):time is string=>typeof time==='string'&&time.length===5
+  ).sort()[0]??null;
   const nextEstimated=next?phase.controls[next.id]?.estimateMinutes??
     defaultQuestControl(next).estimateMinutes:0;
   const nextRank=player.xpForNextLevel-player.currentLevelXP;
@@ -62,7 +63,7 @@ export function buildWidgetProjection(
       progress:ratio(player.currentLevelXP,player.xpForNextLevel)
     },
     planner:{
-      primary:schedule?'Next at '+schedule:next?'Ready to focus':'All clear',
+      primary:schedule?'Scheduled '+schedule:next?'Ready to focus':'All clear',
       secondary:showTitles&&next?safeText(next.title):
         next?remaining+' available missions':'Open your daily plan',
       tertiary:next?nextEstimated+' min estimated · Open Planner':'Tap to plan tomorrow',
