@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, Animated, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar,
+  Alert, Animated, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Vibration,
   StyleSheet, TextInput, View, Image, ActivityIndicator, AccessibilityInfo,
 } from 'react-native';
 import {
@@ -14,7 +14,9 @@ import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
 import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
 import {Planner} from './phase2/Planner';
-import {WorldScene} from './experience/WorldScene';
+import {HunterWorld,type RenderQuality} from './experience/HunterWorld';
+import {JourneyPath} from './experience/JourneyPath';
+import * as SecureStore from 'expo-secure-store';
 import {CelestialBackdrop} from './experience/CelestialBackdrop';
 import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
 import {decideAdaptiveProposal} from './data/adaptive';
@@ -37,11 +39,11 @@ import {
 
 type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More' | 'Connect';
 const TABS = [
-  {tab:'Home' as const, Icon:House},
-  {tab:'Quests' as const, Icon:Swords},
-  {tab:'Goals' as const, Icon:Flag},
-  {tab:'Planner' as const, Icon:CalendarDays},
-  {tab:'More' as const, Icon:Settings2},
+  {tab:'Home' as const,label:'REALM',Icon:House},
+  {tab:'Quests' as const,label:'MISSIONS',Icon:Swords},
+  {tab:'Goals' as const,label:'JOURNEY',Icon:Flag},
+  {tab:'Hunter' as const,label:'HUNTER',Icon:UserRound},
+  {tab:'More' as const,label:'HUB',Icon:Settings2},
 ];
 const INITIAL_QUEST: QuestInput = {
   title: '', description: '', attribute: 'discipline', difficulty: 'medium',
@@ -77,6 +79,13 @@ export default function App() {
   const [goalLimit,setGoalLimit] = useState(8);
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
+  const [quality,setQuality] = useState<RenderQuality>('balanced');
+  useEffect(()=>{void SecureStore.getItemAsync('ascend.reforged.graphics').then(v=>{
+    if(v==='immersive'||v==='balanced'||v==='battery')setQuality(v);
+  }).catch(()=>{});},[]);
+  const chooseQuality=(v:RenderQuality)=>{
+    setQuality(v);void SecureStore.setItemAsync('ascend.reforged.graphics',v).catch(()=>{});
+  };
   const [nanoVisible,setNanoVisible] = useState(false);
   const [nanoContextIntent,setNanoContextIntent]=useState<string|null>(null);
   const [incomingShare,setIncomingShare]=useState<string|null>(null);
@@ -85,10 +94,10 @@ export default function App() {
   const pagePulse = useRef(new Animated.Value(1)).current;
   useEffect(()=>{
     pagePulse.stopAnimation();
-    if(reduceMotion){pagePulse.setValue(1);return;}
+    if(reduceMotion||quality==='battery'){pagePulse.setValue(1);return;}
     pagePulse.setValue(0);
     Animated.timing(pagePulse,{toValue:1,duration:245,useNativeDriver:true}).start();
-  },[tab,reduceMotion,pagePulse]);
+  },[tab,reduceMotion,quality,pagePulse]);
   useEffect(()=>{let live=true;AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(live)setReduceMotion(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduceMotion);return ()=>{live=false;sub.remove();};},[]);
 
   const refresh = useCallback(async () => {
@@ -215,6 +224,7 @@ export default function App() {
   const finish=(q:Quest,mode:'standard'|'lite'='standard')=>run(async()=>{
     const reward=await completeQuest(q,new Date(),mode);
     if(reward.applied) {
+      if(!reduceMotion) Vibration.vibrate(13);
       const newLevel=levelFromXP(player.totalXP+reward.xp);
       const levelUp=newLevel>player.level,newRank=rankFromLevel(newLevel);
       const rankUp=newRank!==player.rank;
@@ -292,11 +302,12 @@ export default function App() {
 
   const Home=()=> <>
     <View style={s.worldHero}>
-      <WorldScene active={tab==='Home'} reduceMotion={reduceMotion} height={400} rank={player.rank}/>
+      <HunterWorld active={tab==='Home'} reduceMotion={reduceMotion} quality={quality}
+        height={quality==='battery'?300:355} rank={player.rank} level={player.level}/>
       <View pointerEvents="none" style={s.worldCaption}>
         <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
           <View style={s.liveDot}/>
-          <T size={10} bold color="#A8E4FF" style={{letterSpacing:2.5}}>ASCENSION REALM · LIVE</T>
+          <T size={10} bold color="#A8E4FF" style={{letterSpacing:2.5}}>YOUR REALM · REFORGED</T>
         </View>
         <T size={40} bold color="#FFFFFF" style={{letterSpacing:-2,marginTop:5}}>LEVEL {player.level}</T>
         <T size={12} bold color={C.gold} style={{letterSpacing:1.5}}>
@@ -316,6 +327,23 @@ export default function App() {
           <ChevronRight size={23} color={C.frost}/>
         </Pressable>
       </View>
+    </View>
+    <View style={s.quickBar}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open today's planner"
+        style={s.quickAction} onPress={()=>setTab('Planner')}>
+        <CalendarDays size={20} color={C.energy}/>
+        <T bold color={C.frost} size={11}>TODAY</T>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Create a new quest"
+        style={s.quickAction} onPress={()=>openQuest()}>
+        <Swords size={20} color={C.green}/>
+        <T bold color={C.frost} size={11}>NEW QUEST</T>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Ask the Oracle"
+        style={s.quickAction} onPress={()=>setNanoVisible(true)}>
+        <Sparkles size={20} color={C.violet}/>
+        <T bold color={C.frost} size={11}>ORACLE</T>
+      </Pressable>
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel="Open Gemini Nano Quest Architect"
       onPress={()=>setNanoVisible(true)} style={{marginBottom:18}}>
@@ -408,21 +436,16 @@ export default function App() {
         <Pressable accessibilityRole="button" onPress={()=>setExpandedGoals(v=>({...v,[goal.id]:!v[goal.id]}))}>
           <T color={C.energy} size={12} bold>◆ Milestones {cleared}/{milestones.length} · {expandedGoals[goal.id]?'Hide':'View'}</T>
         </Pressable>
-        {!!expandedGoals[goal.id]&&milestones.map(m=><View key={m.id} style={[s.between,{paddingTop:12,alignItems:'flex-start'}]}>
-          <View style={{flex:1,marginRight:8}}>
-            <T size={13} color={completed(m)?C.green:C.ink}>{completed(m)?'✓ ':'○ '}{m.title.slice(MILESTONE_PREFIX.length)}</T>
-            {!!m.description&&<T size={11} color={C.dim} style={{marginTop:3}}>{m.description}</T>}
-          </View>
-          {!completed(m)&&
-            (questDueOn(m,phaseSummary.controls[m.id]??defaultQuestControl(m),clock)&&
-             !blockedByDependencies(m,phaseSummary.dependencies,data.completions)
-              ?<Pressable disabled={busy} accessibilityRole="button" onPress={()=>finish(m)}
-                 style={s.finish}><T size={11} color={C.bg} bold>Done</T></Pressable>
-              :<Pressable accessibilityRole="button" onPress={()=>{setPlannerTarget(m.id);setTab('Planner');}}
-                 style={{paddingHorizontal:10,paddingVertical:9,minHeight:42,justifyContent:'center'}}>
-                 <T size={11} color={C.energy} bold>PLAN</T>
-               </Pressable>)}
-        </View>)}
+        {!!expandedGoals[goal.id]&&<JourneyPath
+          steps={milestones.map(m=>{
+            const blocked=blockedByDependencies(m,phaseSummary.dependencies,data.completions);
+            const due=questDueOn(m,phaseSummary.controls[m.id]??defaultQuestControl(m),clock);
+            return {id:m.id,title:m.title.slice(MILESTONE_PREFIX.length),
+              description:m.description,done:completed(m),blocked,ready:due&&!blocked};
+          })}
+          onActivate={id=>{const selected=milestones.find(m=>m.id===id);if(selected)void finish(selected);}}
+          onPlan={id=>{setPlannerTarget(id);setTab('Planner');}}
+        />}
       </View>}
       <View style={[s.between,{marginTop:13}]}>
         <Pressable onPress={()=>openGoal(goal)}><T color={C.sub} size={12}>Edit goal</T></Pressable>
@@ -434,8 +457,8 @@ export default function App() {
     </Panel>;
   };
   const Goals=()=> <>
-    <Section title="Questlines" right={<Action onPress={()=>openGoal()} style={{paddingHorizontal:12}}>+ GOAL</Action>}/>
-    <T color={C.sub} size={13} style={{marginBottom:12}}>Your long-term stories. Open each goal to review and complete its milestones.</T>
+    <Section title="Journey Map" right={<Action onPress={()=>openGoal()} style={{paddingHorizontal:12}}>+ GOAL</Action>}/>
+    <T color={C.sub} size={13} style={{marginBottom:12}}>Every milestone advances your journey. Locked paths require their actual prerequisites, never invented progress.</T>
     <View style={s.searchRow}>
       <SearchIcon color={C.sub} size={17}/>
       <TextInput accessibilityLabel="Search goals" placeholder="Find a goal or project" placeholderTextColor={C.dim}
@@ -451,7 +474,8 @@ export default function App() {
   </>;
 
   const Hunter=()=> <>
-    <WorldScene active={tab==='Hunter'} reduceMotion={reduceMotion} height={310} rank={player.rank}/>
+    <HunterWorld active={tab==='Hunter'} reduceMotion={reduceMotion} quality={quality}
+      height={390} rank={player.rank} level={player.level} inspect/>
     <Panel style={{alignItems:'center',paddingVertical:25}}>
       <T color={C.gold} size={10} bold style={{letterSpacing:2.5}}>YOUR HUNTER IDENTITY</T>
       <T size={28} bold style={{marginTop:7}}>Rank {player.rank} · Level {player.level}</T>
@@ -461,6 +485,14 @@ export default function App() {
       </View>
       <T color={C.dim} size={11} style={{marginTop:12,textAlign:'center'}}>
         The animated core evolves with your progress. Character armor and customizable avatars are later additions.
+      </T>
+    </Panel>
+    <Panel>
+      <T color={C.energy} bold size={13}>HUNTER EQUIPMENT</T>
+      <T size={12} color={C.sub} style={{marginTop:7}}>
+        {player.level>=10?'Ascended core awakened · ':'Standard armor · '}
+        {player.level>=5?'Energy blade unlocked':'Energy blade unlocks at level 5'}.
+        Visual rewards reflect recorded XP, not actual physical strength.
       </T>
     </Panel>
     <Section title="Character Attributes"/>
@@ -513,6 +545,28 @@ export default function App() {
   };
 
   const More=()=> <>
+    <Section title="Command Hub"/>
+    <Panel>
+      <T bold color={C.energy} size={15}>QUICK NAVIGATION</T>
+      <View style={{flexDirection:'row',gap:9,marginTop:12,flexWrap:'wrap'}}>
+        <Action secondary onPress={()=>setTab('Planner')}>OPEN PLANNER</Action>
+        <Action secondary onPress={()=>setTab('Progress')}>VIEW INSIGHTS</Action>
+        <Action secondary onPress={()=>setNanoVisible(true)}>ASK ORACLE</Action>
+      </View>
+    </Panel>
+    <Panel>
+      <T bold color={C.energy} size={15}>GRAPHICS & MOTION</T>
+      <T size={12} color={C.sub} style={{marginVertical:8}}>
+        Visual quality is stored on this device. Battery mode freezes the 3D scene.
+        Android reduced-motion preference always takes priority.
+      </T>
+      <View style={{flexDirection:'row',flexWrap:'wrap'}}>
+        {(['immersive','balanced','battery'] as RenderQuality[]).map(mode=>
+          <Chip key={mode} active={quality===mode} onPress={()=>chooseQuality(mode)}>
+            {mode.toUpperCase()}
+          </Chip>)}
+      </View>
+    </Panel>
     <Section title="System Settings"/>
     <Panel>
       <T size={15} bold color={C.energy}>ASCEND Connect · Personal Context Hub</T>
@@ -615,12 +669,12 @@ export default function App() {
       reduceMotion={reduceMotion}/>}
     <View style={s.nav}>
       {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable
-        accessibilityRole="tab" accessibilityLabel={t.tab}
+        accessibilityRole="tab" accessibilityLabel={t.label}
         accessibilityState={{selected:active}} key={t.tab}
         style={[s.navTab,active&&{backgroundColor:'#273C61',borderColor:'#749BC9'}]}
         onPress={()=>setTab(t.tab)}>
         <NavIcon size={20} color={active?C.energy:C.sub} strokeWidth={active?2.6:1.7}/>
-        <T size={9} bold={active} color={active?C.frost:C.sub}>{t.tab.toUpperCase()}</T>
+        <T size={9} bold={active} color={active?C.frost:C.sub}>{t.label}</T>
       </Pressable>;})}
     </View>
     <NanoCoach visible={nanoVisible} initialIntent={nanoContextIntent}
@@ -753,8 +807,12 @@ const s=StyleSheet.create({
   brand:{width:42,height:42,borderRadius:14,borderWidth:1,borderColor:'#587BAC',
     alignItems:'center',justifyContent:'center'},
   worldHero:{marginBottom:5,position:'relative'},
-  worldCaption:{position:'absolute',top:20,left:21,right:20},
-  worldFooter:{position:'absolute',bottom:28,left:20,right:20,flexDirection:'row',
+  quickBar:{flexDirection:'row',gap:8,marginBottom:15},
+  quickAction:{flex:1,minHeight:69,borderRadius:16,borderWidth:1,
+    borderColor:'#4B6D9B',backgroundColor:'#132844',alignItems:'center',
+    justifyContent:'center',gap:7},
+  worldCaption:{position:'absolute',top:54,left:21,right:20},
+  worldFooter:{position:'absolute',bottom:44,left:20,right:20,flexDirection:'row',
     alignItems:'center',justifyContent:'space-between',
     padding:13,backgroundColor:'#071222CF',borderRadius:16,
     borderWidth:1,borderColor:'#29476A'},
