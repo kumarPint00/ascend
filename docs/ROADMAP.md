@@ -80,6 +80,24 @@ See [Phase 3 design](PHASE3_ADAPTIVE.md) and [device acceptance checklist](DEVIC
 
 [Connection setup and native acceptance checklist](ASCEND_CONNECT.md)
 
+## Phase 4 · Reforged UX foundation (v0.13.0 signed candidate)
+
+- [x] Original animated procedural 3D Hunter with tiered sanctuary, limb movement, level equipment and manual rotation controls
+- [x] Three armor aura appearances, persisted locally; immersive/balanced/battery graphics modes
+- [x] New Realm / Missions / Journey / Hunter / Hub navigation, contextual Planner/Oracle/Connect access
+- [x] Accessible six-gate navigational sanctuary linking real app destinations
+- [x] Daily raid summary, one-tap mission completion, concise quest cards and horizontal mission filters
+- [x] Milestone journey path with real complete/locked/scheduled state and functional actions
+- [x] Context HUD and Oracle quick-start intents; existing boss victory ceremony preserved
+- [ ] Professional rigged glTF humanoid asset with skeletal animation and complete equipment inventory
+- [ ] Fully navigable multi-scene 3D RPG world with original NPCs, environment interactions, and scripted boss scenes
+- [ ] Multi-step AI Quest Director and real-time dialogue beyond existing one-draft native model flow
+- [ ] Advanced gesture animations, shared-element navigation, automated golden screenshot comparison
+- [ ] Samsung S25 Ultra in-place upgrade, real GPU performance/battery, accessibility and provider permissions acceptance
+- [ ] Public release promotion once physical-device acceptance is complete
+
+See [Reforged UI/UX design and implementation notes](PHASE4_REFORGED.md).
+
 ## Future public beta (not in personal Phase 3)
 
 - [ ] Opt-in multi-user authentication and RLS, reliable multi-device sync and recovery
