@@ -1,0 +1,55 @@
+name: Diagnose ASCEND Hunter GPU fallback
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-hunter-gpu.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ascend-android-v0.13.1-build19
+          merge-multiple: true
+          path: apk
+          run-id: 44277047468
+          github-token: ${{ github.token }}
+      - name: Verify candidate APK
+        run: test -s apk/ascend-android.apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capture graphics error from Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -e
+            mkdir -p test-output
+            adb install -r apk/ascend-android.apk
+            adb logcat -c
+            adb shell am start -W -n com.ascendrpg.personal/.MainActivity
+            sleep 11
+            adb logcat -d -v time > test-output/all-logcat.txt
+            echo '--- RELEVANT GPU ERRORS ---'
+            grep -Ei 'ASCEND/Hunter|E ReactNativeJS|shader|WebGL|ExpoGL|GLView|OpenGL' test-output/all-logcat.txt | tail -n 140 || true
+            adb exec-out screencap -p > test-output/hunter-gpu-before-fix.png
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunter-gpu-diagnostics
+          path: test-output/*
+          retention-days: 7
