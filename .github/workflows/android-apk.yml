@@ -157,3 +157,5 @@ jobs:
 
 # Final ASCEND Connect v0.12.0 build17: Drive v3 pageSize/pagination + in-place provider refresh with dedupe preserved.
 # Final v0.12.0 build17: retry transient Gradle repository failures; validate latest full-interval Health Connect aggregation.
+
+# v0.14.0 build22: four read-only native Android home widgets. Same package and signing identity; no public release before device acceptance.

@@ -1,5 +1,9 @@
 # ASCEND // REFORGED — Phase 4 UX Candidate (v0.13.3, build 21)
 
+## Phase 4.1 companion module — v0.14.0 Android widgets
+
+Four read-only native Android widgets, privacy settings, deeplink routes and refresh bridge are available in docs/ASCEND_WIDGETS.md. This does not complete Phase 4's rigged character/world requirements.
+
 ## Shipped in source
 
 - apps/mobile/src/experience/HunterWorld.tsx: original shader-based articulated humanoid

@@ -1,5 +1,14 @@
 # ASCEND — Real-Life Leveling System
 
+## ASCEND Widgets v0.14.0 (build 22 — signed candidate)
+
+Four native Android home-screen widgets are now included: **Daily Quests**, **Hunter Status**, **Focus & Planner**, and **Progress**. Resizable compact/wide layouts, offline read-only snapshots from the existing game engine, deep links back into actual ASCEND screens, and per-device widget privacy controls are provided. Quest titles stay hidden unless explicitly enabled in **Hub → Android Home Widgets**. Home-screen actions never bypass quest verification or award XP. The Android package ID, SQLite schema, and release signing keys remain unchanged.
+
+Widgets use lightweight Android RemoteViews through the existing Expo native module, not a continuous 3D scene. They update when ASCEND refreshes its local data; Android can also request a view update, but widgets do not run background AI or query the database while the app is closed. After midnight, a stale daily snapshot asks the user to reopen ASCEND. No Galaxy Watch tile has been implemented yet.
+
+[Widget installation, privacy and test instructions](docs/ASCEND_WIDGETS.md).
+
+
 ## ASCEND // REFORGED v0.13.3 (signed candidate)
 
 The Phase 4 UX foundation now includes an original **procedurally articulated 3D Hunter** in a celestial sanctuary, inspect/rotation controls, rank-aware colors, level-driven equipment, and three locally saved armor styles. A new **Realm / Missions / Journey / Hunter / Hub** bottom navigation separates routine tasks from immersive character screens. The accessible **Sanctuary Gates** world map opens six functional app areas; mission cards have a compact view, today's raid summary, and one-tap completion. Questlines show real milestone states in an interactive journey path. Oracle includes suggested starting intents. Connect shows concise private-source totals. GPU quality settings offer Immersive, Balanced and Battery modes, with reduced-motion compliance.
