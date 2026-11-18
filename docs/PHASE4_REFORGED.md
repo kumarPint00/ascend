@@ -1,4 +1,4 @@
-# ASCEND // REFORGED — Phase 4 UX Candidate (v0.13.1, build 19)
+# ASCEND // REFORGED — Phase 4 UX Candidate (v0.13.2, build 20)
 
 ## Shipped in source
 
@@ -50,7 +50,7 @@
 
 ## How to validate
 
-1. Export a full progress backup (and separate protected Context export if used).
+1. Confirm the Hunter model actually renders, not merely the static fallback. Inspect the screenshots, then export a full progress backup (and separate protected Context export if used).
 2. Install the permanently signed build over the existing app; **never uninstall**.
 3. Confirm prior XP, quest controls, goal milestones, adaptive records and
    Context Hub remain intact after additive version upgrade.
