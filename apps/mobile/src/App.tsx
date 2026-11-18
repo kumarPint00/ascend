@@ -14,7 +14,7 @@ import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
 import {LinearGradient} from 'expo-linear-gradient';
 import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronRight, Search as SearchIcon, UserRound} from 'lucide-react-native';
 import {Planner} from './phase2/Planner';
-import {HunterWorld,type RenderQuality} from './experience/HunterWorld';
+import {HunterWorld,type RenderQuality,type ArmorTheme} from './experience/HunterWorld';
 import {JourneyPath} from './experience/JourneyPath';
 import * as SecureStore from 'expo-secure-store';
 import {CelestialBackdrop} from './experience/CelestialBackdrop';
@@ -80,9 +80,16 @@ export default function App() {
   const [goalSearch,setGoalSearch] = useState('');
   const [reduceMotion,setReduceMotion] = useState(false);
   const [quality,setQuality] = useState<RenderQuality>('balanced');
+  const [armor,setArmor] = useState<ArmorTheme>('azure');
   useEffect(()=>{void SecureStore.getItemAsync('ascend.reforged.graphics').then(v=>{
     if(v==='immersive'||v==='balanced'||v==='battery')setQuality(v);
   }).catch(()=>{});},[]);
+  useEffect(()=>{void SecureStore.getItemAsync('ascend.reforged.armor').then(v=>{
+    if(v==='azure'||v==='royal'||v==='ember')setArmor(v);
+  }).catch(()=>{});},[]);
+  const chooseArmor=(v:ArmorTheme)=>{
+    setArmor(v);void SecureStore.setItemAsync('ascend.reforged.armor',v).catch(()=>{});
+  };
   const chooseQuality=(v:RenderQuality)=>{
     setQuality(v);void SecureStore.setItemAsync('ascend.reforged.graphics',v).catch(()=>{});
   };
@@ -302,8 +309,8 @@ export default function App() {
 
   const Home=()=> <>
     <View style={s.worldHero}>
-      <HunterWorld active={tab==='Home'} reduceMotion={reduceMotion} quality={quality}
-        height={quality==='battery'?300:355} rank={player.rank} level={player.level}/>
+      <HunterWorld key={'home:'+player.rank+':'+armor} active={tab==='Home'} reduceMotion={reduceMotion} quality={quality}
+        height={quality==='battery'?300:355} rank={player.rank} level={player.level} armor={armor}/>
       <View pointerEvents="none" style={s.worldCaption}>
         <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
           <View style={s.liveDot}/>
@@ -489,8 +496,8 @@ export default function App() {
   </>;
 
   const Hunter=()=> <>
-    <HunterWorld active={tab==='Hunter'} reduceMotion={reduceMotion} quality={quality}
-      height={390} rank={player.rank} level={player.level} inspect/>
+    <HunterWorld key={'hunter:'+player.rank+':'+armor} active={tab==='Hunter'} reduceMotion={reduceMotion} quality={quality}
+      height={390} rank={player.rank} level={player.level} armor={armor} inspect/>
     <Panel style={{alignItems:'center',paddingVertical:25}}>
       <T color={C.gold} size={10} bold style={{letterSpacing:2.5}}>YOUR HUNTER IDENTITY</T>
       <T size={28} bold style={{marginTop:7}}>Rank {player.rank} · Level {player.level}</T>
@@ -509,6 +516,18 @@ export default function App() {
         {player.level>=5?'Energy blade unlocked':'Energy blade unlocks at level 5'}.
         Visual rewards reflect recorded XP, not actual physical strength.
       </T>
+    </Panel>
+    <Panel>
+      <T color={C.energy} bold size={13}>EQUIPMENT STYLE</T>
+      <T color={C.sub} size={11} style={{marginVertical:9}}>
+        Choose your armor aura. This changes only the visual appearance, not XP or rank.
+      </T>
+      <View style={{flexDirection:'row',flexWrap:'wrap'}}>
+        {(['azure','royal','ember'] as ArmorTheme[]).map(style=>
+          <Chip key={style} active={armor===style} onPress={()=>chooseArmor(style)}>
+            {style.toUpperCase()}
+          </Chip>)}
+      </View>
     </Panel>
     <Section title="Character Attributes"/>
     {ATTRIBUTES.map(a=><Panel key={a}>

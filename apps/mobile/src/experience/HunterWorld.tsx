@@ -11,8 +11,9 @@ import {T} from '../components/Elements';
  * The geometric character is deliberately NOT advertised as a rigged glTF model.
  */
 export type RenderQuality='immersive'|'balanced'|'battery';
+export type ArmorTheme='azure'|'royal'|'ember';
 type Props={active?:boolean;reduceMotion?:boolean;quality?:RenderQuality;
-  height?:number;rank?:string;level?:number;inspect?:boolean};
+  height?:number;rank?:string;level?:number;inspect?:boolean;armor?:ArmorTheme};
 type Mesh={buffer:WebGLBuffer;count:number};
 
 function sphere(rows=12,cols=18):Float32Array{
@@ -123,7 +124,7 @@ const robe:[number,number,number]=[.12,.13,.31];
 const skin:[number,number,number]=[.56,.66,.77];
 
 export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
-  height=350,rank='E',level=1,inspect=false}:Props){
+  height=350,rank='E',level=1,inspect=false,armor='azure'}:Props){
   const activeRef=useRef(active),motionRef=useRef(reduceMotion),qualityRef=useRef(quality);
   const turnRef=useRef(0),frame=useRef<number|null>(null),live=useRef(true),foreground=useRef(true);
   const [error,setError]=useState(false);
@@ -153,7 +154,9 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
         if(!still&&stamp-previous<spacing)return;
         previous=stamp;if(!origin)origin=stamp;
         const t=still?0:(stamp-origin)/1000;
-        const accent=tint[rank]??tint.E;
+        const rankColor=tint[rank]??tint.E;
+        const accent:[number,number,number]=rank==='S'?rankColor:
+          armor==='royal'?[.67,.52,.95]:armor==='ember'?[.98,.58,.28]:rankColor;
         const angle=turnRef.current;
         const swing=still?0:Math.sin(t*1.35);
         gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
@@ -210,7 +213,7 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
         e instanceof Error?e.message:'unknown graphics issue');
       if(live.current)setError(true);
     }
-  },[rank,level]);
+  },[rank,level,armor]);
   return <View style={[s.shell,{height}]} accessibilityLabel="Original animated three-dimensional Hunter in a celestial sanctuary">
     <LinearGradient colors={['#192B52','#11132D','#090F20']} style={StyleSheet.absoluteFill}/>
     {(!error)&&<GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate}/>}
