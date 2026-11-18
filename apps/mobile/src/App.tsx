@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Animated, AppState, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Vibration,
-  StyleSheet, TextInput, View, Image, ActivityIndicator, AccessibilityInfo,
+  StyleSheet, TextInput, View, Image, ActivityIndicator, AccessibilityInfo, Linking,
 } from 'react-native';
 import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
@@ -22,7 +22,8 @@ import {CelestialBackdrop} from './experience/CelestialBackdrop';
 import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
 import {decideAdaptiveProposal} from './data/adaptive';
 import {ConnectHub} from './connect/ConnectHub';
-import {pollIncomingShare,listenToIncomingShares} from '../modules/ascend-context';
+import {pollIncomingShare,listenToIncomingShares,publishHomeWidgets} from '../modules/ascend-context';
+import {buildWidgetProjection} from './widgets/snapshot';
 import {CinematicReward} from './experience/CinematicReward';
 import {exportFullBackup,restoreFullBackup} from './data/backup';
 import {syncLocalReminders} from './phase2/reminders';
@@ -82,6 +83,35 @@ export default function App() {
   const [reduceMotion,setReduceMotion] = useState(false);
   const [quality,setQuality] = useState<RenderQuality>('balanced');
   const [armor,setArmor] = useState<ArmorTheme>('azure');
+  const [widgetsEnabled,setWidgetsEnabled] = useState(true);
+  const [widgetTitles,setWidgetTitles] = useState(false);
+  const [widgetPrefsReady,setWidgetPrefsReady] = useState(false);
+  useEffect(()=>{
+    void Promise.all([
+      SecureStore.getItemAsync('ascend.widgets.enabled'),
+      SecureStore.getItemAsync('ascend.widgets.titles')
+    ]).then(([enabled,titles])=>{
+      setWidgetsEnabled(enabled!=='false');
+      setWidgetTitles(titles==='true');
+    }).catch(()=>{}).finally(()=>setWidgetPrefsReady(true));
+  },[]);
+  const setWidgetPreference=(name:'enabled'|'titles',value:boolean)=>{
+    if(name==='enabled')setWidgetsEnabled(value);else setWidgetTitles(value);
+    void SecureStore.setItemAsync('ascend.widgets.'+name,String(value)).catch(()=>{});
+  };
+  useEffect(()=>{
+    const openWidgetLink=(url:string|null|undefined)=>{
+      const match=/^ascendrpg:\/\/widget\/(home|quests|hunter|planner|progress)(?:[?#]|$)/i.exec(url??'');
+      if(!match)return;
+      const route=match[1].toLowerCase();
+      const dest:Tab=route==='quests'?'Quests':route==='hunter'?'Hunter':
+        route==='planner'?'Planner':route==='progress'?'Progress':'Home';
+      setTab(dest);
+    };
+    void Linking.getInitialURL().then(openWidgetLink).catch(()=>{});
+    const sub=Linking.addEventListener('url',event=>openWidgetLink(event.url));
+    return ()=>sub.remove();
+  },[]);
   useEffect(()=>{void SecureStore.getItemAsync('ascend.reforged.graphics').then(v=>{
     if(v==='immersive'||v==='balanced'||v==='battery')setQuality(v);
   }).catch(()=>{});},[]);
@@ -191,6 +221,13 @@ export default function App() {
       dependencies:phaseSummary.dependencies,preferences:phaseSummary.preferences,
     }).catch(()=>{});
   },[loading,data,phaseSummary]);
+  useEffect(()=>{
+    if(loading||!widgetPrefsReady)return;
+    const projection=buildWidgetProjection(data,phaseSummary,new Date(),widgetsEnabled,widgetTitles);
+    void publishHomeWidgets(JSON.stringify(projection)).catch(e=>{
+      if(__DEV__)console.warn('[ASCEND/widgets] widget publication unavailable',e);
+    });
+  },[loading,widgetPrefsReady,widgetsEnabled,widgetTitles,data,phaseSummary]);
   const player = useMemo(()=>derivePlayer(data.xpEvents),[data.xpEvents]);
   const quests=useMemo(()=>data.quests.filter(q=>!q.archived),[data.quests]);
   const goals=useMemo(()=>data.goals.filter(g=>!g.archived),[data.goals]);
@@ -620,6 +657,27 @@ export default function App() {
             {mode.toUpperCase()}
           </Chip>)}
       </View>
+    </Panel>
+    <Panel>
+      <T bold size={15} color={C.energy}>ANDROID HOME WIDGETS</T>
+      <T size={12} color={C.sub} style={{marginTop:7,marginBottom:9}}>
+        Four resizable widgets: Daily Quests, Hunter Status, Focus Planner and
+        Progress. Long-press an empty area of your Android home screen,
+        open Widgets, and select ASCEND.
+      </T>
+      <View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:9}}>
+        <Action secondary onPress={()=>setWidgetPreference('enabled',!widgetsEnabled)}>
+          {widgetsEnabled?'PAUSE WIDGETS':'ENABLE WIDGETS'}
+        </Action>
+        <Action secondary onPress={()=>setWidgetPreference('titles',!widgetTitles)}>
+          {widgetTitles?'HIDE QUEST TITLES':'SHOW QUEST TITLES'}
+        </Action>
+      </View>
+      <T size={11} color={C.sub}>
+        {widgetsEnabled?'Widgets update when ASCEND syncs your local progress.':'Widget data is paused.'}
+        {' '}Quest names are {widgetTitles?'visible on your home screen':'hidden by default'}.
+        All widget taps open ASCEND for verified actions; widgets never award XP.
+      </T>
     </Panel>
     <Section title="System Settings"/>
     <Panel>
