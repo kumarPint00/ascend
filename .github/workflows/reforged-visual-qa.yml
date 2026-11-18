@@ -1,0 +1,47 @@
+name: Reforged visual QA (signed Android APK)
+on:
+  workflow_run:
+    workflows: ["Build signed updatable Android APK"]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  visually-check:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download signed APK from exact parent workflow
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'ascend-android-v*-build*'
+          merge-multiple: true
+          path: apk
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Verify artifact exists
+        run: test -s apk/ascend-android.apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Tour key screens and capture real emulator frames
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash scripts/android-reforged-visual-tour.sh
+      - name: Save screenshots and sanitized device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascend-reforged-ui-tour
+          path: test-output/*
+          retention-days: 14
+          if-no-files-found: ignore
