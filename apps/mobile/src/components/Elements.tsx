@@ -11,19 +11,19 @@ export function T({children,size=15,color=C.ink,bold=false,style}:{
   ]}>{children}</Text>;
 }
 export function Panel({children,style}:{children:React.ReactNode;style?:StyleProp<ViewStyle>}){
-  return <LinearGradient colors={['#172945','#0C152B','#0A1125']}
+  return <LinearGradient colors={['#172E4F','#0F1D36','#0A1327']}
     start={{x:0,y:0}} end={{x:1,y:1}}
-    style={[st.panel,style]}>{children}</LinearGradient>;
+    style={[st.panel,style]}><View pointerEvents="none" style={st.topLight}/>{children}</LinearGradient>;
 }
 export function Action({children,onPress,secondary=false,disabled=false,danger=false,style}:{
   children:React.ReactNode;onPress:()=>void;secondary?:boolean;disabled?:boolean;
   danger?:boolean;style?:StyleProp<ViewStyle>;
 }){
   const palette=danger?['#FCA0B3','#D9738C'] as const:
-    secondary?['#192A47','#12223B'] as const:
-    ['#A8E6FF','#6CCAF3','#B8AAFF'] as const;
+    secondary?['#1E3554','#13253F'] as const:
+    ['#D5F8FF','#7DDDF5','#9AC1FB'] as const;
   return <Pressable accessibilityRole="button" accessibilityState={{disabled}}
-    disabled={disabled} onPress={onPress}
+    android_ripple={{color:'#4674A8'}} disabled={disabled} onPress={onPress}
     style={({pressed})=>[{borderRadius:15,opacity:disabled?.46:pressed?.84:1,
       transform:[{scale:pressed&&!disabled?.98:1}]},style]}>
     <LinearGradient colors={palette} start={{x:0,y:0}} end={{x:1,y:1}}
@@ -39,7 +39,7 @@ export function Chip({children,active,onPress}:{
   return <Pressable onPress={onPress} accessibilityRole="button"
     accessibilityState={{selected:active}}
     style={({pressed})=>[st.chip,{backgroundColor:active?'#22365B':'#11213A',
-      borderColor:active?'#88DDF1':'#2E4364',opacity:pressed?.77:1}]}>
+      borderColor:active?'#82DDF0':'#324967',opacity:pressed?.77:1}]}>
     <T size={11} bold={active} color={active?C.frost:C.sub}>{children}</T>
   </Pressable>;
 }
@@ -62,13 +62,15 @@ export function Section({title,right}:{title:string;right?:React.ReactNode}){
   </View>;
 }
 const st=StyleSheet.create({
-  panel:{borderRadius:23,borderWidth:1,borderColor:'#30456A',
-    padding:17,marginBottom:13,overflow:'hidden'},
+  panel:{borderRadius:19,borderWidth:1,borderColor:'#355577',
+    padding:16,marginBottom:12,overflow:'hidden'},
+  topLight:{position:'absolute',top:0,left:18,right:18,height:1,
+    backgroundColor:'#6E9EC959'},
   action:{paddingHorizontal:16,paddingVertical:13,borderWidth:1,borderRadius:15,
-    alignItems:'center',justifyContent:'center',minHeight:50},
+    alignItems:'center',justifyContent:'center',minHeight:49},
   chip:{paddingHorizontal:13,paddingVertical:10,borderRadius:12,
     borderWidth:1,marginRight:7,marginBottom:8,minHeight:45,justifyContent:'center'},
   section:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',
     alignItems:'center',marginTop:20,marginBottom:13,gap:8},
-  glyph:{width:4,height:17,borderRadius:5,backgroundColor:C.energy},
+  glyph:{width:5,height:21,borderRadius:5,backgroundColor:C.energy},
 });

@@ -236,10 +236,10 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
         <ChevronRight size={20} color={C.frost}/>
       </Pressable>
     </View>}
-    <View style={s.footer} pointerEvents="none">
+    {inspect&&<View style={s.footer} pointerEvents="none">
       <T size={10} color={C.gold} bold>RANK {rank} · LEVEL {level}</T>
       <T size={10} color={C.sub}>Procedural 3D · {quality==='battery'?'Low power':quality}</T>
-    </View>
+    </View>}
   </View>;
 }
 const s=StyleSheet.create({

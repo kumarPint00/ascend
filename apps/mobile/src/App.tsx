@@ -671,7 +671,7 @@ export default function App() {
       {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable
         accessibilityRole="tab" accessibilityLabel={t.label}
         accessibilityState={{selected:active}} key={t.tab}
-        style={[s.navTab,active&&{backgroundColor:'#273C61',borderColor:'#749BC9'}]}
+        style={[s.navTab,active&&{backgroundColor:'#25466B',borderColor:'#89D7F0'}]}
         onPress={()=>setTab(t.tab)}>
         <NavIcon size={20} color={active?C.energy:C.sub} strokeWidth={active?2.6:1.7}/>
         <T size={9} bold={active} color={active?C.frost:C.sub}>{t.label}</T>
@@ -825,8 +825,8 @@ const s=StyleSheet.create({
   oracleOrb:{height:52,width:52,borderRadius:18,
     backgroundColor:'#574482',borderWidth:1,borderColor:'#AC8BCE',
     alignItems:'center',justifyContent:'center'},
-  top:{paddingTop:Platform.OS==='android'?(StatusBar.currentHeight??26)+12:52,
-    paddingHorizontal:18,paddingBottom:16,
+  top:{paddingTop:Platform.OS==='android'?(StatusBar.currentHeight??26)+10:50,
+    paddingHorizontal:18,paddingBottom:12,
     flexDirection:'row',alignItems:'center',justifyContent:'space-between',
     borderBottomWidth:1,borderColor:'#384567',backgroundColor:'#080F20EC'},
   levelPill:{paddingHorizontal:12,paddingVertical:10,borderColor:'#907443',borderWidth:1,borderRadius:14,backgroundColor:'#292738',flexDirection:'row',alignItems:'center',gap:6,minHeight:44},
@@ -846,11 +846,11 @@ const s=StyleSheet.create({
   barCell:{flex:1,height:150,alignItems:'center',justifyContent:'flex-end',gap:6},
   bar:{width:'62%',borderRadius:5,minHeight:3},
   rewardToast:{position:'absolute',zIndex:10,top:125,alignSelf:'center',alignItems:'center',backgroundColor:'#1C2948',borderWidth:1,borderColor:C.energy,borderRadius:17,paddingHorizontal:25,paddingVertical:16,shadowColor:C.energy,shadowRadius:14,shadowOpacity:.5,elevation:12},
-  nav:{flexDirection:'row',borderTopWidth:1,borderColor:'#364C78',
-    backgroundColor:'#071326FA',paddingBottom:Platform.OS==='ios'?20:12,
-    paddingTop:10,paddingHorizontal:9,gap:3},
+  nav:{flexDirection:'row',borderTopWidth:1,borderColor:'#476991',
+    backgroundColor:'#08172BF5',paddingBottom:Platform.OS==='ios'?20:12,
+    paddingTop:10,paddingHorizontal:8,gap:4},
   navTab:{flex:1,alignItems:'center',justifyContent:'center',gap:5,paddingVertical:7,
-    borderWidth:1,borderColor:'transparent',borderRadius:16,minHeight:56},
+    borderWidth:1,borderColor:'transparent',borderRadius:17,minHeight:59},
   modalBackdrop:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
   modalSheet:{backgroundColor:C.surface,borderTopLeftRadius:24,borderTopRightRadius:24,padding:20,maxHeight:'92%'},
   input:{borderWidth:1,borderColor:C.border,borderRadius:12,backgroundColor:C.elevated,color:C.ink,
