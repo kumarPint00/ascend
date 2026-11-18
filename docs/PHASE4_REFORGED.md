@@ -1,4 +1,4 @@
-# ASCEND // REFORGED — Phase 4 UX Candidate (v0.13.2, build 20)
+# ASCEND // REFORGED — Phase 4 UX Candidate (v0.13.3, build 21)
 
 ## Shipped in source
 
@@ -26,7 +26,7 @@
   native-driver page transitions, existing cinematic rank/boss effects,
   short quest-completion vibration with permission.
 - Graphics controls are stored in Expo SecureStore:
-  Immersive (~45fps budget), Balanced (~30fps), Battery Saver (one static GPU frame, then JS animation loop stops).
+  Immersive (~45fps budget), Balanced (~30fps), Battery Saver (one static GPU frame, then JS animation loop stops). Emulator/software renderers use reduced geometry and at most ~10fps to avoid CPU starvation.
   OS reduced-motion preferences override ongoing graphics animation.
 - No added mandatory cloud, new paid SDK or tracking. Existing SQLite v6 and
   signing package com.ascendrpg.personal remain unchanged.
@@ -70,3 +70,9 @@
 GitHub Actions signing, TypeScript checks and three Android 15 cold launches
 are necessary but not sufficient. Keep v0.13.0 as an Actions candidate and
 do not replace the v0.9.1 public release until actual Samsung acceptance.
+
+## Visual quality regression checks
+
+The v0.13.2 renderer successfully drew the original Hunter after matching GLSL precision; screenshots nevertheless recorded a Pixel Launcher ANR on the software-rendered emulator. The v0.13.3 software GPU protection is a mitigation, pending visual screenshot re-inspection.
+
+The `Reforged visual QA` GitHub Actions workflow exercises Home, Missions, Journey, Hunter, Hub and the Sanctuary map with the **exact signed APK artifact**, captures screenshots and fails on Hunter GPU fallback or fatal JS errors. Its automation cannot replace a human visual review or real Samsung performance test.

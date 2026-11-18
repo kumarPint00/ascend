@@ -80,7 +80,7 @@ See [Phase 3 design](PHASE3_ADAPTIVE.md) and [device acceptance checklist](DEVIC
 
 [Connection setup and native acceptance checklist](ASCEND_CONNECT.md)
 
-## Phase 4 · Reforged UX foundation (v0.13.2 signed candidate)
+## Phase 4 · Reforged UX foundation (v0.13.3 signed candidate)
 
 - [x] Original animated procedural 3D Hunter with tiered sanctuary, limb movement, level equipment and manual rotation controls
 - [x] Three armor aura appearances, persisted locally; immersive/balanced/battery graphics modes
