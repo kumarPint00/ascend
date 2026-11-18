@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+ <string name="ascend_widget_daily_desc">ASCEND Daily Quest progress</string>
+ <string name="ascend_widget_hunter_desc">ASCEND Hunter rank and XP</string>
+ <string name="ascend_widget_planner_desc">ASCEND Focus and upcoming planner</string>
+ <string name="ascend_widget_progress_desc">ASCEND completed missions and progress</string>
+</resources>

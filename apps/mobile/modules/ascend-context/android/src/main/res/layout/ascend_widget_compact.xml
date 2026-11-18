@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ascend_widget_root"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:gravity="center_vertical"
+    android:background="@drawable/ascend_widget_bg"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+  <TextView android:id="@+id/ascend_widget_title" android:layout_width="match_parent"
+      android:layout_height="wrap_content" android:textColor="#73DBF7"
+      android:textStyle="bold" android:textSize="10sp" android:maxLines="1" />
+  <TextView android:id="@+id/ascend_widget_primary" android:layout_width="match_parent"
+      android:layout_height="wrap_content" android:textColor="#F4F8FF"
+      android:textStyle="bold" android:textSize="19sp" android:maxLines="1"
+      android:layout_marginTop="5dp" />
+  <TextView android:id="@+id/ascend_widget_secondary" android:layout_width="match_parent"
+      android:layout_height="wrap_content" android:textColor="#B2C6E4"
+      android:textSize="11sp" android:maxLines="2" android:ellipsize="end"
+      android:layout_marginTop="4dp" />
+  <TextView android:id="@+id/ascend_widget_tertiary" android:layout_width="match_parent"
+      android:layout_height="wrap_content" android:visibility="gone" />
+  <ProgressBar android:id="@+id/ascend_widget_progress"
+      style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent"
+      android:layout_height="5dp" android:layout_marginTop="8dp"
+      android:progressTint="#71DFF0" android:progressBackgroundTint="#304764"
+      android:max="100" android:progress="0" />
+</LinearLayout>
