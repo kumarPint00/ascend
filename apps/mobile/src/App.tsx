@@ -16,6 +16,7 @@ import {House, Swords, Flag, CalendarDays, Settings2, Sparkles, Shield, ChevronR
 import {Planner} from './phase2/Planner';
 import {HunterWorld,type RenderQuality,type ArmorTheme} from './experience/HunterWorld';
 import {JourneyPath} from './experience/JourneyPath';
+import {RealmMap,type RealmDestination} from './experience/RealmMap';
 import * as SecureStore from 'expo-secure-store';
 import {CelestialBackdrop} from './experience/CelestialBackdrop';
 import {NanoCoach,type NanoDraft} from './experience/NanoCoach';
@@ -37,7 +38,7 @@ import {
   saveGoal, archiveGoal, completeQuest, undoRecentCompletion, wipeAllData, importQuestPack,
 } from './data/repository';
 
-type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More' | 'Connect';
+type Tab = 'Home' | 'Quests' | 'Goals' | 'Hunter' | 'Progress' | 'Planner' | 'More' | 'Connect' | 'RealmMap';
 const TABS = [
   {tab:'Home' as const,label:'REALM',Icon:House},
   {tab:'Quests' as const,label:'MISSIONS',Icon:Swords},
@@ -351,6 +352,9 @@ export default function App() {
         <Sparkles size={20} color={C.violet}/>
         <T bold color={C.frost} size={11}>ORACLE</T>
       </Pressable>
+    </View>
+    <View style={{marginBottom:14}}>
+      <Action secondary onPress={()=>setTab('RealmMap')}>EXPLORE SANCTUARY GATES</Action>
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel="Open Gemini Nano Quest Architect"
       onPress={()=>setNanoVisible(true)} style={{marginBottom:18}}>
@@ -703,7 +707,10 @@ export default function App() {
     <Animated.ScrollView style={{flex:1,opacity:pagePulse,
       transform:[{translateY:pagePulse.interpolate({inputRange:[0,1],outputRange:[14,0]})}]}}
       contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-      {tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:tab==='Connect'?<ConnectHub onBack={()=>setTab('More')} initialShare={incomingShare} onShareConsumed={()=>setIncomingShare(null)}
+      {tab==='RealmMap'?<RealmMap rank={player.rank} level={player.level}
+        onBack={()=>setTab('Home')}
+        onTravel={(dest:RealmDestination)=>dest==='Oracle'?setNanoVisible(true):setTab(dest)}/>:
+        tab==='Home'?<Home/>:tab==='Quests'?<Quests/>:tab==='Goals'?<Goals/>:tab==='Hunter'?<Hunter/>:tab==='Progress'?<Progress/>:tab==='Planner'?<Planner base={data} onRefresh={refresh} initialQuestId={plannerTarget} onTargetConsumed={()=>setPlannerTarget(null)}/>:tab==='Connect'?<ConnectHub onBack={()=>setTab('More')} initialShare={incomingShare} onShareConsumed={()=>setIncomingShare(null)}
          onAnalyzeWithAI={excerpt=>{setNanoContextIntent(excerpt);setNanoVisible(true);}}/>:<More/>}
     </Animated.ScrollView>
     {reward&&<CinematicReward reward={reward} pulse={rewardPulse}
