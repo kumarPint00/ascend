@@ -22,7 +22,14 @@ export function buildWidgetProjection(
   data:Snapshot,phase:PhaseTwoSnapshot,now:Date,
   enabled:boolean,showTitles:boolean
 ):WidgetProjection{
-  const day=localDayKey(now),player=derivePlayer(data.xpEvents);
+  const day=localDayKey(now);
+  // Pausing widgets immediately replaces all persisted presentation text.
+  if(!enabled){
+    const blank:WidgetCard={primary:'Widgets paused',secondary:'Open ASCEND to enable',
+      tertiary:'',progress:0};
+    return {schema:1,day,enabled:false,daily:blank,hunter:blank,planner:blank,progress:blank};
+  }
+  const player=derivePlayer(data.xpEvents);
   const visible=data.quests.filter(q=>!q.archived);
   const due=activeMissionList(visible,phase.controls,data.completions,
     phase.dependencies,now,phase.preferences.dailyMissionLimit);
