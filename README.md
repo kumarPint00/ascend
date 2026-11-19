@@ -1,5 +1,23 @@
 # ASCEND — Real-Life Leveling System
 
+## ASCEND Partial JSON Import v0.14.1 (Build 23, signed candidate)
+
+New **Hub → Partial JSON import**: create private JSON containing any combination
+of goals, quests, and milestones. Choose a file or paste JSON, validate and
+preview its items, toggle the categories to import, then confirm. Staged
+imports can link quests and milestones to goals added in earlier files by
+matching packId/goalKey, or to a uniquely titled existing goal using goalTitle.
+Missing or ambiguous references roll back the batch atomically. Stable keys
+allow safe retries without overwriting user edits, archived quests, schedules,
+completions or XP. Existing v1 quest packs are still accepted; no SQLite schema
+migration or new cloud/paid dependencies. See the
+[partial JSON format and examples](docs/PARTIAL_JSON_IMPORT.md).
+
+**Candidate only:** Signed GitHub Actions build, game-engine tests, SQL
+rollback/XP checks and emulator smoke must pass before installing on your
+S25 Ultra. Export a backup and install in place. Do not uninstall the app.
+
+
 ## ASCEND Widgets v0.14.0 (build 22 — signed candidate)
 
 Four native Android home-screen widgets are now included: **Daily Quests**, **Hunter Status**, **Focus & Planner**, and **Progress**. Resizable compact/wide layouts, offline read-only snapshots from the existing game engine, deep links back into actual ASCEND screens, and per-device widget privacy controls are provided. Quest titles stay hidden unless explicitly enabled in **Hub → Android Home Widgets**. Home-screen actions never bypass quest verification or award XP. The Android package ID, SQLite schema, and release signing keys remain unchanged.
