@@ -106,3 +106,60 @@ assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amo
 db.prepare('DELETE FROM connected_sources WHERE source=?').run('chatgpt');
 assert.equal(db.prepare('SELECT COUNT(*) n FROM context_items').get().n,0);
 console.log('ASCEND v1→v6: XP preserved, encrypted context schema, FK/deletion and dedupe verified');
+
+
+// Staged partial import SQL contract: same migrated SQLite schema as the app.
+const partial=require('../packages/game-engine/dist/index.js');
+function simulatePartialImport(source,selection={goals:true,quests:true,milestones:true}){
+  const pack=partial.filterImportItems(partial.parseImportableQuestPack(source),selection);
+  if(!pack.goals.length&&!pack.quests.length)throw Error('Empty selection');
+  db.exec('BEGIN IMMEDIATE');
+  let added=0;
+  try{
+    for(const g of pack.goals)
+      added+=Number(db.prepare(
+        'INSERT OR IGNORE INTO goals(id,title,attribute,target_count,created_at,archived) VALUES(?,?,?,?,?,0)')
+        .run(partial.importGoalId(pack.packId,g.key),g.title,g.attribute,g.targetCount,'2026-11-19T00:00:00Z').changes);
+    for(const q of pack.quests){
+      let goalId=null;
+      if(q.goalKey){
+        goalId=partial.importGoalId(pack.packId,q.goalKey);
+        const found=db.prepare('SELECT id,archived FROM goals WHERE id=?').get(goalId);
+        if(!found||found.archived)throw Error('Missing goalKey');
+      }else if(q.goalTitle){
+        const found=db.prepare(
+          'SELECT id FROM goals WHERE archived=0 AND lower(trim(title))=lower(trim(?)) LIMIT 2')
+          .all(q.goalTitle);
+        if(found.length!==1)throw Error('Missing or ambiguous goalTitle');
+        goalId=found[0].id;
+      }
+      const id=partial.importQuestId(pack.packId,q.key);
+      added+=Number(db.prepare(
+        'INSERT OR IGNORE INTO quests(id,title,description,attribute,difficulty,repeat_rule,goal_id,created_at,archived) VALUES(?,?,?,?,?,?,?,?,0)')
+        .run(id,partial.importedQuestTitle(q),partial.importedQuestDescription(q),
+          q.attribute,q.difficulty,q.repeatRule,goalId,'2026-11-19T00:00:00Z').changes);
+      db.prepare('INSERT OR IGNORE INTO quest_state(quest_id,status,due_on) VALUES(?,?,?)')
+        .run(id,q.repeatRule==='once'?'backlog':'active',q.dueOn??null);
+    }
+    db.exec('COMMIT');return added;
+  }catch(e){db.exec('ROLLBACK');throw e;}
+}
+const pid='staged-test';
+const goalsOnly=JSON.stringify({packId:pid,goals:[{key:'career',title:'Architecture skills'}]});
+const questsOnly=JSON.stringify({packId:pid,quests:[{key:'design',title:'Design system',goalKey:'career',repeatRule:'weekly'}]});
+const milestonesOnly=JSON.stringify({packId:pid,milestones:[{key:'ship',title:'Ship a project',goalKey:'career',dueOn:'2026-12-31'}]});
+assert.equal(simulatePartialImport(goalsOnly),1);
+assert.equal(simulatePartialImport(goalsOnly),0);
+assert.equal(simulatePartialImport(questsOnly),1);
+assert.equal(simulatePartialImport(milestonesOnly),1);
+assert.equal(db.prepare('SELECT goal_id FROM quests WHERE id=?').get(partial.importQuestId(pid,'design')).goal_id,partial.importGoalId(pid,'career'));
+assert.equal(db.prepare('SELECT status FROM quest_state WHERE quest_id=?').get(partial.importQuestId(pid,'ship')).status,'backlog');
+assert.equal(db.prepare('SELECT due_on FROM quest_state WHERE quest_id=?').get(partial.importQuestId(pid,'ship')).due_on,'2026-12-31');
+assert.equal(simulatePartialImport(JSON.stringify({packId:'manual',milestones:[{key:'proof',title:'Manual checkpoint',goalTitle:'Existing goal'}]})),1);
+assert.equal(db.prepare('SELECT goal_id FROM quests WHERE id=?').get(partial.importQuestId('manual','proof')).goal_id,'g1');
+assert.throws(()=>simulatePartialImport(JSON.stringify({packId:'bad',goals:[{key:'new',title:'Rollback'}],
+  quests:[{key:'orphan',title:'No matching goal',goalKey:'missing'}]})),/Missing goalKey/);
+assert.equal(db.prepare('SELECT id FROM goals WHERE id=?').get(partial.importGoalId('bad','new')),undefined);
+assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM completions').get().n,1);
+console.log('ASCEND partial JSON: staged linking, idempotency, rollback and XP integrity verified');
