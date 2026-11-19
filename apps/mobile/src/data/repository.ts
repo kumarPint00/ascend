@@ -2,9 +2,9 @@ import * as SQLite from 'expo-sqlite';
 import {
   type Attribute, type Quest, type Goal, type Completion, type XPEvent,
   type Difficulty, type RepeatRule, ATTRIBUTES, cleanQuestInput, periodKey,
-  localDayKey, awardForCompletion, parseQuestPack, importGoalId, importQuestId,
+  localDayKey, awardForCompletion, parseImportableQuestPack, filterImportItems, importGoalId, importQuestId,
    liteQuestIsAllowed,DEFAULT_ADAPTIVE_SETTINGS,
-  importedQuestTitle, importedQuestDescription,
+  importedQuestTitle, importedQuestDescription,type ImportSelection,
 } from '@ascend/game-engine';
 
 export interface Snapshot {
@@ -310,35 +310,61 @@ export async function saveQuest(input: QuestInput, id?: string): Promise<void> {
   }
 }
 
-/** Import a private goal/quest/milestone pack without replacing or duplicating progress. */
-export async function importQuestPack(source: string): Promise<{goalsAdded:number;questsAdded:number;milestonesAdded:number}> {
-  const pack=parseQuestPack(source);
+/** Atomic, additive staged import. Same packId + stable item key = same ID.
+ * Existing quests, completion records, XP and user-edited items are never
+ * overwritten. A missing or ambiguous goal link rolls back the whole batch.
+ */
+export async function importQuestPack(
+  source:string,
+  selection:ImportSelection={goals:true,quests:true,milestones:true}
+):Promise<{goalsAdded:number;questsAdded:number;milestonesAdded:number;skipped:number}>{
+  const pack=filterImportItems(parseImportableQuestPack(source),selection);
+  if(pack.goals.length+pack.quests.length===0)
+    throw new Error('Select at least one goal, quest or milestone to import');
   const db=await getDb();
   const now=new Date().toISOString();
-  let goalsAdded=0,questsAdded=0,milestonesAdded=0;
+  let goalsAdded=0,questsAdded=0,milestonesAdded=0,skipped=0;
   await db.withExclusiveTransactionAsync(async tx=>{
     for(const goal of pack.goals){
       const r=await tx.runAsync(
         'INSERT OR IGNORE INTO goals (id,title,attribute,target_count,created_at,archived) VALUES (?,?,?,?,?,0)',
         importGoalId(pack.packId,goal.key),goal.title,goal.attribute,goal.targetCount,now);
       goalsAdded+=r.changes;
+      if(!r.changes)skipped++;
     }
     for(const quest of pack.quests){
+      let goalId:string|null=null;
+      if(quest.goalKey){
+        goalId=importGoalId(pack.packId,quest.goalKey);
+        const found=await tx.getFirstAsync<{id:string;archived:number}>(
+          'SELECT id,archived FROM goals WHERE id=?',goalId);
+        if(!found||found.archived!==0)
+          throw new Error('Missing active goalKey "'+quest.goalKey+'" for "'+quest.title+
+            '". Import that goal first with the same packId or include it in this batch.');
+      }else if(quest.goalTitle){
+        const found=await tx.getAllAsync<{id:string}>(
+          'SELECT id FROM goals WHERE archived=0 AND lower(trim(title))=lower(trim(?)) LIMIT 2',
+          quest.goalTitle);
+        if(found.length!==1)throw new Error(found.length===0?
+          'No active goal titled "'+quest.goalTitle+'" for "'+quest.title+'".':
+          'Multiple goals titled "'+quest.goalTitle+'"; use goalKey with packId instead.');
+        goalId=found[0].id;
+      }
+      const id=importQuestId(pack.packId,quest.key);
       const r=await tx.runAsync(
         'INSERT OR IGNORE INTO quests (id,title,description,attribute,difficulty,repeat_rule,goal_id,created_at,archived) VALUES (?,?,?,?,?,?,?,?,0)',
-        importQuestId(pack.packId,quest.key),importedQuestTitle(quest),importedQuestDescription(quest),
-        quest.attribute,quest.difficulty,quest.repeatRule,importGoalId(pack.packId,quest.goalKey),now);
-      if(quest.kind==='milestone')milestonesAdded+=r.changes;
-      else questsAdded+=r.changes;
-      // Preserve imported target dates without activating the entire backlog.
-      // Existing user edits/state always win on repeat import.
+        id,importedQuestTitle(quest),importedQuestDescription(quest),
+        quest.attribute,quest.difficulty,quest.repeatRule,goalId,now);
+      if(!r.changes)skipped++;
+      else if(quest.kind==='milestone')milestonesAdded++;
+      else questsAdded++;
+      // User-modified schedule, state and completion always win on reimport.
       await tx.runAsync(
         'INSERT OR IGNORE INTO quest_state(quest_id,status,due_on) VALUES(?,?,?)',
-        importQuestId(pack.packId,quest.key),
-        quest.repeatRule==='once'?'backlog':'active',quest.dueOn??null);
+        id,quest.repeatRule==='once'?'backlog':'active',quest.dueOn??null);
     }
   });
-  return {goalsAdded,questsAdded,milestonesAdded};
+  return {goalsAdded,questsAdded,milestonesAdded,skipped};
 }
 
 export async function archiveQuest(id: string): Promise<void> {
