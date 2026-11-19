@@ -5,7 +5,7 @@ export const MILESTONE_PREFIX = '◆ ';
 export type PackEntryKind = 'quest' | 'milestone';
 export interface PackGoal {key:string;title:string;attribute:Attribute;targetCount:number;}
 export interface PackQuest {
-  key:string;goalKey:string;title:string;description:string;attribute:Attribute;
+  key:string;goalKey:string|null;goalTitle?:string;title:string;description:string;attribute:Attribute;
   difficulty:Difficulty;repeatRule:RepeatRule;kind:PackEntryKind;dueOn?:string;
 }
 export interface QuestPack {
