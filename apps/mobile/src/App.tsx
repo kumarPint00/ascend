@@ -6,7 +6,8 @@ import {
 import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
-  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, rankFromLevel, isMilestoneQuest, MILESTONE_PREFIX, parseQuestPack,
+  completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, rankFromLevel, isMilestoneQuest, MILESTONE_PREFIX,
+  parseImportableQuestPack,filterImportItems,type ImportSelection,type ImportableQuestPack,
   activeMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
   liteQuestIsAllowed,liteMinutes,
 } from '@ascend/game-engine';
@@ -74,6 +75,8 @@ export default function App() {
   const [backup,setBackup] = useState<string|null>(null);
   const [restoreText,setRestoreText] = useState<string|null>(null);
   const [questPackText,setQuestPackText] = useState<string|null>(null);
+  const [importPreview,setImportPreview] = useState<ImportableQuestPack|null>(null);
+  const [importSections,setImportSections] = useState<ImportSelection>({goals:true,quests:true,milestones:true});
   const [expandedGoals,setExpandedGoals] = useState<Record<string,boolean>>({});
   const [questFilter,setQuestFilter] = useState<'Today'|'Weekly'|'Milestones'|'Pending'|'Done'|'All'>('Today');
   const [questSearch,setQuestSearch] = useState('');
@@ -200,8 +203,10 @@ export default function App() {
       if(!file)return;
       if(file.size!==undefined&&file.size>100_000)throw new Error('Quest pack file is too large (100 KB limit)');
       const contents=await FileSystem.readAsStringAsync(file.uri);
-      parseQuestPack(contents);
+      const parsed=parseImportableQuestPack(contents);
       setQuestPackText(contents);
+      setImportPreview(parsed);
+      setImportSections({goals:true,quests:true,milestones:true});
     }catch(e){Alert.alert('Cannot open quest pack',e instanceof Error?e.message:String(e));}
   };
 
@@ -723,10 +728,14 @@ export default function App() {
       {updates.error && <T color={C.danger} size={11} style={{marginTop:9}}>{updates.error}</T>}
     </Panel>
     <Panel>
-      <T bold>Personal quest pack</T>
-      <T color={C.sub} size={13} style={{marginTop:8}}>Add private goals, recurring quests and milestones. Import is additive, safe to retry, and never awards XP automatically. Keep personal JSON outside public repositories.</T>
-      <View style={{marginTop:13}}><Action secondary onPress={()=>{void selectQuestPackFile();}}>CHOOSE QUEST PACK FILE</Action></View>
-      <View style={{marginTop:9}}><Action secondary onPress={()=>setQuestPackText('')}>PASTE QUEST PACK JSON</Action></View>
+      <T bold>Partial JSON import</T>
+      <T color={C.sub} size={13} style={{marginTop:8}}>
+        Import goals only, quests only, milestones only, or all three.
+        Choose sections after preview. Repeating the same packId and keys
+        skips existing entries without changing your XP or edits. Your JSON stays on this device.
+      </T>
+      <View style={{marginTop:13}}><Action secondary onPress={()=>{void selectQuestPackFile();}}>CHOOSE JSON FILE</Action></View>
+      <View style={{marginTop:9}}><Action secondary onPress={()=>{setQuestPackText('');setImportPreview(null);setImportSections({goals:true,quests:true,milestones:true});}}>PASTE PARTIAL JSON</Action></View>
     </Panel>
     <Panel>
       <T bold>Export your data</T>
@@ -864,26 +873,118 @@ export default function App() {
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
-    <Modal visible={questPackText!==null} animationType="slide" transparent onRequestClose={()=>setQuestPackText(null)}>
-      <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
-        <View style={s.between}><T size={19} bold>Import private quest pack</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setQuestPackText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
-        <T color={C.sub} size={12} style={{marginVertical:12}}>Review the selected ASCEND quest-pack JSON. You can also paste JSON here. Check dates and statuses before importing.</T>
-        <TextInput accessibilityLabel="Private quest pack JSON" multiline value={questPackText??''} onChangeText={setQuestPackText} placeholder="Paste quest-pack JSON here" placeholderTextColor={C.dim} style={[s.input,{height:250,fontSize:11,textAlignVertical:'top'}]} />
-        <View style={{marginTop:13}}><Action disabled={busy||!questPackText?.trim()} onPress={()=>{
-          try{
-            const pack=parseQuestPack(questPackText!);
-            const count=pack.quests.filter(q=>q.kind==='milestone').length;
-            Alert.alert('Import '+pack.title+'?',`${pack.goals.length} goals, ${count} milestones and ${pack.quests.length-count} quests. This import is additive and safe to repeat.`,[
-              {text:'Cancel',style:'cancel'},
-              {text:'Import',onPress:()=>run(async()=>{
-                const result=await importQuestPack(questPackText!);
-                setQuestPackText(null);
-                Alert.alert('Quest pack imported',`${result.goalsAdded} goals, ${result.milestonesAdded} milestones and ${result.questsAdded} quests added. Existing progress preserved.`);
-              })},
-            ]);
-          }catch(e){Alert.alert('Invalid quest pack',e instanceof Error?e.message:String(e));}
-        }}>PREVIEW & IMPORT</Action></View>
-      </View></View>
+    <Modal visible={questPackText!==null} animationType="slide" transparent
+      onRequestClose={()=>{setQuestPackText(null);setImportPreview(null);}}>
+      <View style={s.modalBackdrop}>
+        <ScrollView style={[s.modalSheet,{maxHeight:'88%'}]}
+          keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:30}}>
+          <View style={s.between}>
+            <T size={18} bold>Import goals / quests / milestones</T>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close import"
+              hitSlop={10} onPress={()=>{setQuestPackText(null);setImportPreview(null);}}>
+              <T color={C.sub}>Close ✕</T>
+            </Pressable>
+          </View>
+          <T color={C.sub} size={12} style={{marginTop:12,marginBottom:8}}>
+            Paste an object containing any of goals, quests, or milestones arrays.
+            packId defaults to "personal"; reuse it for staged imports. All imports
+            are additive, don't award XP, and won't overwrite existing items.
+          </T>
+          <TextInput accessibilityLabel="Private partial quest JSON" multiline
+            value={questPackText??''}
+            onChangeText={value=>{setQuestPackText(value);setImportPreview(null);}}
+            placeholder='{"goals":[{"key":"fitness","title":"Build stamina"}]}'
+            placeholderTextColor={C.dim}
+            style={[s.input,{height:195,fontSize:12,textAlignVertical:'top'}]}/>
+          <View style={{marginTop:10,flexDirection:'row',flexWrap:'wrap',gap:8}}>
+            <Action secondary onPress={()=>{
+              setQuestPackText(JSON.stringify({
+                format:'ascend-partial-pack',schemaVersion:1,packId:'my-plan',
+                goals:[{key:'learning',title:'Build a learning habit',attribute:'intelligence',targetCount:12}],
+                quests:[{key:'daily-practice',title:'Practice for 20 minutes',
+                  goalKey:'learning',difficulty:'easy',repeatRule:'daily'}],
+                milestones:[{key:'checkpoint',title:'Complete the first learning milestone',
+                  goalKey:'learning',dueOn:'2026-12-31'}]
+              },null,2));
+              setImportPreview(null);
+            }}>INSERT EXAMPLE</Action>
+            <Action disabled={busy||!questPackText?.trim()}
+              onPress={()=>{
+                try{
+                  const parsed=parseImportableQuestPack(questPackText!);
+                  setImportPreview(parsed);
+                  setImportSections({goals:true,quests:true,milestones:true});
+                }catch(e){
+                  setImportPreview(null);
+                  Alert.alert('Invalid JSON import',e instanceof Error?e.message:String(e));
+                }
+              }}>VALIDATE & PREVIEW</Action>
+          </View>
+          {importPreview&&<>
+            <Panel style={{marginTop:13}}>
+              <T color={C.energy} bold size={14}>{importPreview.title}</T>
+              <T color={C.sub} size={11} style={{marginTop:5}}>
+                ID: {importPreview.packId} · Select which sections to add.
+              </T>
+              <View style={[s.chips,{marginTop:12}]}>
+                {([
+                  {key:'goals' as const,label:'GOALS',count:importPreview.goals.length},
+                  {key:'quests' as const,label:'QUESTS',count:importPreview.quests.filter(q=>q.kind==='quest').length},
+                  {key:'milestones' as const,label:'MILESTONES',count:importPreview.quests.filter(q=>q.kind==='milestone').length},
+                ]).map(g=><Chip key={g.key}
+                  active={importSections[g.key]}
+                  onPress={()=>setImportSections(old=>({...old,[g.key]:!old[g.key]}))}>
+                  {g.label+' ('+g.count+')'}
+                </Chip>)}
+              </View>
+              <T color={C.frost} size={12} bold>Items in selected sections</T>
+              {filterImportItems(importPreview,importSections).goals.slice(0,15).map(goal=>
+                <T key={'g:'+goal.key} color={C.sub} size={11} style={{marginTop:6}}>
+                  GOAL · {goal.title} · {goal.targetCount} completions
+                </T>)}
+              {filterImportItems(importPreview,importSections).quests.slice(0,25).map(quest=>
+                <T key={'q:'+quest.key} color={C.sub} size={11} style={{marginTop:6}}>
+                  {quest.kind==='milestone'?'MILESTONE':'QUEST'} · {quest.title}
+                  {quest.goalKey?' → '+quest.goalKey:quest.goalTitle?' → '+quest.goalTitle:''}
+                  {quest.dueOn?' · '+quest.dueOn:''}
+                </T>)}
+              {(filterImportItems(importPreview,importSections).goals.length>15||
+                filterImportItems(importPreview,importSections).quests.length>25)&&
+                <T color={C.sub} size={11} style={{marginTop:8}}>
+                  More validated items will also be imported from the selected sections.
+                </T>}
+              <T size={11} color={C.gold} style={{marginTop:12}}>
+                References to goalKey must exist in this pack or in a previous
+                import with the same packId. goalTitle can link to one existing
+                unarchived goal. Missing or ambiguous links cancel the entire import.
+              </T>
+            </Panel>
+            <Action disabled={busy||filterImportItems(importPreview,importSections).goals.length+
+                  filterImportItems(importPreview,importSections).quests.length===0}
+              style={{marginTop:13}} onPress={()=>{
+                const filtered=filterImportItems(importPreview,importSections);
+                const milestones=filtered.quests.filter(q=>q.kind==='milestone').length;
+                const count=filtered.quests.length-milestones;
+                const selectedSource=questPackText;
+                const selectedSections={...importSections};
+                if(!selectedSource)return;
+                Alert.alert('Import selected items?',
+                  filtered.goals.length+' goals, '+count+' quests, '+milestones+
+                  ' milestones. Existing items, completions and XP are preserved.',[
+                  {text:'Cancel',style:'cancel'},
+                  {text:'Import selected',onPress:()=>run(async()=>{
+                    const result=await importQuestPack(selectedSource,selectedSections);
+                    setQuestPackText(null);setImportPreview(null);
+                    Alert.alert('Partial import complete',
+                      result.goalsAdded+' goals, '+result.questsAdded+' quests, '+
+                      result.milestonesAdded+' milestones added. '+result.skipped+
+                      ' existing items skipped. Existing XP preserved.');
+                  })}
+                ]);
+              }}>IMPORT SELECTED SECTIONS</Action>
+          </>}
+        </ScrollView>
+      </View>
     </Modal>
     <Modal visible={restoreText!==null} animationType="slide" transparent onRequestClose={()=>setRestoreText(null)}>
       <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
