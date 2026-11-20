@@ -9,7 +9,7 @@
   "scripts": {
     "start": "npm run start --workspace @ascend/mobile",
     "android": "npm run android --workspace @ascend/mobile",
-    "test": "npm run test --workspace @ascend/game-engine && npm run test:updates && npm run test:db && npm run test:android-startup && npm run test:widgets",
+    "test": "npm run test --workspace @ascend/game-engine && npm run test:updates && npm run test:db && npm run test:android-startup && npm run test:widgets && npm run test:quest-ui",
     "build:preview": "npm run test --workspace @ascend/game-engine && node scripts/build-preview.cjs",
     "typecheck": "npm run check --workspace @ascend/game-engine && npm run check --workspace @ascend/mobile",
     "test:updates": "node scripts/test-update-logic.cjs",
@@ -17,7 +17,8 @@
     "brand:assets": "node scripts/generate-brand-assets.cjs",
     "test:db": "node --experimental-sqlite scripts/test-phase2-sql.cjs",
     "test:android-startup": "node scripts/test-android-boot-safety.cjs",
-    "test:widgets": "node scripts/test-widget-contract.cjs"
+    "test:widgets": "node scripts/test-widget-contract.cjs",
+    "test:quest-ui": "node scripts/test-quest-form-ai.cjs"
   },
   "engines": {
     "node": ">=22.13"
