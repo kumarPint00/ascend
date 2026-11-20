@@ -150,8 +150,18 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
         suggestion=createSafeFallback(intent);
         setMessage('Offline starter draft. No AI call was made.');
       }else if((provider==='nano'||provider==='auto')&&status==='available'){
-        const raw=await nanoGenerate(prompt);
-        suggestion=parseNanoDraft(raw);
+        try{
+          const raw=await nanoGenerate(prompt);
+          suggestion=parseNanoDraft(raw);
+        }catch(localError){
+          // Only attempt a cloud fallback when the user explicitly opted in
+          // during this session and personally configured a Groq API key.
+          if(provider==='auto'&&keyConfigured&&cloudConsent){
+            const raw=await groqGenerate(prompt);
+            suggestion={...parseNanoDraft(raw),origin:'groq-cloud'};
+            setMessage('Gemini Nano could not generate a valid draft. Groq Cloud generated this proposal instead.');
+          }else throw localError;
+        }
       }else if((provider==='groq'||provider==='auto')&&keyConfigured&&cloudConsent){
         const raw=await groqGenerate(prompt);
         suggestion={...parseNanoDraft(raw),origin:'groq-cloud'};
