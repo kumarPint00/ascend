@@ -444,7 +444,7 @@ export default function App() {
       </Panel>
       <Panel style={[s.miniPanel,{marginLeft:5}]}>
         <T color={C.sub} size={10} bold style={{letterSpacing:1.4}}>ACTIVE MISSIONS</T>
-        <T bold size={26} color={C.energy}>{todayBoard.length}</T>
+        <T bold size={26} color={C.energy}>{dueToday.length}</T>
         <T color={C.dim} size={10}>ready for you</T>
       </Panel>
     </View>
@@ -456,7 +456,16 @@ export default function App() {
       <T color={C.green} size={17} bold>The realm is calm ✦</T>
       <T color={C.sub} size={12} style={{marginTop:7}}>No missions demand attention. Recovery counts as progress.</T>
     </Panel>:todayBoard.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
-    <View style={{marginBottom:12}}>
+    {dueToday.length>todayBoard.length&&<Pressable accessibilityRole="button"
+      accessibilityLabel="See all missions due today"
+      style={{paddingVertical:12,paddingHorizontal:15,marginBottom:12,
+        borderWidth:1,borderColor:C.borderActive,borderRadius:14}}
+      onPress={()=>{setQuestFilter('Today');setQuestSearch('');setTab('Quests');}}>
+      <T color={C.energy} bold size={12}>
+        +{dueToday.length-todayBoard.length} MORE DUE TODAY · VIEW ALL
+      </T>
+    </Pressable>}
+    <View style={{marginBottom:12}}> 
       <Action onPress={()=>openQuest()} secondary>＋ FORGE A NEW QUEST</Action>
     </View>
     <Section title="Epic Questlines"
