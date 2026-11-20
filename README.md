@@ -1,5 +1,16 @@
 # ASCEND — Real-Life Leveling System
 
+## ASCEND v0.14.2 — Daily Quests, Keyboard Fixes & Optional Groq Cloud
+
+- **Missing daily quests:** the Today list now shows all due missions, not only the 4 recommended focus picks. A new **Daily** filter and a **View all due** action make new and recurring tasks easy to find. Saving a daily quest opens that filter. JSON imports open All; Gemini/Groq proposals explicitly start in Backlog until activated.
+- **Keyboard overlap:** Android keyboard resizing is explicit; the bottom navigation hides while typing, modal sheets resize/scroll around the keyboard, and text-field widths/padding are consistent across Quest, Goal, Planner, Oracle, JSON import and Connect screens.
+- **Oracle AI:** select Gemini Nano on-device, optional Groq Cloud, automatic fallback (only after separate cloud consent), or deterministic offline drafts. Groq uses the supported text model `openai/gpt-oss-20b`. Personal Groq keys are entered in-app and stored in Android SecureStore, never committed to GitHub or added to a backup. If the local model is unavailable, the offline path still works.
+- **Privacy and cost:** Groq requires internet, its own API key and explicit consent before sending your typed intention and optionally up to five quest titles. Cloud allowances may be limited or paid depending on Groq's account plan. ASCEND itself does not introduce a mandatory paid service.
+- **Preserved:** Android package `com.ascendrpg.personal`, existing signing configuration, quests, goals, XP, SQLite schema v6 and widgets. Existing builds can be updated in place without uninstalling.
+
+[Full v0.14.2 release notes and device acceptance](docs/RELEASE_0_14_2.md).
+
+
 ## ASCEND Partial JSON Import v0.14.1 (Build 23, signed candidate)
 
 New **Hub → Partial JSON import**: create private JSON containing any combination
