@@ -781,7 +781,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       onRequestClose={()=>{setSelectedQuest(null);setEditControl(null);}}>
       <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
         <ScrollView style={ss.sheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-            contentContainerStyle={{paddingBottom:36}}>
+            contentContainerStyle={{padding:19,paddingBottom:44}}>
           <View style={ss.between}><T bold size={20}>Plan mission</T>
             <Pressable onPress={()=>{setSelectedQuest(null);setEditControl(null);}}><T color={C.sub}>CLOSE ✕</T></Pressable></View>
           <T color={C.sub} size={13} style={{marginVertical:12}}>{selectedQuest?.title}</T>
@@ -837,7 +837,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
 
     <Modal visible={!!selectedGoal} animationType="slide" transparent onRequestClose={()=>setSelectedGoal(null)}>
       <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={ss.sheet}>
+        <View style={[ss.sheet,{padding:19}]}>
           <View style={ss.between}><T size={19} bold>Measure progress</T>
             <Pressable onPress={()=>setSelectedGoal(null)}><T color={C.sub}>CLOSE ✕</T></Pressable></View>
           <T color={C.sub} size={13} style={{marginVertical:11}}>{selectedGoal?.title}</T>
@@ -861,7 +861,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     <Modal visible={editingAdaptive!==null} animationType="slide" transparent
       onRequestClose={()=>setEditingAdaptive(null)}>
       <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={ss.sheet}>
+        <View style={[ss.sheet,{padding:19}]}>
           <View style={ss.between}>
             <T size={19} bold>Review AI-style suggestion</T>
             <Pressable accessibilityRole="button" accessibilityLabel="Close suggestion"
@@ -923,7 +923,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
       </View>
     </Modal>
     <Modal visible={backupText!==null} animationType="fade" transparent onRequestClose={()=>setBackupText(null)}>
-      <View style={ss.overlay}><View style={ss.sheet}>
+      <View style={ss.overlay}><View style={[ss.sheet,{padding:19}]}>
         <T bold size={19}>Restore from backup?</T>
         <T color={C.sub} size={13} style={{marginVertical:14}}>
           This replaces ALL quests, XP, goals, planner settings, skills, bosses and reviews on this phone. Make a backup of current data before proceeding.
@@ -959,7 +959,7 @@ const ss=StyleSheet.create({
   chart:{height:160,flexDirection:'row',alignItems:'flex-end',marginTop:12},
   barCell:{flex:1,height:140,justifyContent:'flex-end',alignItems:'center',gap:5},
   overlay:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
-  sheet:{width:'100%',backgroundColor:C.surface,padding:19,
+  sheet:{width:'100%',backgroundColor:C.surface,
     borderTopLeftRadius:24,borderTopRightRadius:24,maxHeight:'88%'},
   prereq:{backgroundColor:C.elevated,borderRadius:9,padding:12,marginBottom:8},
 });
