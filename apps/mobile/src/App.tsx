@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Animated, AppState, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Vibration,
-  StyleSheet, TextInput, View, Image, ActivityIndicator, AccessibilityInfo, Linking,
+  StyleSheet, TextInput, View, Image, ActivityIndicator, AccessibilityInfo, Linking, Keyboard,
 } from 'react-native';
 import {
   ATTRIBUTES, type Attribute, type Difficulty, type RepeatRule, type Goal,
@@ -62,6 +62,12 @@ export default function App() {
   const [plannerTarget,setPlannerTarget] = useState<string|null>(null);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
+  const [keyboardVisible,setKeyboardVisible]=useState(false);
+  useEffect(()=>{
+    const shown=Keyboard.addListener('keyboardDidShow',()=>setKeyboardVisible(true));
+    const hidden=Keyboard.addListener('keyboardDidHide',()=>setKeyboardVisible(false));
+    return ()=>{shown.remove();hidden.remove();};
+  },[]);
   const [tab,setTab] = useState<Tab>('Home');
   const [clock,setClock] = useState(() => new Date());
   const [questModal,setQuestModal] = useState(false);
@@ -321,11 +327,11 @@ export default function App() {
           <T color={C.dim} size={9}>{done?'Done':'XP'}</T>
         </View>
       </View>
-      <View style={[s.between,{marginTop:12}]}>
-        <T color={LABELS[quest.attribute].tint} size={11}>
+      <View style={[s.between,{marginTop:12,flexWrap:'wrap',gap:9}]}>
+        <T color={LABELS[quest.attribute].tint} size={11} style={{flexShrink:1,minWidth:120}}>
           {isMilestoneQuest(quest)?'◆ Milestone · ':''}{LABELS[quest.attribute].glyph} {LABELS[quest.attribute].label} · {quest.difficulty} · {quest.repeatRule} · ~{phaseSummary.controls[quest.id]?.estimateMinutes??25}m
         </T>
-        <View style={{flexDirection:'row',gap:9,alignItems:'center'}}>
+        <View style={{flexDirection:'row',gap:9,alignItems:'center',flexWrap:'wrap',justifyContent:'flex-end'}}>
           {editable&& <Pressable accessibilityRole="button" onPress={()=>openQuest(quest)}><T color={C.sub} size={12}>Edit</T></Pressable>}
           {editable&& <Pressable accessibilityRole="button" onPress={()=>Alert.alert('Archive quest?', 'Your XP history stays intact.',[
             {text:'Cancel',style:'cancel'}, {text:'Archive',style:'destructive',onPress:()=>run(()=>archiveQuest(quest.id))},
@@ -795,7 +801,8 @@ export default function App() {
     </View>
     <Animated.ScrollView style={{flex:1,opacity:pagePulse,
       transform:[{translateY:pagePulse.interpolate({inputRange:[0,1],outputRange:[14,0]})}]}}
-      contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+      contentContainerStyle={s.content} keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag">
       {tab==='RealmMap'?<RealmMap rank={player.rank} level={player.level}
         onBack={()=>setTab('Home')}
         onTravel={(dest:RealmDestination)=>dest==='Oracle'?setNanoVisible(true):setTab(dest)}/>:
@@ -804,7 +811,7 @@ export default function App() {
     </Animated.ScrollView>
     {reward&&<CinematicReward reward={reward} pulse={rewardPulse}
       reduceMotion={reduceMotion}/>}
-    <View style={s.nav}>
+    {!keyboardVisible&&<View style={s.nav}>
       {TABS.map(t=>{const NavIcon=t.Icon;const active=tab===t.tab;return <Pressable
         accessibilityRole="tab" accessibilityLabel={t.label}
         accessibilityState={{selected:active}} key={t.tab}
@@ -813,7 +820,7 @@ export default function App() {
         <NavIcon size={20} color={active?C.energy:C.sub} strokeWidth={active?2.6:1.7}/>
         <T size={9} bold={active} color={active?C.frost:C.sub}>{t.label}</T>
       </Pressable>;})}
-    </View>
+    </View>}
     <NanoCoach visible={nanoVisible} initialIntent={nanoContextIntent}
       onClose={()=>{setNanoVisible(false);setNanoContextIntent(null);}}
       recentQuestTitles={data.quests.filter(q=>!q.archived).slice(0,5).map(q=>q.title)}
@@ -836,8 +843,9 @@ export default function App() {
       }}/>
 
     <Modal visible={questModal} animationType="slide" transparent onRequestClose={()=>setQuestModal(false)}>
-      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
-        <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:30}}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
+        <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+            contentContainerStyle={{paddingBottom:32}}>
           <View style={s.between}><T size={20} bold>{editingQuest?'Edit Quest':'New Quest'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setQuestModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
           <T color={C.sub} style={{marginTop:18,marginBottom:7}}>Quest title</T>
           <TextInput accessibilityLabel="Quest title" maxLength={100} placeholder="e.g. Practice system design" placeholderTextColor={C.dim} value={questForm.title}
@@ -875,8 +883,9 @@ export default function App() {
       </KeyboardAvoidingView>
     </Modal>
     <Modal visible={goalModal} animationType="slide" transparent onRequestClose={()=>setGoalModal(false)}>
-      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
-        <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:30}}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
+        <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+            contentContainerStyle={{paddingBottom:32}}>
           <View style={s.between}><T size={20} bold>{editingGoal?'Edit Goal':'New Questline'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setGoalModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
           <T color={C.sub} style={s.formLabel}>Goal title</T>
           <TextInput accessibilityLabel="Goal title" value={goalTitle} onChangeText={setGoalTitle} maxLength={100}
@@ -898,7 +907,8 @@ export default function App() {
       onRequestClose={()=>{setQuestPackText(null);setImportPreview(null);}}>
       <View style={s.modalBackdrop}>
         <ScrollView style={[s.modalSheet,{maxHeight:'88%'}]}
-          keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:30}}>
+          keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+            contentContainerStyle={{paddingBottom:32}}>
           <View style={s.between}>
             <T size={18} bold>Import goals / quests / milestones</T>
             <Pressable accessibilityRole="button" accessibilityLabel="Close import"
@@ -1070,7 +1080,7 @@ const s=StyleSheet.create({
   content:{padding:16,paddingBottom:42},
   hero:{borderRadius:25,borderWidth:1,borderColor:'#5D7EB7',padding:20,marginBottom:15,overflow:'hidden'},
   searchRow:{flexDirection:'row',gap:10,alignItems:'center',backgroundColor:C.elevated,borderColor:C.border,borderWidth:1,borderRadius:13,paddingHorizontal:13,marginBottom:13,minHeight:48},
-  searchInput:{flex:1,color:C.ink,fontSize:14,minHeight:47,paddingVertical:10},
+  searchInput:{flex:1,minWidth:0,color:C.ink,fontSize:16,minHeight:50,paddingVertical:10},
   between:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   statRow:{flexDirection:'row',justifyContent:'space-between'},
   miniPanel:{flex:1,minHeight:85,justifyContent:'space-between'},
@@ -1089,8 +1099,10 @@ const s=StyleSheet.create({
   navTab:{flex:1,alignItems:'center',justifyContent:'center',gap:5,paddingVertical:7,
     borderWidth:1,borderColor:'transparent',borderRadius:17,minHeight:59},
   modalBackdrop:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
-  modalSheet:{backgroundColor:C.surface,borderTopLeftRadius:24,borderTopRightRadius:24,padding:20,maxHeight:'92%'},
-  input:{borderWidth:1,borderColor:C.border,borderRadius:12,backgroundColor:C.elevated,color:C.ink,
-    paddingVertical:12,paddingHorizontal:13,fontSize:15,minHeight:47},
+  modalSheet:{width:'100%',backgroundColor:C.surface,borderTopLeftRadius:24,
+    borderTopRightRadius:24,padding:20,maxHeight:'88%'},
+  input:{width:'100%',alignSelf:'stretch',minWidth:0,borderWidth:1,
+    borderColor:'#537197',borderRadius:12,backgroundColor:'#102139',color:C.ink,
+    paddingVertical:11,paddingHorizontal:14,fontSize:16,minHeight:52},
   formLabel:{marginTop:19,marginBottom:9},
 });

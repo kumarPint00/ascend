@@ -140,7 +140,7 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
   };
   return <Modal visible={visible} animationType="slide" transparent={false}
     onRequestClose={onClose}>
-    <KeyboardAvoidingView style={ss.screen} behavior={Platform.OS==='ios'?'padding':undefined}>
+    <KeyboardAvoidingView style={ss.screen} behavior={Platform.OS==='ios'?'padding':'height'}>
       <LinearGradient colors={['#150F2D','#08182B','#070C18']} style={StyleSheet.absoluteFill}/>
       <View style={ss.top}>
         <View style={{flex:1}}>
@@ -150,7 +150,8 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
         <Pressable accessibilityRole="button" accessibilityLabel="Close AI Coach"
           onPress={onClose} style={ss.close}><X size={21} color={C.ink}/></Pressable>
       </View>
-      <ScrollView contentContainerStyle={ss.content} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{flex:1}} contentContainerStyle={ss.content}
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <LinearGradient colors={['#283058','#142942','#10172F']} style={ss.hero}>
           <View style={{alignItems:'center',paddingVertical:11}}>
             <View style={ss.halo}><BrainCircuit size={38} color="#D9C4FF"/></View>
@@ -264,20 +265,22 @@ const ss=StyleSheet.create({
     borderBottomWidth:1,borderColor:'#364262'},
   close:{width:44,height:44,borderWidth:1,borderColor:'#4C5D81',borderRadius:14,
     justifyContent:'center',alignItems:'center'},
-  content:{paddingHorizontal:20,paddingTop:17},
+  content:{paddingHorizontal:20,paddingTop:17,paddingBottom:80},
   hero:{padding:19,borderRadius:24,borderWidth:1,borderColor:'#52649A'},
   halo:{height:82,width:82,borderRadius:42,alignItems:'center',justifyContent:'center',
     backgroundColor:'#35416B',borderColor:'#A194DB',borderWidth:1},
   notice:{marginTop:15,flexDirection:'row',padding:13,gap:10,backgroundColor:'#10273F',
     borderRadius:13,borderWidth:1,borderColor:'#2F5F7E'},
-  input:{backgroundColor:'#121E34',minHeight:96,textAlignVertical:'top',padding:15,
-    color:C.ink,borderRadius:15,borderWidth:1,borderColor:'#4A6584',
-    marginTop:9,marginBottom:8,fontSize:14},
+  input:{width:'100%',alignSelf:'stretch',minWidth:0,
+    backgroundColor:'#102139',minHeight:96,textAlignVertical:'top',padding:14,
+    color:C.ink,borderRadius:12,borderWidth:1,borderColor:'#537197',
+    marginTop:9,marginBottom:8,fontSize:16},
   consent:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:12},
   square:{width:24,height:24,borderRadius:7,borderColor:'#6D87AC',
     borderWidth:1,alignItems:'center',justifyContent:'center'},
   draft:{marginTop:20,padding:17,borderRadius:20,borderWidth:1,borderColor:'#886BB7'},
-  draftInput:{color:C.ink,backgroundColor:'#13233C',borderWidth:1,borderColor:'#5B6F9D',
-    borderRadius:13,padding:12,minHeight:47,marginTop:7,fontSize:14},
+  draftInput:{width:'100%',alignSelf:'stretch',minWidth:0,
+    color:C.ink,backgroundColor:'#102139',borderWidth:1,borderColor:'#537197',
+    borderRadius:12,padding:13,minHeight:52,marginTop:7,fontSize:16},
   tags:{flexDirection:'row',flexWrap:'wrap',marginTop:12,marginBottom:4},
 });

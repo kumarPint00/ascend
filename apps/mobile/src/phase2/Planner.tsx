@@ -779,8 +779,9 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     </Animated.View>
     <Modal visible={!!editControl&&!!selectedQuest} animationType="slide" transparent
       onRequestClose={()=>{setSelectedQuest(null);setEditControl(null);}}>
-      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
-        <ScrollView style={ss.sheet} keyboardShouldPersistTaps="handled" contentContainerStyle={{paddingBottom:32}}>
+      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
+        <ScrollView style={ss.sheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+            contentContainerStyle={{paddingBottom:36}}>
           <View style={ss.between}><T bold size={20}>Plan mission</T>
             <Pressable onPress={()=>{setSelectedQuest(null);setEditControl(null);}}><T color={C.sub}>CLOSE ✕</T></Pressable></View>
           <T color={C.sub} size={13} style={{marginVertical:12}}>{selectedQuest?.title}</T>
@@ -835,7 +836,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     </Modal>
 
     <Modal visible={!!selectedGoal} animationType="slide" transparent onRequestClose={()=>setSelectedGoal(null)}>
-      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
+      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
         <View style={ss.sheet}>
           <View style={ss.between}><T size={19} bold>Measure progress</T>
             <Pressable onPress={()=>setSelectedGoal(null)}><T color={C.sub}>CLOSE ✕</T></Pressable></View>
@@ -859,7 +860,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
 
     <Modal visible={editingAdaptive!==null} animationType="slide" transparent
       onRequestClose={()=>setEditingAdaptive(null)}>
-      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
+      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
         <View style={ss.sheet}>
           <View style={ss.between}>
             <T size={19} bold>Review AI-style suggestion</T>
@@ -950,12 +951,15 @@ const ss=StyleSheet.create({
   chips:{flexDirection:'row',flexWrap:'wrap',marginVertical:11},
   day:{alignItems:'center',justifyContent:'center',backgroundColor:C.surface,
     borderColor:C.border,borderWidth:1,borderRadius:13,width:62,minHeight:86,marginRight:8,gap:4},
-  input:{backgroundColor:C.elevated,borderColor:C.border,borderWidth:1,color:C.ink,
-    borderRadius:11,minHeight:46,paddingHorizontal:13,paddingVertical:10,marginVertical:8,fontSize:14},
+  input:{width:'100%',alignSelf:'stretch',minWidth:0,
+    backgroundColor:'#102139',borderColor:'#537197',borderWidth:1,color:C.ink,
+    borderRadius:12,minHeight:52,paddingHorizontal:14,paddingVertical:11,
+    marginVertical:8,fontSize:16},
   notes:{minHeight:88,textAlignVertical:'top'},
   chart:{height:160,flexDirection:'row',alignItems:'flex-end',marginTop:12},
   barCell:{flex:1,height:140,justifyContent:'flex-end',alignItems:'center',gap:5},
   overlay:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
-  sheet:{backgroundColor:C.surface,padding:19,borderTopLeftRadius:24,borderTopRightRadius:24,maxHeight:'91%'},
+  sheet:{width:'100%',backgroundColor:C.surface,padding:19,
+    borderTopLeftRadius:24,borderTopRightRadius:24,maxHeight:'88%'},
   prereq:{backgroundColor:C.elevated,borderRadius:9,padding:12,marginBottom:8},
 });

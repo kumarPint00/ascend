@@ -45,7 +45,8 @@
             }
           ]
         }
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "ios": {
       "bundleIdentifier": "com.ascendrpg.personal",
