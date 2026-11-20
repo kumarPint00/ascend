@@ -8,13 +8,16 @@ import {type Attribute,type Difficulty,type RepeatRule,ATTRIBUTES} from '@ascend
 import {Action,Chip,T} from '../components/Elements';
 import {nanoDownload,nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {C} from '../theme';
+import * as SecureStore from 'expo-secure-store';
+import {GROQ_MODEL,hasGroqKey,saveGroqKey,clearGroqKey,groqGenerate} from '../ai/groq';
 
 export type NanoDraft={
   kind:'quest'|'goal';title:string;description:string;attribute:Attribute;
   difficulty:Difficulty;repeatRule:RepeatRule;minutes:number;targetCount:number;
-  origin:'gemini-nano'|'offline-fallback';
+  origin:'gemini-nano'|'groq-cloud'|'offline-fallback';
 };
 type Status='available'|'downloadable'|'downloading'|'unavailable'|'unsupported'|'checking';
+type Provider='auto'|'nano'|'groq'|'offline';
 export function parseNanoDraft(raw:string):NanoDraft{
   if(raw.length>4000)throw Error('AI response too long');
   const source=raw.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
@@ -53,7 +56,7 @@ function makePrompt(intent:string,hints:readonly string[]):string{
   const context=hints.slice(0,5).map(t=>t.replace(/[\x00-\x1f]/g,' ').slice(0,58));
   // The app never supplies full journals, backups, financial records or medical data.
   return [
-    'You are the private on-device quest architect for ASCEND, a real-life RPG.',
+    'You are the quest architect for ASCEND, a real-life RPG.',
     'Draft exactly ONE concrete, achievable and low-pressure personal quest or goal.',
     'No guilt, no pressure, no medical diagnosis, no investment or hazardous instructions.',
     'Never invent completion history. Do not demand spending, sharing private data or subscriptions.',
@@ -75,6 +78,11 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
   const [status,setStatus]=useState<Status>('checking');
   const [consent,setConsent]=useState(false);
   const [useHistory,setUseHistory]=useState(false);
+  const [provider,setProvider]=useState<Provider>('auto');
+  const [cloudConsent,setCloudConsent]=useState(false);
+  const [keyConfigured,setKeyConfigured]=useState(false);
+  const [editingKey,setEditingKey]=useState(false);
+  const [keyInput,setKeyInput]=useState('');
   const [intent,setIntent]=useState('');
   const [draft,setDraft]=useState<NanoDraft|null>(null);
   const [busy,setBusy]=useState(false);
@@ -86,31 +94,83 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
   useEffect(()=>{
     if(!visible)return;
     let alive=true;
-    void nanoStatus().then(s=>{if(alive)setStatus(s);}).catch(()=>{if(alive)setStatus('unavailable');});
+    setCloudConsent(false); // Cloud consent is per open session, never implicit.
+    void Promise.all([
+      nanoStatus(),
+      hasGroqKey(),
+      SecureStore.getItemAsync('ascend.ai.provider'),
+    ]).then(([nano,hasKey,mode])=>{
+      if(!alive)return;
+      setStatus(nano);
+      setKeyConfigured(hasKey);
+      if(mode==='auto'||mode==='nano'||mode==='groq'||mode==='offline')
+        setProvider(mode);
+    }).catch(()=>{
+      if(alive)setStatus('unavailable');
+    });
     return ()=>{alive=false;nonce.current++};
   },[visible]);
+  const chooseProvider=(next:Provider)=>{
+    setProvider(next);
+    setDraft(null);
+    setMessage('');
+    void SecureStore.setItemAsync('ascend.ai.provider',next).catch(()=>{});
+  };
+  const storeKey=async()=>{
+    try{
+      await saveGroqKey(keyInput);
+      setKeyInput('');
+      setEditingKey(false);
+      setKeyConfigured(true);
+      setMessage('Groq key stored in Android encrypted secure storage. Cloud requests still require consent.');
+    }catch(e){Alert.alert('Key not saved',e instanceof Error?e.message:String(e));}
+  };
+  const eraseKey=async()=>{
+    try{
+      await clearGroqKey();
+      setKeyInput('');setKeyConfigured(false);setCloudConsent(false);setEditingKey(false);
+      setMessage('Groq key removed from this device.');
+    }catch(e){Alert.alert('Unable to remove key',String(e));}
+  };
   const generate=useCallback(async()=>{
-    if(!consent){Alert.alert('Consent required','Please review and enable on-device AI first.');return;}
+    if(provider!=='offline'&&!consent){
+      Alert.alert('Consent required','Review and approve the AI draft workflow first.');
+      return;
+    }
+    if(provider==='groq'&&(!keyConfigured||!cloudConsent)){
+      Alert.alert('Groq requires approval','Save your personal Groq key and explicitly allow cloud inference.');
+      return;
+    }
     const id=++nonce.current;
     setBusy(true);setDraft(null);setMessage('');
+    const prompt=makePrompt(intent,useHistory?recentQuestTitles:[]);
     try{
       let suggestion:NanoDraft;
-      if(status==='available'){
-        const raw=await nanoGenerate(makePrompt(intent,useHistory?recentQuestTitles:[]));
+      if(provider==='offline'){
+        suggestion=createSafeFallback(intent);
+        setMessage('Offline starter draft. No AI call was made.');
+      }else if((provider==='nano'||provider==='auto')&&status==='available'){
+        const raw=await nanoGenerate(prompt);
         suggestion=parseNanoDraft(raw);
+      }else if((provider==='groq'||provider==='auto')&&keyConfigured&&cloudConsent){
+        const raw=await groqGenerate(prompt);
+        suggestion={...parseNanoDraft(raw),origin:'groq-cloud'};
       }else{
         suggestion=createSafeFallback(intent);
-        setMessage('Gemini Nano is unavailable. Showing an offline starter draft instead.');
+        setMessage(provider==='nano'
+          ?'Gemini Nano is not ready on this device. Using offline starter draft.'
+          :'No available consented AI provider. Using offline starter draft. Configure Groq to use cloud inference.');
       }
       if(id===nonce.current)setDraft(suggestion);
     }catch(e){
       if(id===nonce.current){
-        setMessage('Model generation failed or was rejected. Showing a conservative offline alternative.');
+        const reason=e instanceof Error?e.message:'Provider error';
+        setMessage(reason.slice(0,160)+'. Showing an offline starter instead; no task was saved.');
         try{setDraft(createSafeFallback(intent));}
-        catch{setMessage(e instanceof Error?e.message:'Generation was unsuccessful');}
+        catch{setMessage(reason);}
       }
     }finally{if(id===nonce.current)setBusy(false);}
-  },[consent,intent,status,useHistory,recentQuestTitles]);
+  },[provider,consent,keyConfigured,cloudConsent,intent,status,useHistory,recentQuestTitles]);
   const download=async()=>{
     if(!consent){Alert.alert('Consent required','Approve on-device model access before downloading.');return;}
     Alert.alert('Prepare Gemini Nano?','Android AICore may need to download model data. This may use Wi-Fi/mobile data and device storage. No personal data is sent to an ASCEND server.',[
@@ -156,7 +216,7 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
           <View style={{alignItems:'center',paddingVertical:11}}>
             <View style={ss.halo}><BrainCircuit size={38} color="#D9C4FF"/></View>
             <T color="#B4A5FF" bold size={10} style={{letterSpacing:2,marginTop:15}}>
-              PRIVATE ON-DEVICE INTELLIGENCE
+              PERSONAL AI · ON-DEVICE OR OPTIONAL GROQ
             </T>
             <T bold size={20} style={{marginTop:5}}>Shape your next quest</T>
             <T size={12} color="#C6D3EC" style={{textAlign:'center',marginTop:8}}>
@@ -164,6 +224,19 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
             </T>
           </View>
         </LinearGradient>
+        <T size={12} color={C.sub} bold style={{marginBottom:8}}>AI PROVIDER</T>
+        <View style={ss.tags}>
+          {([
+            ['auto','AUTO'],['nano','GEMINI NANO'],['groq','GROQ CLOUD'],['offline','OFFLINE']
+          ] as const).map(([value,label])=><Chip key={value}
+            active={provider===value} onPress={()=>chooseProvider(value)}>{label}</Chip>)}
+        </View>
+        <T size={11} color={C.sub} style={{marginBottom:12}}>
+          {provider==='auto'?'Try local Gemini Nano first. Cloud is used only with a configured key and explicit consent.':
+            provider==='nano'?'On-device only. Unavailable models fall back to a basic draft.':
+            provider==='groq'?'Groq uses the internet. Only your typed intention and optional quest titles are sent.':
+            'No AI or internet needed. Create a simple editable starter draft.'}
+        </T>
         <T size={12} color={C.sub} bold style={{marginBottom:9}}>
           QUICK START · CHOOSE AN INTENTION
         </T>
@@ -186,8 +259,34 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
             </T>
           </View>
         </View>
-        {(status==='downloadable'||status==='downloading')&&<Action secondary disabled={busy}
-          onPress={()=>void download()}>PREPARE GEMINI NANO</Action>}
+        {(status==='downloadable'||status==='downloading')&&
+          (provider==='nano'||provider==='auto')&&
+          <Action secondary disabled={busy} onPress={()=>void download()}>
+            PREPARE GEMINI NANO
+          </Action>}
+        {(provider==='groq'||provider==='auto')&&<View style={ss.cloudPanel}>
+          <T color={C.frost} bold size={13}>GROQ CLOUD · {GROQ_MODEL}</T>
+          <T color={C.sub} size={11} style={{marginTop:6}}>
+            {keyConfigured?'Personal API key configured on this device.':'No Groq key saved. Free-tier limits and availability can change.'}
+            {' '}Your key is never bundled into ASCEND or stored in progress backups.
+          </T>
+          {editingKey&&<TextInput secureTextEntry accessibilityLabel="Personal Groq API key"
+            placeholder="gsk_…" placeholderTextColor={C.dim}
+            autoCorrect={false} autoCapitalize="none" value={keyInput}
+            onChangeText={setKeyInput} style={ss.draftInput}/>}
+          <View style={{marginTop:10,gap:8}}>
+            {editingKey?<Action secondary disabled={busy||!keyInput.trim()}
+              onPress={()=>void storeKey()}>SAVE API KEY SECURELY</Action>:
+              <Action secondary disabled={busy} onPress={()=>setEditingKey(true)}>
+                {keyConfigured?'REPLACE GROQ KEY':'CONFIGURE GROQ KEY'}
+              </Action>}
+            {keyConfigured&&<Action secondary disabled={busy}
+              onPress={()=>void eraseKey()}>REMOVE SAVED KEY</Action>}
+          </View>
+          <T size={10} color={C.dim} style={{marginTop:9}}>
+            For personal use only. A future public version will require a server-side credential proxy.
+          </T>
+        </View>}}
         <View style={{marginTop:20}}>
           <T size={12} color={C.sub} bold>WHAT DO YOU WANT TO IMPROVE?</T>
           <TextInput accessibilityLabel="Personal quest intention"
@@ -202,7 +301,7 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
             {consent&&<CheckCircle2 size={18} color={C.dark}/>}
           </View>
           <T size={12} color={C.sub} style={{flex:1}}>
-            I want ASCEND to use on-device AI for this prompt. I understand results may be wrong and must be reviewed.
+            I understand AI suggestions can be incorrect. I will review a proposal before saving it.
           </T>
         </Pressable>
         <Pressable accessibilityRole="checkbox" accessibilityState={{checked:useHistory}}
@@ -214,7 +313,22 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
             Optionally include up to five quest titles from this device for personalization.
           </T>
         </Pressable>
-        <Action disabled={busy||!consent||intent.trim().length<4} onPress={()=>void generate()}>
+        {(provider==='groq'||provider==='auto')&&keyConfigured&&
+          <Pressable accessibilityRole="checkbox"
+            accessibilityState={{checked:cloudConsent}}
+            onPress={()=>setCloudConsent(v=>!v)} style={ss.consent}>
+            <View style={[ss.square,cloudConsent&&{backgroundColor:C.energy}]}>
+              {cloudConsent&&<CheckCircle2 size={18} color={C.dark}/>}
+            </View>
+            <T size={12} color={C.sub} style={{flex:1}}>
+              I explicitly allow this prompt (and optional quest titles) to be sent to Groq Cloud.
+              Do not include medical, financial, or other sensitive private details.
+            </T>
+          </Pressable>}
+        <Action disabled={busy||intent.trim().length<4||
+          (provider!=='offline'&&!consent)||
+          (provider==='groq'&&(!keyConfigured||!cloudConsent))}
+          onPress={()=>void generate()}>
           {busy?'CREATING DRAFT...':'GENERATE PERSONAL QUEST'}
         </Action>
         {busy&&<ActivityIndicator style={{marginTop:15}} color={C.energy}/>}
@@ -223,7 +337,8 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
           <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
             <Sparkles size={18} color={C.gold}/>
             <T size={10} color={C.gold} bold>
-              {draft.origin==='gemini-nano'?'GEMINI NANO DRAFT':'OFFLINE STARTER DRAFT'}
+              {draft.origin==='gemini-nano'?'GEMINI NANO DRAFT':
+                draft.origin==='groq-cloud'?'GROQ CLOUD DRAFT':'OFFLINE STARTER DRAFT'}
             </T>
           </View>
           <T size={10} color={C.sub} bold style={{marginTop:14}}>EDIT TITLE BEFORE APPROVAL</T>
@@ -278,6 +393,8 @@ const ss=StyleSheet.create({
   consent:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:12},
   square:{width:24,height:24,borderRadius:7,borderColor:'#6D87AC',
     borderWidth:1,alignItems:'center',justifyContent:'center'},
+  cloudPanel:{backgroundColor:'#162642',borderRadius:16,borderWidth:1,
+    borderColor:'#54729D',padding:14,marginTop:7,marginBottom:9},
   draft:{marginTop:20,padding:17,borderRadius:20,borderWidth:1,borderColor:'#886BB7'},
   draftInput:{width:'100%',alignSelf:'stretch',minWidth:0,
     color:C.ink,backgroundColor:'#102139',borderWidth:1,borderColor:'#537197',
