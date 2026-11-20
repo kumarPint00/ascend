@@ -264,11 +264,12 @@ export default function App() {
     [quests,phaseSummary.controls,data.completions,phaseSummary.dependencies,clock,
       phaseSummary.preferences.dailyMissionLimit]);
   const focusIds=useMemo(()=>new Set(todayBoard.map(q=>q.id)),[todayBoard]);
+  const dueTodayIds=useMemo(()=>new Set(dueToday.map(q=>q.id)),[dueToday]);
   const filteredQuests=useMemo(()=>quests.filter(q=>{
     const match=(q.title+' '+q.description).toLowerCase().includes(questSearch.trim().toLowerCase());
     if(!match)return false;
     const done=isCompleted(q,data.completions,clock);
-    if(questFilter==='Today')return dueToday.some(x=>x.id===q.id);
+    if(questFilter==='Today')return dueTodayIds.has(q.id);
     if(questFilter==='Daily')return q.repeatRule==='daily';
     if(questFilter==='Weekly')return q.repeatRule==='weekly'&&!done&&
       (phaseSummary.controls[q.id]?.status??defaultQuestControl(q).status)==='active';
@@ -276,7 +277,7 @@ export default function App() {
     if(questFilter==='Pending')return !done;
     if(questFilter==='Done')return done;
     return true;
-  }),[quests,questSearch,questFilter,data.completions,clock,dueToday,phaseSummary.controls]);
+  }),[quests,questSearch,questFilter,data.completions,clock,dueTodayIds,phaseSummary.controls]);
   const filteredGoals=useMemo(()=>goals.filter(g=>g.title.toLowerCase()
     .includes(goalSearch.trim().toLowerCase())),[goals,goalSearch]);
 
@@ -851,7 +852,7 @@ export default function App() {
     <Modal visible={questModal} animationType="slide" transparent onRequestClose={()=>setQuestModal(false)}>
       <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
         <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-            contentContainerStyle={{paddingBottom:32}}>
+            contentContainerStyle={{padding:20,paddingBottom:40}}>
           <View style={s.between}><T size={20} bold>{editingQuest?'Edit Quest':'New Quest'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setQuestModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
           <T color={C.sub} style={{marginTop:18,marginBottom:7}}>Quest title</T>
           <TextInput accessibilityLabel="Quest title" maxLength={100} placeholder="e.g. Practice system design" placeholderTextColor={C.dim} value={questForm.title}
@@ -891,7 +892,7 @@ export default function App() {
     <Modal visible={goalModal} animationType="slide" transparent onRequestClose={()=>setGoalModal(false)}>
       <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
         <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-            contentContainerStyle={{paddingBottom:32}}>
+            contentContainerStyle={{padding:20,paddingBottom:40}}>
           <View style={s.between}><T size={20} bold>{editingGoal?'Edit Goal':'New Questline'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setGoalModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
           <T color={C.sub} style={s.formLabel}>Goal title</T>
           <TextInput accessibilityLabel="Goal title" value={goalTitle} onChangeText={setGoalTitle} maxLength={100}
@@ -914,7 +915,7 @@ export default function App() {
       <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
         <ScrollView style={[s.modalSheet,{maxHeight:'88%'}]}
           keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-            contentContainerStyle={{paddingBottom:32}}>
+            contentContainerStyle={{padding:20,paddingBottom:40}}>
           <View style={s.between}>
             <T size={18} bold>Import goals / quests / milestones</T>
             <Pressable accessibilityRole="button" accessibilityLabel="Close import"
@@ -1028,7 +1029,8 @@ export default function App() {
     <Modal visible={restoreText!==null} animationType="slide" transparent onRequestClose={()=>setRestoreText(null)}>
       <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-          style={[s.modalSheet,{maxHeight:'83%'}]}>
+          style={[s.modalSheet,{maxHeight:'83%'}]}
+          contentContainerStyle={{padding:20,paddingBottom:45}}>
         <View style={s.between}><T size={19} bold>Restore your saved progress</T>
           <Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setRestoreText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
         <T color={C.sub} size={12} style={{marginVertical:12}}>
@@ -1049,7 +1051,7 @@ export default function App() {
       </ScrollView></KeyboardAvoidingView>
     </Modal>
     <Modal visible={backup!==null} animationType="fade" transparent onRequestClose={()=>setBackup(null)}>
-      <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'83%'}]}>
+      <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'83%',padding:20}]}>
         <View style={s.between}><T size={19} bold>Copy your backup</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setBackup(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
         <T color={C.sub} size={12} style={{marginVertical:12}}>Select all text, copy, and save it somewhere safe. This is NOT an automatic backup.</T>
         <TextInput accessibilityLabel="Read-only backup JSON" multiline selectTextOnFocus value={backup??''} style={[s.input,{height:310,fontSize:11,textAlignVertical:'top'}]} />
@@ -1110,7 +1112,7 @@ const s=StyleSheet.create({
     borderWidth:1,borderColor:'transparent',borderRadius:17,minHeight:59},
   modalBackdrop:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
   modalSheet:{width:'100%',backgroundColor:C.surface,borderTopLeftRadius:24,
-    borderTopRightRadius:24,padding:20,maxHeight:'88%'},
+    borderTopRightRadius:24,maxHeight:'88%'},
   input:{width:'100%',alignSelf:'stretch',minWidth:0,borderWidth:1,
     borderColor:'#537197',borderRadius:12,backgroundColor:'#102139',color:C.ink,
     paddingVertical:11,paddingHorizontal:14,fontSize:16,minHeight:52},
