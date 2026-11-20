@@ -840,6 +840,12 @@ export default function App() {
         },'accepted',{title:draft.title,minutes:draft.minutes,
           goalTargetCount:draft.targetCount});
         await refresh();
+        setQuestSearch('');
+        setQuestLimit(20);
+        setQuestFilter('All');
+        setTab('Quests');
+        Alert.alert('Draft saved to Backlog',
+          'Your AI-generated quest is saved but not active. Open Planner → Quest library to activate or schedule it.');
       }}/>
 
     <Modal visible={questModal} animationType="slide" transparent onRequestClose={()=>setQuestModal(false)}>
@@ -905,7 +911,7 @@ export default function App() {
     </Modal>
     <Modal visible={questPackText!==null} animationType="slide" transparent
       onRequestClose={()=>{setQuestPackText(null);setImportPreview(null);}}>
-      <View style={s.modalBackdrop}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
         <ScrollView style={[s.modalSheet,{maxHeight:'88%'}]}
           keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
             contentContainerStyle={{paddingBottom:32}}>
@@ -1015,10 +1021,12 @@ export default function App() {
               }}>IMPORT SELECTED SECTIONS</Action>
           </>}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
     <Modal visible={restoreText!==null} animationType="slide" transparent onRequestClose={()=>setRestoreText(null)}>
-      <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'85%'}]}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+          style={[s.modalSheet,{maxHeight:'83%'}]}>
         <View style={s.between}><T size={19} bold>Restore your saved progress</T>
           <Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setRestoreText(null)}><T color={C.sub}>Close ✕</T></Pressable></View>
         <T color={C.sub} size={12} style={{marginVertical:12}}>
@@ -1036,7 +1044,7 @@ export default function App() {
                 setRestoreText(null);
               })},
             ])}>RESTORE BACKUP</Action></View>
-      </View></View>
+      </ScrollView></KeyboardAvoidingView>
     </Modal>
     <Modal visible={backup!==null} animationType="fade" transparent onRequestClose={()=>setBackup(null)}>
       <View style={s.modalBackdrop}><View style={[s.modalSheet,{maxHeight:'83%'}]}>
