@@ -389,7 +389,8 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
     </Panel>
     <Modal visible={connection!==null} transparent animationType="slide" onRequestClose={()=>setConnection(null)}>
       <KeyboardAvoidingView style={st.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={st.sheet}>
+        <ScrollView style={st.sheet} keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:17,paddingBottom:22}}>
         <View style={st.between}><T bold size={19} style={{flexShrink:1}}>
           Connect {connection?names[connection]:''}</T>
           <Pressable accessibilityRole="button" onPress={()=>setConnection(null)}>
@@ -404,11 +405,12 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
           autoCapitalize="none" placeholder={connection==='github'?'github_pat_...':'xxxx.apps.googleusercontent.com'}
           placeholderTextColor={C.dim} style={[st.input,{marginVertical:15}]}/>
         <Action disabled={busy||!clientInput.trim()} onPress={connect}>CONNECT WITH CONSENT</Action>
-      </View></KeyboardAvoidingView>
+      </ScrollView></KeyboardAvoidingView>
     </Modal>
     <Modal visible={shareText!==null} transparent animationType="slide" onRequestClose={()=>setShareText(null)}>
       <KeyboardAvoidingView style={st.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={st.sheet}>
+        <ScrollView style={st.sheet} keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:17,paddingBottom:22}}>
         <View style={st.between}>
           <T bold size={18} style={{flexShrink:1}}>Capture selected message</T>
           <Pressable accessibilityRole="button" onPress={()=>setShareText(null)}>
@@ -421,12 +423,14 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
           onChangeText={setShareText} maxLength={3500}/>
         <View style={{marginTop:12}}><Action disabled={busy||!shareText?.trim()}
           onPress={saveShare}>SAVE PRIVATE COPY</Action></View>
-      </View></KeyboardAvoidingView>
+      </ScrollView></KeyboardAvoidingView>
     </Modal>
     <Modal visible={showChatImport} transparent animationType="slide"
       onRequestClose={()=>setShowChatImport(false)}>
       <KeyboardAvoidingView style={st.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={[st.sheet,{maxHeight:'80%'}]}>
+        <ScrollView style={[st.sheet,{maxHeight:'80%'}]}
+          keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{padding:17,paddingBottom:22}}>
         <View style={st.between}>
           <T bold size={18} style={{flexShrink:1}}>Select ChatGPT conversations</T>
           <Pressable accessibilityRole="button" onPress={()=>setShowChatImport(false)}>
@@ -455,12 +459,13 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
         </T>
         <Action disabled={busy||selectedChat.length===0} onPress={importChosenChat}>
           IMPORT SELECTED CONVERSATIONS</Action>
-      </View></KeyboardAvoidingView>
+      </ScrollView></KeyboardAvoidingView>
     </Modal>
     <Modal visible={exportMode!==null} transparent animationType="slide"
       onRequestClose={()=>setExportMode(null)}>
       <KeyboardAvoidingView style={st.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={st.sheet}>
+        <ScrollView style={st.sheet} keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:17,paddingBottom:22}}>
         <View style={st.between}>
           <T size={18} bold style={{flexShrink:1}}>{exportMode==='export'?'Protected context export':'Restore protected context'}</T>
           <Pressable accessibilityRole="button" onPress={()=>setExportMode(null)}>
@@ -481,7 +486,7 @@ export function ConnectHub({onBack,initialShare,onShareConsumed,onAnalyzeWithAI}
           style={[st.input,{marginVertical:13}]}/>
         <Action disabled={busy||passphrase.length<12||(exportMode==='restore'&&!restoreBlob)}
           onPress={doExport}>{exportMode==='export'?'SAVE ENCRYPTED BACKUP':'RESTORE PROTECTED DATA'}</Action>
-      </View></KeyboardAvoidingView>
+      </ScrollView></KeyboardAvoidingView>
     </Modal>
     {busy&&<View style={{alignItems:'center',marginBottom:12}}>
       <ActivityIndicator color={C.energy}/><T size={11} color={C.sub}>Processing locally…</T>
@@ -501,7 +506,7 @@ const st=StyleSheet.create({
   filters:{flexDirection:'row',flexWrap:'wrap',gap:0,marginTop:7,marginBottom:6},
   overlay:{flex:1,backgroundColor:'#020613D9',justifyContent:'center',padding:17},
   sheet:{width:'100%',backgroundColor:'#14223A',borderWidth:1,borderColor:'#5775A0',
-    borderRadius:22,padding:17,maxHeight:'85%'},
+    borderRadius:22,maxHeight:'85%'},
   pick:{flexDirection:'row',alignItems:'center',gap:10,padding:12,borderBottomWidth:1,
     borderColor:'#293853',minHeight:60},
 });
