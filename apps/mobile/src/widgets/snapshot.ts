@@ -1,5 +1,5 @@
 import {
-  activeMissionList,defaultQuestControl,derivePlayer,localDayKey
+  activeMissionList,dueMissionList,defaultQuestControl,derivePlayer,localDayKey
 } from '@ascend/game-engine';
 import type {Snapshot} from '../data/repository';
 import type {PhaseTwoSnapshot} from '../data/phase2';
@@ -31,7 +31,9 @@ export function buildWidgetProjection(
   }
   const player=derivePlayer(data.xpEvents);
   const visible=data.quests.filter(q=>!q.archived);
-  const due=activeMissionList(visible,phase.controls,data.completions,
+  const due=dueMissionList(visible,phase.controls,data.completions,
+    phase.dependencies,now);
+  const focus=activeMissionList(visible,phase.controls,data.completions,
     phase.dependencies,now,phase.preferences.dailyMissionLimit);
   const finishedToday=data.completions.filter(c=>
     localDayKey(new Date(c.completedAt))===day).length;
@@ -39,7 +41,7 @@ export function buildWidgetProjection(
   const remaining=due.length;
   const denominator=finishedToday+remaining;
   const donePercent=ratio(finishedToday,denominator);
-  const next=due[0];
+  const next=focus[0]??due[0];
   const schedule=due.map(q=>phase.controls[q.id]?.timeOfDay).filter(
     (time):time is string=>typeof time==='string'&&time.length===5
   ).sort()[0]??null;

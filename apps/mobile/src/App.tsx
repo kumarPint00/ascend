@@ -1012,6 +1012,8 @@ export default function App() {
                   {text:'Import selected',onPress:()=>run(async()=>{
                     const result=await importQuestPack(selectedSource,selectedSections);
                     setQuestPackText(null);setImportPreview(null);
+                    setQuestSearch('');setQuestLimit(20);setQuestFilter('All');
+                    setTab('Quests');
                     Alert.alert('Partial import complete',
                       result.goalsAdded+' goals, '+result.questsAdded+' quests, '+
                       result.milestonesAdded+' milestones added. '+result.skipped+
