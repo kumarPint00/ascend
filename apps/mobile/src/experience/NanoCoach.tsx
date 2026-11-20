@@ -286,7 +286,7 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
           <T size={10} color={C.dim} style={{marginTop:9}}>
             For personal use only. A future public version will require a server-side credential proxy.
           </T>
-        </View>}}
+        </View>}
         <View style={{marginTop:20}}>
           <T size={12} color={C.sub} bold>WHAT DO YOU WANT TO IMPROVE?</T>
           <TextInput accessibilityLabel="Personal quest intention"
