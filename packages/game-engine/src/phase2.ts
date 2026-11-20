@@ -74,8 +74,11 @@ export function introducesCycle(deps:readonly QuestDependency[],edge:QuestDepend
   };
   return walk(edge.requiresQuestId,new Set());
 }
-export function activeMissionList(quests:readonly Quest[],controls:Readonly<Record<string,QuestControl>>,
-  completions:readonly Completion[],deps:readonly QuestDependency[],date:Date,limit=4):Quest[] {
+/** All eligible missions, regardless of the user's daily *focus* cap.
+ * The focus limit must never make a newly saved recurring quest disappear
+ * from Today. Display code can distinguish focus picks from other due work. */
+export function dueMissionList(quests:readonly Quest[],controls:Readonly<Record<string,QuestControl>>,
+  completions:readonly Completion[],deps:readonly QuestDependency[],date:Date):Quest[] {
   const ranked=quests.filter(q=>{
     const c=controls[q.id]??defaultQuestControl(q);
     return questDueOn(q,c,date)&&!isCompleted(q,completions,date)&&!blockedByDependencies(q,deps,completions);
@@ -85,7 +88,13 @@ export function activeMissionList(quests:readonly Quest[],controls:Readonly<Reco
     const score=(q:Quest,c:QuestControl)=>(4-c.priority)*100+(c.dueOn&&c.dueOn<=localDayKey(date)?70:0)+
       (q.repeatRule==='daily'?40:q.repeatRule==='weekly'?20:10);
     return score(b,cb)-score(a,ca)||a.createdAt.localeCompare(b.createdAt);
-  }).slice(0,Math.max(1,Math.min(8,Math.floor(limit))));
+  });
+}
+/** Curated subset for reminders, home and low-pressure recommendations. */
+export function activeMissionList(quests:readonly Quest[],controls:Readonly<Record<string,QuestControl>>,
+  completions:readonly Completion[],deps:readonly QuestDependency[],date:Date,limit=4):Quest[] {
+  return dueMissionList(quests,controls,completions,deps,date)
+    .slice(0,Math.max(1,Math.min(8,Math.floor(limit))));
 }
 export function occurrencesForDays(quests:readonly Quest[],controls:Readonly<Record<string,QuestControl>>,
   completions:readonly Completion[],deps:readonly QuestDependency[],start:Date,days=14):

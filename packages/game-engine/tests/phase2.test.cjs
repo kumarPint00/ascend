@@ -1,6 +1,6 @@
 const test=require('node:test'), assert=require('node:assert/strict');
 const {defaultQuestControl,validateControl,isQuietTime,questDueOn,blockedByDependencies,
- introducesCycle,activeMissionList,occurrencesForDays,skillLevel,derivedAchievements,
+ introducesCycle,dueMissionList,activeMissionList,occurrencesForDays,skillLevel,derivedAchievements,
  outcomeProgress,xpTrend}=require('../dist/index.js');
 const date=new Date(2026,10,16,12); // Monday
 const q=(id,rule='daily')=>({id,title:id,description:'',attribute:'discipline',
@@ -90,4 +90,16 @@ test('strict ISO calendar validation rejects impossible dates',()=>{
  const control=defaultQuestControl(q('date'));
  assert.throws(()=>validateControl({...control,dueOn:'2026-02-30'}));
  assert.throws(()=>validateControl({...control,snoozedUntil:'2026-02-30'}));
+});
+
+test('new daily quests stay visible in Today even after focus limit is reached',()=>{
+ const quests=Array.from({length:7},(_,i)=>({...q('daily-'+i),createdAt:new Date(2026,10,10+i).toISOString()}));
+ const focus=activeMissionList(quests,{},[],[],date,4);
+ const all=dueMissionList(quests,{},[],[],date);
+ assert.equal(focus.length,4);
+ assert.equal(all.length,7);
+ assert.ok(all.some(x=>x.id==='daily-6'));
+ assert.deepEqual(focus.map(x=>x.id),all.slice(0,4).map(x=>x.id));
+ const paused={...defaultQuestControl(quests[6]),status:'paused'};
+ assert.ok(!dueMissionList(quests,{[quests[6].id]:paused},[],[],date).some(x=>x.id==='daily-6'));
 });

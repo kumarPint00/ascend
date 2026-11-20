@@ -8,7 +8,7 @@ import {
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
   completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, rankFromLevel, isMilestoneQuest, MILESTONE_PREFIX,
   parseImportableQuestPack,filterImportItems,type ImportSelection,type ImportableQuestPack,
-  activeMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
+  activeMissionList,dueMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
   liteQuestIsAllowed,liteMinutes,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
@@ -78,7 +78,7 @@ export default function App() {
   const [importPreview,setImportPreview] = useState<ImportableQuestPack|null>(null);
   const [importSections,setImportSections] = useState<ImportSelection>({goals:true,quests:true,milestones:true});
   const [expandedGoals,setExpandedGoals] = useState<Record<string,boolean>>({});
-  const [questFilter,setQuestFilter] = useState<'Today'|'Weekly'|'Milestones'|'Pending'|'Done'|'All'>('Today');
+  const [questFilter,setQuestFilter] = useState<'Today'|'Daily'|'Weekly'|'Milestones'|'Pending'|'Done'|'All'>('Today');
   const [questSearch,setQuestSearch] = useState('');
   const [questLimit,setQuestLimit] = useState(20);
   const [goalLimit,setGoalLimit] = useState(8);
@@ -248,22 +248,29 @@ export default function App() {
     [quests,phaseSummary.controls,data.completions,clock]);
   const pending=useMemo(()=>activeQuests.filter(q=>!isCompleted(q,data.completions,clock)),
     [activeQuests,data.completions,clock]);
+  // All eligible quests remain visible in Today. The focused slice stays
+  // limited for Home, reminders and low-pressure suggestions.
+  const dueToday=useMemo(()=>dueMissionList(quests,phaseSummary.controls,
+    data.completions,phaseSummary.dependencies,clock),
+    [quests,phaseSummary.controls,data.completions,phaseSummary.dependencies,clock]);
   const todayBoard=useMemo(()=>activeMissionList(quests,phaseSummary.controls,data.completions,
     phaseSummary.dependencies,clock,phaseSummary.preferences.dailyMissionLimit),
     [quests,phaseSummary.controls,data.completions,phaseSummary.dependencies,clock,
       phaseSummary.preferences.dailyMissionLimit]);
+  const focusIds=useMemo(()=>new Set(todayBoard.map(q=>q.id)),[todayBoard]);
   const filteredQuests=useMemo(()=>quests.filter(q=>{
     const match=(q.title+' '+q.description).toLowerCase().includes(questSearch.trim().toLowerCase());
     if(!match)return false;
     const done=isCompleted(q,data.completions,clock);
-    if(questFilter==='Today')return todayBoard.some(x=>x.id===q.id);
+    if(questFilter==='Today')return dueToday.some(x=>x.id===q.id);
+    if(questFilter==='Daily')return q.repeatRule==='daily';
     if(questFilter==='Weekly')return q.repeatRule==='weekly'&&!done&&
       (phaseSummary.controls[q.id]?.status??defaultQuestControl(q).status)==='active';
     if(questFilter==='Milestones')return isMilestoneQuest(q)&&!done;
     if(questFilter==='Pending')return !done;
     if(questFilter==='Done')return done;
     return true;
-  }),[quests,questSearch,questFilter,data.completions,clock,todayBoard,phaseSummary.controls]);
+  }),[quests,questSearch,questFilter,data.completions,clock,dueToday,phaseSummary.controls]);
   const filteredGoals=useMemo(()=>goals.filter(g=>g.title.toLowerCase()
     .includes(goalSearch.trim().toLowerCase())),[goals,goalSearch]);
 
@@ -469,7 +476,10 @@ export default function App() {
         {todayBoard.length} missions on today's board. Recovery and rest remain valid choices.
       </T>
     </Panel>
-    <T color={C.sub} size={13} style={{marginBottom:12}}>Choose your next move. No pressure to clear every mission at once.</T>
+    <T color={C.sub} size={13} style={{marginBottom:12}}>
+      All due missions are visible here. Your daily focus limit of {phaseSummary.preferences.dailyMissionLimit}
+      {' '}prioritizes suggestions; it never hides saved quests.
+    </T>
     <View style={s.searchRow}>
       <SearchIcon color={C.sub} size={17}/>
       <TextInput accessibilityLabel="Search quests" placeholder="Find a quest, skill, or project" placeholderTextColor={C.dim}
@@ -478,19 +488,22 @@ export default function App() {
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
       contentContainerStyle={{paddingRight:15,paddingBottom:4}} style={{maxHeight:58}}>
-      {(['Today','Weekly','Milestones','Pending','Done','All'] as const).map(f=>
+      {(['Today','Daily','Weekly','Milestones','Pending','Done','All'] as const).map(f=>
         <Chip key={f} active={questFilter===f} onPress={()=>{setQuestFilter(f);setQuestLimit(20);}}>{f}</Chip>)}
     </ScrollView>
     <View style={[s.between,{marginTop:3,marginBottom:12}]}>
       <T color={C.sub} size={12}>{filteredQuests.length} {filteredQuests.length===1?'mission':'missions'}</T>
-      <T color={C.dim} size={11}>{questFilter==='Today'?'Daily focus':questFilter==='Milestones'?'One-time objectives':'Your board'}</T>
+      <T color={C.dim} size={11}>{questFilter==='Today'?todayBoard.length+' suggested focus':questFilter==='Daily'?'Every daily quest':questFilter==='Milestones'?'One-time objectives':'Your board'}</T>
     </View>
-    {filteredQuests.slice(0,questLimit).map(q=><QuestCard key={q.id} quest={q} editable/>)}
+    {filteredQuests.slice(0,questLimit).map(q=><View key={q.id}>
+      {questFilter==='Today'&&focusIds.has(q.id)&&<T color={C.energy} size={10} bold style={{marginLeft:8,marginBottom:3}}>FOCUS PICK</T>}
+      <QuestCard quest={q} editable/>
+    </View>)}
     {filteredQuests.length>questLimit&&<Action secondary onPress={()=>setQuestLimit(x=>x+20)} style={{marginBottom:15}}>
       SHOW MORE ({filteredQuests.length-questLimit} LEFT)
     </Action>}
     {filteredQuests.length===0&&<Panel>
-      <T color={C.green} size={16} bold>{questFilter==='Today'?'Daily quests cleared':'No matching missions'}</T>
+      <T color={C.green} size={16} bold>{questFilter==='Today'?'No due quests right now':'No matching missions'}</T>
       <T color={C.sub} size={13} style={{marginTop:5}}>Try another filter or create a quest that matters today.</T>
       <View style={{marginTop:12}}><Action secondary onPress={()=>openQuest()}>CREATE QUEST</Action></View>
     </Panel>}
@@ -848,7 +861,15 @@ export default function App() {
             {goals.map(g=><Chip key={g.id} active={questForm.goalId===g.id}
               onPress={()=>setQuestForm(f=>({...f,goalId:g.id}))}>{g.title}</Chip>)}</View></>}
           <Action disabled={busy} style={{marginTop:15}} onPress={()=>run(async()=>{
-            await saveQuest(questForm,editingQuest?.id);setQuestModal(false);
+            const kind=questForm.repeatRule;
+            await saveQuest(questForm,editingQuest?.id);
+            setQuestModal(false);
+            setQuestSearch('');
+            setQuestLimit(20);
+            // Always reveal the saved item, even if Today is at its focus cap
+            // or the quest has a future schedule, backlog status or dependency.
+            setQuestFilter(kind==='daily'?'Daily':'All');
+            setTab('Quests');
           })}>SAVE QUEST</Action>
         </ScrollView>
       </KeyboardAvoidingView>

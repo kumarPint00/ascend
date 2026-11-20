@@ -150,7 +150,7 @@ export type { QuestPack, PackGoal, PackQuest } from './quest-pack';
 export {parseImportableQuestPack,parsePartialQuestPack,filterImportItems} from './partial-pack';
 export type {ImportableQuestPack,PartialQuestPack,ImportSelection} from './partial-pack';
 
-export {DEFAULT_PREFERENCES,defaultQuestControl,validateControl,validCalendarDay,validTime,isQuietTime,questDueOn,blockedByDependencies,introducesCycle,activeMissionList,occurrencesForDays,skillLevel,derivedSkills,derivedAchievements,outcomeProgress,xpTrend,focusMinutesForWeek} from './phase2';
+export {DEFAULT_PREFERENCES,defaultQuestControl,validateControl,validCalendarDay,validTime,isQuietTime,questDueOn,blockedByDependencies,introducesCycle,dueMissionList,activeMissionList,occurrencesForDays,skillLevel,derivedSkills,derivedAchievements,outcomeProgress,xpTrend,focusMinutesForWeek} from './phase2';
 export type {QuestLifecycle,QuestControl,GoalOutcome,QuestDependency,WeeklyReview,FocusSession,BossBattle,SchedulePreferences} from './phase2';
 
 export {SKILL_NODES,canUnlockSkill} from './phase2';
