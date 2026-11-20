@@ -29,11 +29,14 @@ export async function saveGroqKey(input:string):Promise<void>{
 export async function clearGroqKey():Promise<void>{
   await SecureStore.deleteItemAsync(API_KEY_NAME);
 }
-export async function groqGenerate(prompt:string):Promise<string>{
+export async function groqGenerate(prompt:string,signal?:AbortSignal):Promise<string>{
   if(prompt.length<1||prompt.length>2800)throw Error('Prompt is too long');
   const key=await SecureStore.getItemAsync(API_KEY_NAME);
   if(!key)throw Error('Groq API key is not configured');
   const controller=new AbortController();
+  const cancel=()=>controller.abort();
+  if(signal?.aborted)throw Error('Generation cancelled');
+  signal?.addEventListener('abort',cancel);
   const timeout=setTimeout(()=>controller.abort(),TIMEOUT_MS);
   try{
     const response=await fetch(GROQ_URL,{
@@ -72,5 +75,6 @@ export async function groqGenerate(prompt:string):Promise<string>{
     throw error;
   }finally{
     clearTimeout(timeout);
+    signal?.removeEventListener('abort',cancel);
   }
 }

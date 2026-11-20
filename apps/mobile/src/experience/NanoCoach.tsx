@@ -88,6 +88,7 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const nonce=useRef(0);
+  const currentCloudRequest=useRef<AbortController|null>(null);
   useEffect(()=>{
     if(visible&&initialIntent?.trim())setIntent(initialIntent.slice(0,420));
   },[visible,initialIntent]);
@@ -108,7 +109,11 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
     }).catch(()=>{
       if(alive)setStatus('unavailable');
     });
-    return ()=>{alive=false;nonce.current++};
+    return ()=>{
+      alive=false;nonce.current++;
+      currentCloudRequest.current?.abort();
+      currentCloudRequest.current=null;
+    };
   },[visible]);
   const chooseProvider=(next:Provider)=>{
     setProvider(next);
@@ -142,6 +147,8 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
       return;
     }
     const id=++nonce.current;
+    const request=new AbortController();
+    currentCloudRequest.current=request;
     setBusy(true);setDraft(null);setMessage('');
     const prompt=makePrompt(intent,useHistory?recentQuestTitles:[]);
     try{
@@ -157,13 +164,13 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
           // Only attempt a cloud fallback when the user explicitly opted in
           // during this session and personally configured a Groq API key.
           if(provider==='auto'&&keyConfigured&&cloudConsent){
-            const raw=await groqGenerate(prompt);
+            const raw=await groqGenerate(prompt,request.signal);
             suggestion={...parseNanoDraft(raw),origin:'groq-cloud'};
             setMessage('Gemini Nano could not generate a valid draft. Groq Cloud generated this proposal instead.');
           }else throw localError;
         }
       }else if((provider==='groq'||provider==='auto')&&keyConfigured&&cloudConsent){
-        const raw=await groqGenerate(prompt);
+        const raw=await groqGenerate(prompt,request.signal);
         suggestion={...parseNanoDraft(raw),origin:'groq-cloud'};
       }else{
         suggestion=createSafeFallback(intent);
@@ -179,7 +186,9 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
         try{setDraft(createSafeFallback(intent));}
         catch{setMessage(reason);}
       }
-    }finally{if(id===nonce.current)setBusy(false);}
+    }finally{
+      if(id===nonce.current){setBusy(false);currentCloudRequest.current=null;}
+    }
   },[provider,consent,keyConfigured,cloudConsent,intent,status,useHistory,recentQuestTitles]);
   const download=async()=>{
     if(!consent){Alert.alert('Consent required','Approve on-device model access before downloading.');return;}
