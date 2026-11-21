@@ -1,4 +1,37 @@
-# ASCEND Hybrid AI Provider Manager — v0.16.0 → v0.16.1
+# ASCEND Hybrid AI Provider Manager — v0.16.0 → v0.17.0
+
+## v0.17.0 — OpenAI and Claude, full roadmap and cost safety
+
+- **Five independent secure API keys:** Gemini API, Groq, OpenRouter,
+  OpenAI and Anthropic Claude. Models and keys persist in Android SecureStore
+  until replaced/removed, and no credential is included in backup JSON.
+- **Explicit paid safety:** AUTO uses only previously configured free-model
+  endpoints (Gemini, Groq, OpenRouter), and never calls OpenAI/Claude.
+  Selecting OpenAI or Claude requires the user to acknowledge that the API
+  may incur charges for the current generation. Failed paid calls never
+  silently trigger a different paid provider.
+- **Models:** OpenAI `gpt-4.1-mini`, Claude Haiku 4.5 and Sonnet 4.6.
+  Provider availability, pricing and restrictions can change.
+- **SQLite v8:** usage ledger accepts these optional paid providers
+  without rewriting past quotas, quests, progress or XP.
+- **30/60/90-day detailed roadmaps:** Oracle → Full Roadmap produces a
+  curriculum, 5/9/13 sequential weekly checkpoints, 1/2/3 monthly
+  milestones, and 30/60/90 daily dated quests. Per-week checkpoints
+  save locally to support resume after limits, interruption and failures.
+  You review each entry before importing into ASCEND.
+- **More useful prompts:** emphasize domain-specific tools, dependencies,
+  inspectable proof artifacts and nonrepetitive daily steps rather than
+  generic motivational tasks.
+- **Gemini Nano vs Nano Banana:** Gemini Nano is Google's on-device
+  text model used for one short quest in the Quick Quest flow. Nano Banana
+  is a separate image-generation family. Generating a detailed 90-day
+  timeline is a staged cloud workflow, not one local Nano response.
+- **Cost warning:** ChatGPT Plus does not include OpenAI API credits.
+  Likewise, Anthropic's consumer subscription is not a general API
+  entitlement. ASCEND's local request/token budgets cannot guarantee
+  zero billing; set restrictions in each provider's billing dashboard.
+
+
 
 ## v0.16.1 — Shared AI keys and model selection
 
