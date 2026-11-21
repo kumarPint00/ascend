@@ -18,7 +18,7 @@
     "test:db": "node --experimental-sqlite scripts/test-phase2-sql.cjs",
     "test:android-startup": "node scripts/test-android-boot-safety.cjs",
     "test:widgets": "node scripts/test-widget-contract.cjs",
-    "test:quest-ui": "node scripts/test-quest-form-ai.cjs",
+    "test:quest-ui": "node scripts/test-quest-form-ai.cjs && node scripts/test-hunter-art-layout.cjs",
     "test:roadmap": "node scripts/test-roadmap-contract.cjs"
   },
   "engines": {
