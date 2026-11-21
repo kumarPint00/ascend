@@ -8,7 +8,7 @@ import {
   type Quest, type Completion, derivePlayer, localDayKey, isCompleted,
   completedGoalCount, XP_BY_DIFFICULTY, levelFromXP, rankFromLevel, isMilestoneQuest, MILESTONE_PREFIX,
   parseImportableQuestPack,filterImportItems,type ImportSelection,type ImportableQuestPack,
-  activeMissionList,dueMissionList,defaultQuestControl,blockedByDependencies,questDueOn,
+  activeMissionList,dueMissionList,defaultQuestControl,blockedByDependencies,questDueOn,matchesQuestCadence,
   liteQuestIsAllowed,liteMinutes,
 } from '@ascend/game-engine';
 import {Action, Chip, Meter, Panel, Section, T} from './components/Elements';
@@ -84,7 +84,7 @@ export default function App() {
   const [importPreview,setImportPreview] = useState<ImportableQuestPack|null>(null);
   const [importSections,setImportSections] = useState<ImportSelection>({goals:true,quests:true,milestones:true});
   const [expandedGoals,setExpandedGoals] = useState<Record<string,boolean>>({});
-  const [questFilter,setQuestFilter] = useState<'Today'|'Daily'|'Weekly'|'Milestones'|'Pending'|'Done'|'All'>('Today');
+  const [questFilter,setQuestFilter] = useState<'Today'|'Daily'|'Weekly'|'Monthly'|'Milestones'|'Pending'|'Done'|'All'>('Daily');
   const [questSearch,setQuestSearch] = useState('');
   const [questLimit,setQuestLimit] = useState(20);
   const [goalLimit,setGoalLimit] = useState(8);
@@ -264,15 +264,16 @@ export default function App() {
     [quests,phaseSummary.controls,data.completions,phaseSummary.dependencies,clock,
       phaseSummary.preferences.dailyMissionLimit]);
   const focusIds=useMemo(()=>new Set(todayBoard.map(q=>q.id)),[todayBoard]);
+  const dailyDue=useMemo(()=>dueToday.filter(q=>q.repeatRule==='daily'),[dueToday]);
+  const otherDue=useMemo(()=>dueToday.filter(q=>q.repeatRule!=='daily'),[dueToday]);
   const dueTodayIds=useMemo(()=>new Set(dueToday.map(q=>q.id)),[dueToday]);
   const filteredQuests=useMemo(()=>quests.filter(q=>{
     const match=(q.title+' '+q.description).toLowerCase().includes(questSearch.trim().toLowerCase());
     if(!match)return false;
     const done=isCompleted(q,data.completions,clock);
     if(questFilter==='Today')return dueTodayIds.has(q.id);
-    if(questFilter==='Daily')return q.repeatRule==='daily';
-    if(questFilter==='Weekly')return q.repeatRule==='weekly'&&!done&&
-      (phaseSummary.controls[q.id]?.status??defaultQuestControl(q).status)==='active';
+    if(questFilter==='Daily'||questFilter==='Weekly'||questFilter==='Monthly')
+      return matchesQuestCadence(q,questFilter);
     if(questFilter==='Milestones')return isMilestoneQuest(q)&&!done;
     if(questFilter==='Pending')return !done;
     if(questFilter==='Done')return done;
@@ -330,7 +331,7 @@ export default function App() {
       </View>
       <View style={[s.between,{marginTop:12,flexWrap:'wrap',gap:9}]}>
         <T color={LABELS[quest.attribute].tint} size={11} style={{flexShrink:1,minWidth:120}}>
-          {isMilestoneQuest(quest)?'◆ Milestone · ':''}{LABELS[quest.attribute].glyph} {LABELS[quest.attribute].label} · {quest.difficulty} · {quest.repeatRule} · ~{phaseSummary.controls[quest.id]?.estimateMinutes??25}m
+          {isMilestoneQuest(quest)?'◆ Milestone · ':''}{LABELS[quest.attribute].glyph} {LABELS[quest.attribute].label} · {quest.difficulty} · {quest.repeatRule.toUpperCase()} · ~{phaseSummary.controls[quest.id]?.estimateMinutes??25}m
         </T>
         <View style={{flexDirection:'row',gap:9,alignItems:'center',flexWrap:'wrap',justifyContent:'flex-end'}}>
           {editable&& <Pressable accessibilityRole="button" onPress={()=>openQuest(quest)}><T color={C.sub} size={12}>Edit</T></Pressable>}
@@ -448,23 +449,27 @@ export default function App() {
         <T color={C.dim} size={10}>ready for you</T>
       </Panel>
     </View>
-    <Section title="Your Mission Board"
-      right={<Pressable accessibilityRole="button" onPress={()=>{setQuestFilter('Today');setTab('Quests');}}>
+    <Section title="Daily Missions"
+      right={<Pressable accessibilityRole="button" onPress={()=>{setQuestFilter('Daily');setTab('Quests');}}>
         <T color={C.energy} size={11} bold>OPEN BOARD ›</T>
       </Pressable>}/>
-    {todayBoard.length===0?<Panel>
-      <T color={C.green} size={17} bold>The realm is calm ✦</T>
-      <T color={C.sub} size={12} style={{marginTop:7}}>No missions demand attention. Recovery counts as progress.</T>
-    </Panel>:todayBoard.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
-    {dueToday.length>todayBoard.length&&<Pressable accessibilityRole="button"
-      accessibilityLabel="See all missions due today"
-      style={{paddingVertical:12,paddingHorizontal:15,marginBottom:12,
-        borderWidth:1,borderColor:C.borderActive,borderRadius:14}}
-      onPress={()=>{setQuestFilter('Today');setQuestSearch('');setTab('Quests');}}>
-      <T color={C.energy} bold size={12}>
-        +{dueToday.length-todayBoard.length} MORE DUE TODAY · VIEW ALL
+    {dailyDue.length===0?<Panel>
+      <T color={C.green} size={17} bold>Daily routine clear ✦</T>
+      <T color={C.sub} size={12} style={{marginTop:7}}>No daily missions are due. Weekly and monthly quests remain separate.</T>
+    </Panel>:dailyDue.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
+    {dailyDue.length>4&&<Action secondary onPress={()=>{setQuestFilter('Daily');setTab('Quests');}}>
+      VIEW ALL {dailyDue.length} DAILY MISSIONS
+    </Action>}
+    {otherDue.length>0&&<>
+      <Section title="Other Missions Due Today"
+        right={<Pressable accessibilityRole="button" onPress={()=>{setQuestFilter('Today');setTab('Quests');}}>
+          <T color={C.energy} size={11} bold>VIEW ALL ›</T>
+        </Pressable>}/>
+      <T size={11} color={C.sub} style={{marginBottom:10}}>
+        Weekly, monthly and one-time tasks due today. They are not daily habits.
       </T>
-    </Pressable>}
+      {otherDue.slice(0,3).map(q=><QuestCard key={q.id} quest={q}/>)}
+    </>}
     <View style={{marginBottom:12}}> 
       <Action onPress={()=>openQuest()} secondary>＋ FORGE A NEW QUEST</Action>
     </View>
@@ -481,7 +486,7 @@ export default function App() {
   const Quests=()=> <>
     <Section title="Mission Board" right={<Action onPress={()=>openQuest()} style={{paddingHorizontal:13}}>+ QUEST</Action>}/>
     <Panel style={{borderColor:'#537CA7'}}>
-      <T size={10} bold color={C.energy} style={{letterSpacing:1.8}}>DAILY RAID STATUS</T>
+      <T size={10} bold color={C.energy} style={{letterSpacing:1.8}}>TODAY'S COMPLETIONS · ALL FREQUENCIES</T>
       <View style={[s.between,{marginTop:7,marginBottom:9}]}>
         <T color={C.frost} size={22} bold>{completedToday.length} missions cleared</T>
         <T color={C.gold} size={12} bold>+{todayXP} XP</T>
@@ -493,8 +498,9 @@ export default function App() {
       </T>
     </Panel>
     <T color={C.sub} size={13} style={{marginBottom:12}}>
-      All due missions are visible here. Your daily focus limit of {phaseSummary.preferences.dailyMissionLimit}
-      {' '}prioritizes suggestions; it never hides saved quests.
+      Daily, Weekly and Monthly display the saved recurrence type. Today shows
+      all tasks actually due on this date, including weekly or monthly tasks scheduled for today.
+      Your focus limit of {phaseSummary.preferences.dailyMissionLimit} only limits suggestions.
     </T>
     <View style={s.searchRow}>
       <SearchIcon color={C.sub} size={17}/>
@@ -504,12 +510,14 @@ export default function App() {
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
       contentContainerStyle={{paddingRight:15,paddingBottom:4}} style={{maxHeight:58}}>
-      {(['Today','Daily','Weekly','Milestones','Pending','Done','All'] as const).map(f=>
+      {(['Today','Daily','Weekly','Monthly','Milestones','Pending','Done','All'] as const).map(f=>
         <Chip key={f} active={questFilter===f} onPress={()=>{setQuestFilter(f);setQuestLimit(20);}}>{f}</Chip>)}
     </ScrollView>
     <View style={[s.between,{marginTop:3,marginBottom:12}]}>
       <T color={C.sub} size={12}>{filteredQuests.length} {filteredQuests.length===1?'mission':'missions'}</T>
-      <T color={C.dim} size={11}>{questFilter==='Today'?todayBoard.length+' suggested focus':questFilter==='Daily'?'Every daily quest':questFilter==='Milestones'?'One-time objectives':'Your board'}</T>
+      <T color={C.dim} size={11}>{questFilter==='Today'?todayBoard.length+' suggested focus · all due frequencies':
+        questFilter==='Daily'?'Daily recurrence only':questFilter==='Weekly'?'Weekly recurrence only':
+        questFilter==='Monthly'?'Monthly recurrence only':questFilter==='Milestones'?'One-time objectives':'Your board'}</T>
     </View>
     {filteredQuests.slice(0,questLimit).map(q=><View key={q.id}>
       {questFilter==='Today'&&focusIds.has(q.id)&&<T color={C.energy} size={10} bold style={{marginLeft:8,marginBottom:3}}>FOCUS PICK</T>}
@@ -878,7 +886,7 @@ export default function App() {
             active={questForm.difficulty===d} onPress={()=>setQuestForm(f=>({...f,difficulty:d}))}>
               {d.toUpperCase()} · {XP_BY_DIFFICULTY[d]} XP</Chip>)}</View>
           <T color={C.sub} style={s.formLabel}>Repeat</T>
-          <View style={s.chips}>{(['once','daily','weekly'] as RepeatRule[]).map(r=><Chip key={r}
+          <View style={s.chips}>{(['once','daily','weekly','monthly'] as RepeatRule[]).map(r=><Chip key={r}
             active={questForm.repeatRule===r} onPress={()=>setQuestForm(f=>({...f,repeatRule:r}))}>{r}</Chip>)}</View>
           {goals.length>0&&<><T color={C.sub} style={s.formLabel}>Link to goal</T>
             <View style={s.chips}><Chip active={!questForm.goalId} onPress={()=>setQuestForm(f=>({...f,goalId:null}))}>None</Chip>
@@ -892,7 +900,7 @@ export default function App() {
             setQuestLimit(20);
             // Always reveal the saved item, even if Today is at its focus cap
             // or the quest has a future schedule, backlog status or dependency.
-            setQuestFilter(kind==='daily'?'Daily':'All');
+            setQuestFilter(kind==='daily'?'Daily':kind==='weekly'?'Weekly':kind==='monthly'?'Monthly':'All');
             setTab('Quests');
           })}>SAVE QUEST</Action>
         </ScrollView>

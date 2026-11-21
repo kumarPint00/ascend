@@ -792,10 +792,16 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
             <T size={12} color={C.sub}>Priority (1 is highest)</T>
             <View style={ss.chips}>{([1,2,3] as const).map(x=>
               <Chip key={x} active={editControl.priority===x} onPress={()=>setEditControl(v=>v&&({...v,priority:x}))}>{x}</Chip>)}</View>
-            <T size={12} color={C.sub}>Weekdays (none means the usual recurrence)</T>
-            <View style={ss.chips}>{DAYS.map((d,i)=><Chip key={d} active={editControl.weekdays.includes(i)}
-              onPress={()=>setEditControl(v=>v&&({...v,weekdays:v.weekdays.includes(i)?
-                v.weekdays.filter(x=>x!==i):[...v.weekdays,i]}))}>{d}</Chip>)}</View>
+            {selectedQuest?.repeatRule!=='monthly'&&<>
+              <T size={12} color={C.sub}>Weekdays (weekly defaults to Monday; daily defaults to every day)</T>
+              <View style={ss.chips}>{DAYS.map((d,i)=><Chip key={d} active={editControl.weekdays.includes(i)}
+                onPress={()=>setEditControl(v=>v&&({...v,weekdays:v.weekdays.includes(i)?
+                  v.weekdays.filter(x=>x!==i):[...v.weekdays,i]}))}>{d}</Chip>)}</View>
+            </>}
+            {selectedQuest?.repeatRule==='monthly'&&<T size={12} color={C.energy}>
+              Monthly: use the target date below to choose a day of the month.
+              If blank, it repeats on the quest's creation day (31st becomes month-end).
+            </T>}
             <T size={12} color={C.sub}>Target date (YYYY-MM-DD, optional)</T>
             <TextInput accessibilityLabel="Quest target date" style={ss.input} value={editControl.dueOn??''} placeholder="YYYY-MM-DD"
               placeholderTextColor={C.dim} onChangeText={dueOn=>setEditControl(v=>v&&({...v,dueOn:dueOn||null}))}/>

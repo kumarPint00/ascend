@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import {
   type Attribute, type Quest, type Goal, type Completion, type XPEvent,
-  type Difficulty, type RepeatRule, ATTRIBUTES, cleanQuestInput, periodKey,
+  type Difficulty, type RepeatRule, ATTRIBUTES, cleanQuestInput, periodKey,questDueOn,defaultQuestControl,
   localDayKey, awardForCompletion, parseImportableQuestPack, filterImportItems, importGoalId, importQuestId,
    liteQuestIsAllowed,DEFAULT_ADAPTIVE_SETTINGS,
   importedQuestTitle, importedQuestDescription,type ImportSelection,
@@ -407,8 +407,8 @@ export async function completeQuest(quest: Quest, now = new Date(),
   let resultForCaller: { applied: boolean; xp: number } = { applied: false, xp: 0 };
   await db.withExclusiveTransactionAsync(async tx => {
     // Check the persisted quest, not only a potentially stale UI object.
-    const current = await tx.getFirstAsync<{ archived: number; repeat_rule: RepeatRule; difficulty: Difficulty; attribute: Attribute }>(
-      'SELECT archived,repeat_rule,difficulty,attribute FROM quests WHERE id=?', quest.id
+    const current = await tx.getFirstAsync<{ archived: number; repeat_rule: RepeatRule; difficulty: Difficulty; attribute: Attribute; created_at:string }>(
+      'SELECT archived,repeat_rule,difficulty,attribute,created_at FROM quests WHERE id=?', quest.id
     );
     if (!current || current.archived) throw new Error('Quest no longer exists');
     if(mode==='lite'&&current.repeat_rule==='once')
@@ -430,14 +430,23 @@ export async function completeQuest(quest: Quest, now = new Date(),
       throw Error('This quest is snoozed. Change its plan before completing it');
     if(control?.due_on&&today<control.due_on)
       throw Error('This quest is scheduled for a future date');
-    if(current.repeat_rule!=='once'&&control?.weekdays){
-      let scheduled:unknown;
-      try{scheduled=JSON.parse(control.weekdays);}catch{throw Error('Invalid saved quest weekdays');}
-      if(!Array.isArray(scheduled)||!scheduled.every(d=>Number.isInteger(d)&&d>=0&&d<=6))
+    let scheduled:number[]=[];
+    if(control?.weekdays){
+      let parsed:unknown;
+      try{parsed=JSON.parse(control.weekdays);}catch{throw Error('Invalid saved quest weekdays');}
+      if(!Array.isArray(parsed)||!parsed.every(d=>Number.isInteger(d)&&d>=0&&d<=6))
         throw Error('Invalid saved quest weekdays');
-      if(scheduled.length>0&&!scheduled.includes(now.getDay()))
-        throw Error('This quest is not scheduled for today');
+      scheduled=parsed as number[];
     }
+    // Guard XP using the SAME cadence engine used by Daily/Weekly/Monthly UI.
+    // Never award a monthly or weekly quest on an unrelated day.
+    const persistedQuest:Quest={...quest,repeatRule:current.repeat_rule,
+      createdAt:current.created_at,archived:false};
+    const effectiveControl={...defaultQuestControl(persistedQuest),
+      status:(control?.status??'active') as 'active'|'paused'|'backlog',
+      weekdays:scheduled,dueOn:control?.due_on??null,snoozedUntil:control?.snoozed_until??null};
+    if(!questDueOn(persistedQuest,effectiveControl,now))
+      throw Error('This '+current.repeat_rule+' quest is not due today. Adjust its schedule in Planner.');
     const dependency=await tx.getFirstAsync<{requires_quest_id:string}>(`
       SELECT d.requires_quest_id FROM quest_dependencies d
       WHERE d.quest_id=? AND NOT EXISTS (
@@ -576,7 +585,7 @@ export async function restoreJSON(source: string): Promise<void> {
     q.title.length>0 && q.title.length<=100 && typeof q.description==='string' &&
     q.description.length<=500 && isAttr(q.attribute) &&
     ['easy','medium','hard'].includes(q.difficulty) &&
-    ['daily','weekly','once'].includes(q.repeatRule) &&
+    ['daily','weekly','monthly','once'].includes(q.repeatRule) &&
     (q.goalId===null || goalIds.has(q.goalId)) && isDate(q.createdAt) &&
     typeof q.archived==='boolean')) throw new Error('Invalid quest records');
   const questIds=new Set(quests.map(q=>q.id));

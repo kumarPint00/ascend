@@ -101,6 +101,21 @@ async function scheduleReminders(input:ReminderInput,now:Date):Promise<number>{
       await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DATE,date,channelId:CHANNEL});
       continue;
     }
+    if(quest.repeatRule==='monthly'){
+      // Monthly tasks must never register as an unconditional DAILY reminder.
+      // Schedule upcoming due dates; refresh when the user opens ASCEND.
+      const months=occurrencesForDays([quest],input.controls,input.completions,
+        input.dependencies,now,HORIZON_DAYS);
+      for(const day of months){
+        if(count>=MAX_REMINDERS)break;
+        if(!day.quests.length)continue;
+        const [y,m,d]=day.date.split('-').map(Number);
+        const date=new Date(y,m-1,d,hour,minute);
+        if(date.getTime()<=now.getTime()+60_000)continue;
+        await schedule(quest,{type:Notifications.SchedulableTriggerInputTypes.DATE,date,channelId:CHANNEL});
+      }
+      continue;
+    }
     const delayed=!!(c.snoozedUntil&&c.snoozedUntil>localDayKey(now))||
       !!(c.dueOn&&c.dueOn>localDayKey(now));
     if(!delayed){

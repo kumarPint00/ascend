@@ -37,6 +37,11 @@ export function buildWidgetProjection(
     phase.dependencies,now,phase.preferences.dailyMissionLimit);
   const finishedToday=data.completions.filter(c=>
     localDayKey(new Date(c.completedAt))===day).length;
+  const dailyIds=new Set(visible.filter(q=>q.repeatRule==='daily').map(q=>q.id));
+  const dailyRemaining=due.filter(q=>dailyIds.has(q.id));
+  const dailyFinished=data.completions.filter(c=>dailyIds.has(c.questId)&&
+    localDayKey(new Date(c.completedAt))===day).length;
+  const dailyNext=dailyRemaining[0];
   const dayXP=data.xpEvents.filter(e=>e.dayKey===day).reduce((a,e)=>a+e.amount,0);
   const remaining=due.length;
   const denominator=finishedToday+remaining;
@@ -52,11 +57,11 @@ export function buildWidgetProjection(
   return {
     schema:1,day,enabled,
     daily:{
-      primary:finishedToday+' / '+denominator+' cleared',
-      secondary:showTitles&&next?safeText(next.title):
-        (remaining===0?'No available missions':remaining+' missions remaining'),
-      tertiary:'+'+dayXP+' XP today · Tap to review',
-      progress:donePercent
+      primary:dailyFinished+' / '+(dailyFinished+dailyRemaining.length)+' daily cleared',
+      secondary:showTitles&&dailyNext?safeText(dailyNext.title):
+        (dailyRemaining.length===0?'Daily routine clear':dailyRemaining.length+' daily quests remaining'),
+      tertiary:'Daily recurrence only · Tap to review',
+      progress:ratio(dailyFinished,dailyFinished+dailyRemaining.length)
     },
     hunter:{
       primary:'Rank '+player.rank+' · Lv '+player.level,

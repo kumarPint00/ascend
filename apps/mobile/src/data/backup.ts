@@ -47,7 +47,7 @@ export function parseFullBackup(source:string):FullBackup{
   const gIds=new Set(goals.map(g=>g.id));
   if(!quests.every(q=>obj(q)&&str(q.id)&&str(q.title,100)&&typeof q.description==='string'&&
     q.description.length<=500&&attr(q.attribute)&&['easy','medium','hard'].includes(q.difficulty)&&
-    ['daily','weekly','once'].includes(q.repeatRule)&&
+    ['daily','weekly','monthly','once'].includes(q.repeatRule)&&
     (q.goalId===null||gIds.has(q.goalId))&&date(q.createdAt)&&typeof q.archived==='boolean')||
     !unique(quests))throw Error('Invalid quests');
   const qIds=new Set(quests.map(q=>q.id));
