@@ -14,7 +14,11 @@ const config=JSON.parse(read('apps/mobile/app.json')).expo;
 assert.equal(config.android.softwareKeyboardLayoutMode,'resize');
 assert.ok(app.includes('dueMissionList(quests'));
 assert.ok(app.includes("questFilter==='Daily'"));
-assert.ok(app.includes("setQuestFilter(kind==='daily'?'Daily':'All')"));
+assert.ok(app.includes("kind==='monthly'?'Monthly'"));
+assert.ok(app.includes("matchesQuestCadence(q,questFilter)"));
+assert.ok(app.includes("['Today','Daily','Weekly','Monthly'"));
+assert.ok(oracle.includes("once/daily/weekly/monthly"));
+assert.ok(oracle.includes("o.repeatRule==='monthly'?'monthly'"));
 assert.ok(app.includes("setQuestFilter('All')")); // JSON and AI import
 assert.ok(app.includes('Keyboard.addListener'));
 assert.ok(app.includes('!keyboardVisible&&<View style={s.nav}'));
@@ -41,4 +45,4 @@ assert.ok(oracle.includes("setCloudConsent(false)"));
 assert.ok(oracle.includes("origin:'groq-cloud'"));
 assert.ok(oracle.includes('await onAccept(draft)'));
 assert.ok(!/\bgsk_[A-Za-z0-9_-]{25,}\b/.test(groq+oracle));
-console.log('PASS: daily quest visibility, keyboard form layouts, privacy-preserving Groq fallback and review flow');
+console.log('PASS: exact recurrence filters, monthly AI drafts, keyboard form layouts and consented Groq review');

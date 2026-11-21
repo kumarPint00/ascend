@@ -35,7 +35,10 @@ export function parseNanoDraft(raw:string):NanoDraft{
   const kind=o.kind==='goal'?'goal':'quest';
   const attribute=ATTRIBUTES.includes(o.attribute as Attribute)?o.attribute as Attribute:'discipline';
   const difficulty:Difficulty=o.difficulty==='hard'?'hard':o.difficulty==='medium'?'medium':'easy';
-  const repeatRule:RepeatRule=o.repeatRule==='daily'?'daily':o.repeatRule==='once'?'once':'weekly';
+  if(o.repeatRule!==undefined&&!['once','daily','weekly','monthly'].includes(String(o.repeatRule)))
+    throw Error('AI returned an unsupported recurrence. Edit the draft and retry.');
+  const repeatRule:RepeatRule=o.repeatRule==='daily'?'daily':o.repeatRule==='once'?'once':
+    o.repeatRule==='monthly'?'monthly':'weekly';
   const minutes=typeof o.minutes==='number'&&Number.isInteger(o.minutes)?
     Math.max(5,Math.min(90,o.minutes)):15;
   const targetCount=typeof o.targetCount==='number'&&Number.isInteger(o.targetCount)?
@@ -66,7 +69,7 @@ function makePrompt(intent:string,hints:readonly string[]):string{
     '{"kind":"quest","title":"...","description":"...","attribute":"discipline",',
     '"difficulty":"easy","repeatRule":"weekly","minutes":15,"targetCount":4}',
     'kind must be quest or goal. attribute must be one of strength,intelligence,discipline,finance,relationships,recovery.',
-    'difficulty easy/medium/hard; repeatRule once/daily/weekly; minutes 5-90; targetCount 1-40.',
+    'difficulty easy/medium/hard; repeatRule once/daily/weekly/monthly; choose monthly for monthly routines; minutes 5-90; targetCount 1-40.',
     'Intent: '+JSON.stringify(clean),
     'Optional approved recent quest titles: '+JSON.stringify(context),
   ].join('\n');

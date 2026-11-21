@@ -14,7 +14,12 @@ ASCEND's repository is public. **Never commit your private plan JSON** with fami
 - No item is completed and no XP is granted on import.
 - The app does not upload imported data to GitHub, Vercel, Firebase or Supabase.
 - The personal plan isn't bundled with the APK; you explicitly import it on your device.
-- The current engine supports daily, weekly and one-off quests, not custom weekday schedules.
+- Recurrence supports **daily**, **weekly**, **monthly**, and **once**. Daily is a true daily task; Weekly and Monthly are not silently converted into Daily.
+- If a weekly task has no selected weekdays, it is due each **Monday** (and awards XP once per ISO week). Weekdays can be configured in Planner.
+- A monthly quest is due on the creation day of each month unless Planner's optional target date sets a different day of the month; dates beyond the month's length use its last day.
+- **Due Today** includes every cadence *actually due today*, but the Daily/Weekly/Monthly filters show only their respective recurrence. ASCEND's Daily home list and Daily widget exclude weekly and monthly quests.
+- Previously saved quests with an incorrect recurrence are **not silently changed**. Use Edit → Repeat → Monthly (or Weekly/Daily) to correct their saved type. Historical XP is preserved.
+- Milestones must remain one-time. Imports may contain monthly quests; recurring milestones are rejected.
 - This is not live synchronization with any other project, calendar or wedding app.
 
 ## Safe generic example

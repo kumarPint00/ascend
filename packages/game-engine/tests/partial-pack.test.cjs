@@ -78,3 +78,13 @@ test('nonlatin names receive stable and valid generated IDs',()=>{
   assert.match(a.goals[0].key,/^[a-z0-9-]+$/);
   assert.equal(a.goals[0].key,parsePartialQuestPack(JSON.stringify({goals:[{title:'स्वास्थ्य सुधार'}]})).goals[0].key);
 });
+
+test('monthly partial quest pack keeps monthly recurrence without coercion',()=>{
+  const pack=parseImportableQuestPack(JSON.stringify({
+    quests:[{title:'Monthly financial summary',repeatRule:'monthly'}]
+  }));
+  assert.equal(pack.quests[0].repeatRule,'monthly');
+  assert.throws(()=>parseImportableQuestPack(JSON.stringify({
+    quests:[{title:'Unknown frequency',repeatRule:'quarterly'}]
+  })),/repeatRule/);
+});

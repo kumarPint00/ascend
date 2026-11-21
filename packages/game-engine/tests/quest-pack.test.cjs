@@ -42,3 +42,10 @@ test('supports maximum 30 goals and 180 quests, rejecting excessive packs',()=>{
   p.quests.push({...q[0],key:'overflow'});
   assert.throws(()=>parseQuestPack(JSON.stringify(p)));
 });
+
+test('strict pack supports genuine monthly quest recurrence',()=>{
+  const f=fixture();
+  f.quests[0].repeatRule='monthly';
+  const pack=parseQuestPack(JSON.stringify(f));
+  assert.equal(pack.quests[0].repeatRule,'monthly');
+});
