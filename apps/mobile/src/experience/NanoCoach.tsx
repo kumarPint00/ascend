@@ -9,13 +9,14 @@ import {Action,Chip,T} from '../components/Elements';
 import {nanoDownload,nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {C} from '../theme';
 import * as SecureStore from 'expo-secure-store';
-import {GROQ_MODEL,hasGroqKey,saveGroqKey,clearGroqKey,groqGenerate} from '../ai/groq';
+import {GROQ_MODEL,hasGroqKey,saveGroqKey,clearGroqKey} from '../ai/groq';
+import {generateWithProviders,configuredProviders} from '../ai/provider-manager';
 import {RoadmapArchitect} from './RoadmapArchitect';
 
 export type NanoDraft={
   kind:'quest'|'goal';title:string;description:string;attribute:Attribute;
   difficulty:Difficulty;repeatRule:RepeatRule;minutes:number;targetCount:number;
-  origin:'gemini-nano'|'groq-cloud'|'offline-fallback';
+  origin:'gemini-nano'|'groq-cloud'|'gemini-cloud'|'openrouter-cloud'|'offline-fallback';
 };
 type Status='available'|'downloadable'|'downloading'|'unavailable'|'unsupported'|'checking';
 type Provider='auto'|'nano'|'groq'|'offline';
@@ -105,12 +106,12 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
     setRoadmapMode(true);
     void Promise.all([
       nanoStatus(),
-      hasGroqKey(),
+      configuredProviders(),
       SecureStore.getItemAsync('ascend.ai.provider'),
-    ]).then(([nano,hasKey,mode])=>{
+    ]).then(([nano,keys,mode])=>{
       if(!alive)return;
       setStatus(nano);
-      setKeyConfigured(hasKey);
+      setKeyConfigured(Object.values(keys).some(Boolean));
       if(mode==='auto'||mode==='nano'||mode==='groq'||mode==='offline')
         setProvider(mode);
     }).catch(()=>{
@@ -171,19 +172,24 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
           // Only attempt a cloud fallback when the user explicitly opted in
           // during this session and personally configured a Groq API key.
           if(provider==='auto'&&keyConfigured&&cloudConsent){
-            const raw=await groqGenerate(prompt,request.signal);
-            suggestion={...parseNanoDraft(raw),origin:'groq-cloud'};
-            setMessage('Gemini Nano could not generate a valid draft. Groq Cloud generated this proposal instead.');
+            const result=await generateWithProviders(prompt,'quest','auto',request.signal,
+              output=>{parseNanoDraft(output);});
+            suggestion={...parseNanoDraft(result.output),origin:(result.provider+'-cloud') as
+              'groq-cloud'|'gemini-cloud'|'openrouter-cloud'};
+            setMessage('Local AI was unavailable. '+result.provider+' generated this reviewed cloud draft.');
           }else throw localError;
         }
       }else if((provider==='groq'||provider==='auto')&&keyConfigured&&cloudConsent){
-        const raw=await groqGenerate(prompt,request.signal);
-        suggestion={...parseNanoDraft(raw),origin:'groq-cloud'};
+        const result=await generateWithProviders(prompt,'quest',provider==='groq'?'groq':'auto',
+          request.signal,output=>{parseNanoDraft(output);});
+        suggestion={...parseNanoDraft(result.output),
+          origin:(result.provider+'-cloud') as
+            'groq-cloud'|'gemini-cloud'|'openrouter-cloud'};
       }else{
         suggestion=createSafeFallback(intent);
         setMessage(provider==='nano'
           ?'Gemini Nano is not ready on this device. Using offline starter draft.'
-          :'No available consented AI provider. Using offline starter draft. Configure Groq to use cloud inference.');
+          :'No available consented AI provider. Using offline starter draft. Configure a free cloud key in Full Roadmap.');
       }
       if(id===nonce.current)setDraft(suggestion);
     }catch(e){
@@ -252,7 +258,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
           <View style={{alignItems:'center',paddingVertical:11}}>
             <View style={ss.halo}><BrainCircuit size={38} color="#D9C4FF"/></View>
             <T color="#B4A5FF" bold size={10} style={{letterSpacing:2,marginTop:15}}>
-              PERSONAL AI · ON-DEVICE OR OPTIONAL GROQ
+              PERSONAL AI · ON-DEVICE OR HYBRID CLOUD
             </T>
             <T bold size={20} style={{marginTop:5}}>Shape your next quest</T>
             <T size={12} color="#C6D3EC" style={{textAlign:'center',marginTop:8}}>
@@ -269,14 +275,14 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
         <T size={12} color={C.sub} bold style={{marginBottom:8}}>AI PROVIDER</T>
         <View style={ss.tags}>
           {([
-            ['auto','AUTO'],['nano','GEMINI NANO'],['groq','GROQ CLOUD'],['offline','OFFLINE']
+            ['auto','AUTO'],['nano','GEMINI NANO'],['groq','CLOUD AI'],['offline','OFFLINE']
           ] as const).map(([value,label])=><Chip key={value}
             active={provider===value} onPress={()=>chooseProvider(value)}>{label}</Chip>)}
         </View>
         <T size={11} color={C.sub} style={{marginBottom:12}}>
           {provider==='auto'?'Try local Gemini Nano first. Cloud is used only with a configured key and explicit consent.':
             provider==='nano'?'On-device only. Unavailable models fall back to a basic draft.':
-            provider==='groq'?'Groq uses the internet. Only your typed intention and optional quest titles are sent.':
+            provider==='groq'?'Uses your configured cloud providers, with free-model failover and explicit consent.':
             'No AI or internet needed. Create a simple editable starter draft.'}
         </T>
         <T size={12} color={C.sub} bold style={{marginBottom:9}}>
@@ -307,9 +313,9 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
             PREPARE GEMINI NANO
           </Action>}
         {(provider==='groq'||provider==='auto')&&<View style={ss.cloudPanel}>
-          <T color={C.frost} bold size={13}>GROQ CLOUD · {GROQ_MODEL}</T>
+          <T color={C.frost} bold size={13}>HYBRID CLOUD · GROQ / GEMINI / OPENROUTER</T>
           <T color={C.sub} size={11} style={{marginTop:6}}>
-            {keyConfigured?'Personal API key configured on this device.':'No Groq key saved. Free-tier limits and availability can change.'}
+            {keyConfigured?'At least one personal cloud key is configured.':'No cloud provider key saved. Free-tier limits and availability can change.'}
             {' '}Your key is never bundled into ASCEND or stored in progress backups.
           </T>
           {editingKey&&<TextInput secureTextEntry accessibilityLabel="Personal Groq API key"
@@ -320,7 +326,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
             {editingKey?<Action secondary disabled={busy||!keyInput.trim()}
               onPress={()=>void storeKey()}>SAVE API KEY SECURELY</Action>:
               <Action secondary disabled={busy} onPress={()=>setEditingKey(true)}>
-                {keyConfigured?'REPLACE GROQ KEY':'CONFIGURE GROQ KEY'}
+                {keyConfigured?'ADD / REPLACE GROQ KEY':'CONFIGURE GROQ KEY'}
               </Action>}
             {keyConfigured&&<Action secondary disabled={busy}
               onPress={()=>void eraseKey()}>REMOVE SAVED KEY</Action>}
@@ -363,8 +369,8 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
               {cloudConsent&&<CheckCircle2 size={18} color={C.dark}/>}
             </View>
             <T size={12} color={C.sub} style={{flex:1}}>
-              I explicitly allow this prompt (and optional quest titles) to be sent to Groq Cloud.
-              Do not include medical, financial, or other sensitive private details.
+              I allow this prompt (and optional quest titles) to be sent to configured cloud
+              providers, including fallbacks. Do not include sensitive private details.
             </T>
           </Pressable>}
         <Action disabled={busy||intent.trim().length<4||
