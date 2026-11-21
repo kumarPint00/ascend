@@ -74,6 +74,9 @@ export function parseChatGPTRoadmap(source:string):{
   const x=value as Record<string,unknown>;
   if(x.format!=='ascend-ai-roadmap'||x.schemaVersion!==1)
     throw Error('Expected format ascend-ai-roadmap v1');
+  if(!x.request||typeof x.request!=='object'||Array.isArray(x.request)||
+    !x.blueprint||typeof x.blueprint!=='object'||Array.isArray(x.blueprint))
+    throw Error('Missing request or curriculum blueprint');
   const request=x.request as RoadmapRequest;
   if(!request||![30,60,90].includes(request.duration)||
     !Number.isInteger(request.dailyMinutes)||request.dailyMinutes<5||
