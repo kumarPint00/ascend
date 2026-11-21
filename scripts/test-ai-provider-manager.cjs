@@ -138,6 +138,44 @@ async function test(){
   await api.deleteProviderKey('groq');
   assert.equal(vault.has('ascend.ai.provider.key.groq'),false);
   assert.equal(vault.has('ascend.groq.personal-key.v1'),false);
+  // Paid providers never participate in AUTO, even if their keys are saved.
+  await api.storeProviderKey('openai','sk-'+('o'.repeat(40)));
+  await api.storeProviderKey('claude','sk-ant-'+('a'.repeat(40)));
+  assert.equal((await api.configuredProviders()).openai,true);
+  await assert.rejects(api.generateWithProviders(prompt,'quest','openai'),
+    /paid API approval/i);
+  await assert.rejects(api.generateWithProviders(prompt,'quest','claude'),
+    /paid API approval/i);
+  usage.clear();requests=[];
+  global.fetch=async(url,init)=>{
+    requests.push({url,headers:init.headers,body:JSON.parse(init.body)});
+    return new Response(JSON.stringify({choices:[{message:{content:'{"title":"Test GPT"}'}}],
+      usage:{prompt_tokens:14,completion_tokens:6}}),{status:200});
+  };
+  const gpt=await api.generateWithProviders(prompt,'quest','openai',undefined,
+    raw=>assert.equal(JSON.parse(raw).title,'Test GPT'),true);
+  assert.equal(gpt.provider,'openai');
+  assert.deepEqual(gpt.attempted,['openai']);
+  assert.equal(requests[0].body.model,'gpt-4.1-mini');
+  assert.match(requests[0].headers.Authorization,/Bearer sk-/);
+  usage.clear();requests=[];
+  global.fetch=async(url,init)=>{
+    requests.push({url,headers:init.headers,body:JSON.parse(init.body)});
+    return new Response(JSON.stringify({content:[{type:'text',text:'{"title":"Test Claude"}'}],
+      usage:{input_tokens:30,output_tokens:8}}),{status:200});
+  };
+  const claude=await api.generateWithProviders(prompt,'quest','claude',undefined,
+    raw=>assert.equal(JSON.parse(raw).title,'Test Claude'),true);
+  assert.equal(claude.provider,'claude');
+  assert.equal(requests[0].body.model,'claude-haiku-4-5');
+  assert.equal(requests[0].headers['anthropic-version'],'2023-06-01');
+  assert.equal((await api.readProviderUsage()).find(x=>x.provider==='claude').outputTokens,8);
+  // No hidden cost: both paid credentials coexist while AUTO only selects free.
+  usage.clear();requests=[];
+  await api.deleteProviderKey('groq');await api.deleteProviderKey('gemini');
+  await api.deleteProviderKey('openrouter');
+  await assert.rejects(api.generateWithProviders(prompt,'quest','auto'),/Configure a different free provider/i);
+  assert.equal(requests.length,0);
   console.log('PASS: persistent model/provider preferences, selected model requests, failover, quotas and key lifecycle');
 }
 test().catch(e=>{console.error(e);process.exitCode=1;});
