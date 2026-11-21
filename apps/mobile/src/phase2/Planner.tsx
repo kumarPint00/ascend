@@ -779,7 +779,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     </Animated.View>
     <Modal visible={!!editControl&&!!selectedQuest} animationType="slide" transparent
       onRequestClose={()=>{setSelectedQuest(null);setEditControl(null);}}>
-      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
+      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView style={ss.sheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
             contentContainerStyle={{padding:19,paddingBottom:44}}>
           <View style={ss.between}><T bold size={20}>Plan mission</T>
@@ -842,8 +842,9 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
     </Modal>
 
     <Modal visible={!!selectedGoal} animationType="slide" transparent onRequestClose={()=>setSelectedGoal(null)}>
-      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={[ss.sheet,{padding:19}]}>
+      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
+        <ScrollView style={ss.sheet} keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag" contentContainerStyle={{padding:19,paddingBottom:48}}>
           <View style={ss.between}><T size={19} bold>Measure progress</T>
             <Pressable onPress={()=>setSelectedGoal(null)}><T color={C.sub}>CLOSE ✕</T></Pressable></View>
           <T color={C.sub} size={13} style={{marginVertical:11}}>{selectedGoal?.title}</T>
@@ -860,14 +861,15 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <TextInput accessibilityLabel="Goal target deadline" style={ss.input} value={goalMetric.deadline} placeholder="YYYY-MM-DD"
             placeholderTextColor={C.dim} onChangeText={deadline=>setGoalMetric(m=>({...m,deadline}))}/>
           <Action disabled={busy} onPress={saveMetric}>SAVE MEASURABLE OUTCOME</Action>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
 
     <Modal visible={editingAdaptive!==null} animationType="slide" transparent
       onRequestClose={()=>setEditingAdaptive(null)}>
-      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':'height'}>
-        <View style={[ss.sheet,{padding:19}]}>
+      <KeyboardAvoidingView style={ss.overlay} behavior={Platform.OS==='ios'?'padding':undefined}>
+        <ScrollView style={ss.sheet} keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag" contentContainerStyle={{padding:19,paddingBottom:48}}>
           <View style={ss.between}>
             <T size={19} bold>Review AI-style suggestion</T>
             <Pressable accessibilityRole="button" accessibilityLabel="Close suggestion"
@@ -905,7 +907,7 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
           <View style={{height:10}}/><Action secondary onPress={()=>setEditingAdaptive(null)}>
             CANCEL
           </Action>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
     <Modal visible={victoryMessage!==null} transparent animationType="fade"
@@ -948,9 +950,10 @@ export function Planner({base,onRefresh,initialQuestId,onTargetConsumed}:{base:S
 }
 
 const ss=StyleSheet.create({
-  between:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},
-  metrics:{flexDirection:'row',gap:8,marginBottom:14},
-  metric:{flex:1,backgroundColor:C.surface,borderColor:C.border,borderWidth:1,
+  between:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',
+    gap:8,flexWrap:'wrap'},
+  metrics:{flexDirection:'row',gap:8,flexWrap:'wrap',marginBottom:14},
+  metric:{flexGrow:1,flexBasis:94,minWidth:94,backgroundColor:C.surface,borderColor:C.border,borderWidth:1,
     borderRadius:16,padding:12,minHeight:81,justifyContent:'space-between'},
   smallButton:{borderRadius:10,borderColor:C.borderActive,borderWidth:1,paddingHorizontal:12,
     paddingVertical:10,minHeight:44,justifyContent:'center'},
@@ -966,6 +969,6 @@ const ss=StyleSheet.create({
   barCell:{flex:1,height:140,justifyContent:'flex-end',alignItems:'center',gap:5},
   overlay:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
   sheet:{width:'100%',backgroundColor:C.surface,
-    borderTopLeftRadius:24,borderTopRightRadius:24,maxHeight:'88%'},
+    borderTopLeftRadius:24,borderTopRightRadius:24,maxHeight:'86%'},
   prereq:{backgroundColor:C.elevated,borderRadius:9,padding:12,marginBottom:8},
 });
