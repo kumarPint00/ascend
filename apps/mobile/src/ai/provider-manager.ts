@@ -68,10 +68,10 @@ const URL:Record<CloudProvider,string>={
   claude:'https://api.anthropic.com/v1/messages',
 };
 export const LIMIT_REQUESTS_PER_DAY:Record<CloudProvider,number>={
-  gemini:20,groq:60,openrouter:35,openai:5,claude:5,
+  gemini:20,groq:60,openrouter:35,openai:16,claude:16,
 }; // conservative local application safety budgets, NOT official quotas
 export const LIMIT_TOKENS_PER_DAY:Record<CloudProvider,number>={
-  gemini:90000,groq:150000,openrouter:45000,openai:10000,claude:10000,
+  gemini:90000,groq:150000,openrouter:45000,openai:90000,claude:90000,
 }; // local safety estimate; provider's own quota may be lower
 export class ProviderError extends Error{
   constructor(message:string,readonly provider:ProviderId,
