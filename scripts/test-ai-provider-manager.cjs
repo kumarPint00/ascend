@@ -57,6 +57,18 @@ async function test(){
   assert.equal(vault.get('ascend.ai.provider.key.groq'),legacy);
   await api.storeProviderKey('openrouter','sk-or-v1-'+('z'.repeat(40)));
   assert.throws(()=>api.validateProviderKey('groq','invalid'));
+  // Explicit user-selected models and provider choice persist in secure storage.
+  assert.equal(await api.selectedModel('groq'),'openai/gpt-oss-20b');
+  await api.saveSelectedModel('groq','openai/gpt-oss-120b');
+  assert.equal(await api.selectedModel('groq'),'openai/gpt-oss-120b');
+  assert.equal(vault.get('ascend.ai.provider.model.v1.groq'),'openai/gpt-oss-120b');
+  await api.saveSelectedProvider('groq');
+  assert.equal(await api.selectedProvider(),'groq');
+  await api.saveSelectedProvider('auto');
+  assert.equal(await api.selectedProvider(),'auto');
+  await assert.rejects(api.saveSelectedModel('groq','openai/paid-model'),/allowlist/);
+  await api.saveSelectedModel('gemini','gemini-2.5-flash-lite');
+  assert.equal(await api.selectedModel('gemini'),'gemini-2.5-flash-lite');
   const prompt='Return exactly one safe JSON quest draft';
   let requests=[];
   global.fetch=async(url)=>{
@@ -92,10 +104,26 @@ async function test(){
   });
   assert.equal(validated.provider,'openrouter');
   assert.equal(requests.length,2);
+  // Verify selected model appears in actual outbound request, not just UI state.
+  usage.clear();requests=[];
+  await api.storeProviderKey('gemini','AI'+('k'.repeat(38)));
+  global.fetch=async (url,init)=>{
+    requests.push({url,body:JSON.parse(init.body)});
+    return new Response(JSON.stringify({candidates:[{
+      content:{parts:[{text:'{"title":"Test Gemini model"}'}]}
+    }]}),{status:200});
+  };
+  const gemini=await api.generateWithProviders(prompt,'quest','gemini',undefined,
+    raw=>assert.equal(JSON.parse(raw).title,'Test Gemini model'));
+  assert.equal(gemini.provider,'gemini');
+  assert.match(requests[0].url,/gemini-2\.5-flash-lite:generateContent/);
+  // Secure-store persistence does not depend on successful inference.
+  assert.equal(await api.selectedModel('groq'),'openai/gpt-oss-120b');
+  assert.equal((await api.configuredProviders()).gemini,true);
   // Deleting Groq must remove its legacy AND current secure storage slots.
   await api.deleteProviderKey('groq');
   assert.equal(vault.has('ascend.ai.provider.key.groq'),false);
   assert.equal(vault.has('ascend.groq.personal-key.v1'),false);
-  console.log('PASS: hybrid failover, malformed JSON fallback, quota logging, cooldown and key migration/removal');
+  console.log('PASS: persistent model/provider preferences, selected model requests, failover, quotas and key lifecycle');
 }
 test().catch(e=>{console.error(e);process.exitCode=1;});
