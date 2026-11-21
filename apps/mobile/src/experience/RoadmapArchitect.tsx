@@ -11,7 +11,7 @@ import {compileRoadmapPack,localDayKey,roadmapDate,assembleRoadmap,
 import {Action,Chip,T} from '../components/Elements';
 import {C} from '../theme';
 import {generateHybridRoadmap,type StartingLevel,type RoadmapProgress} from '../ai/roadmap-generator';
-import {configuredProviders,selectedProvider,type ProviderChoice,type ProviderKeyState}
+import {configuredProviders,selectedProvider,requiresPaidApproval,type ProviderChoice,type ProviderKeyState}
   from '../ai/provider-manager';
 import {ProviderSettings} from './ProviderSettings';
 import {parseChatGPTRoadmap,exportChatGPTRoadmap,loadRoadmapCheckpoint,
@@ -30,9 +30,10 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   const [minutes,setMinutes]=useState(45);
   const [startDate,setStartDate]=useState(localDayKey(new Date()));
   const [provider,setProvider]=useState<ProviderChoice>('auto');
-  const [keyState,setKeyState]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false});
+  const [keyState,setKeyState]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false,openai:false,claude:false});
   const [existingStages,setExistingStages]=useState(0);
   const [approvedCloud,setApprovedCloud]=useState(false);
+  const [approvedPaid,setApprovedPaid]=useState(false);
   const [plan,setPlan]=useState<RoadmapPlan|null>(null);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
@@ -115,7 +116,11 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
     if(!Object.values(keyState).some(Boolean)){
       Alert.alert('Configure a free provider','Add Gemini, Groq or OpenRouter API key, or import a ChatGPT roadmap JSON.');return;
     }
-    if(!approvedCloud){Alert.alert('Cloud permission required','Approve sending this goal and schedule to your configured free cloud providers for this session.');return;}
+    if(!approvedCloud){Alert.alert('Cloud permission required','Approve sending this goal and schedule to the selected provider for this session.');return;}
+    if(provider!=='auto'&&requiresPaidApproval(provider)&&!approvedPaid){
+      Alert.alert('Paid API authorization required',
+        'OpenAI and Claude API calls may incur charges. Confirm paid usage for this roadmap only.');return;
+    }
     if(intent.trim().length<4){Alert.alert('Describe a goal','Enter a clear skill or habit you want to develop.');return;}
     // A date is validated by the game engine, not by the AI.
     try{roadmapDate(startDate,duration);}catch(e){
@@ -126,7 +131,7 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
     setBusy(true);
     try{
       const p=await generateHybridRoadmap({intent,duration,startingLevel:level,
-        startDate,dailyMinutes:minutes},setProgress,task.signal,provider);
+        startDate,dailyMinutes:minutes},setProgress,task.signal,provider,approvedPaid);
       if(task.signal.aborted)return;
       setPlan(p);
       setDays(p.weeks.flatMap(w=>w.days.map(d=>d.day)));
@@ -226,17 +231,28 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           onChangeText={setStartDate} style={ss.date} maxLength={10}
           placeholder="YYYY-MM-DD" placeholderTextColor={C.dim}/>
         <ProviderSettings disabled={busy} onChange={(choice,keys)=>{
-          setProvider(choice);setKeyState(keys);
+          setProvider(choice);setKeyState(keys);setApprovedPaid(false);
         }}/>
         <Pressable accessibilityRole="checkbox"
           accessibilityState={{checked:approvedCloud}} onPress={()=>setApprovedCloud(x=>!x)}
           style={ss.consent}>
           <Selected checked={approvedCloud}/>
           <T color={C.sub} size={12} style={{flex:1}}>
-            I consent to sending this typed goal and schedule to my configured
-            cloud AI providers for this roadmap session, including fallback providers.
+            I permit ASCEND to send this typed goal to the selected cloud provider,
+            with free-only failover. No other private data is required.
           </T>
         </Pressable>
+        {provider!=='auto'&&requiresPaidApproval(provider)&&<Pressable
+          accessibilityRole="checkbox" accessibilityState={{checked:approvedPaid}}
+          onPress={()=>setApprovedPaid(p=>!p)}
+          style={[ss.consent,{backgroundColor:'#362B33',paddingHorizontal:12,borderRadius:12}]}>
+          <Selected checked={approvedPaid}/>
+          <T color={C.gold} size={12} style={{flex:1}}>
+            I authorize PAID API requests to {provider.toUpperCase()} for this
+            roadmap generation and any resumed weeks. No fallback to other
+            paid providers. Review your account billing limits first.
+          </T>
+        </Pressable>}
         <View style={{marginBottom:11,gap:9}}>
           <Action secondary disabled={busy} onPress={()=>void manualImport()}>
             IMPORT CHATGPT PLUS ROADMAP JSON
@@ -249,11 +265,12 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           </T>
         </View>
         <T color={C.dim} size={11} style={{marginBottom:11}}>
-          Generates a curriculum and weekly batches using configured free providers.
+          Generates a curriculum and weekly batches using selected provider.
           {existingStages>0?' '+existingStages+' validated stages saved: tap Generate to resume.':''}
           {' '}No partial plan is imported automatically.
         </T>
-        <Action disabled={busy||!Object.values(keyState).some(Boolean)||!approvedCloud||intent.trim().length<4}
+        <Action disabled={busy||!Object.values(keyState).some(Boolean)||!approvedCloud||
+          (provider!=='auto'&&requiresPaidApproval(provider)&&!approvedPaid)||intent.trim().length<4}
           onPress={()=>void generate()}>
           {busy?'GENERATING ROADMAP…':existingStages>0?'RESUME SAVED ROADMAP':'GENERATE FULL ROADMAP'}
         </Action>
