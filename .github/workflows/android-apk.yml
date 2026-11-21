@@ -167,3 +167,5 @@ jobs:
 # v0.16.0 build31 final: validate shared SecureStore key lifecycle across Oracle modes and exact GitHub source head.
 
 # Final v0.16.0 build31 acceptance: tests include mocked AI provider failover, request budgets, SQLite v7 and secure key lifecycle. Build source head after these tests.
+
+# ASCEND v0.16.1 build 32: final unified persistent provider/key/model selector, legacy secret scrub, guarded LLM allowlist; signed QA candidate only.
