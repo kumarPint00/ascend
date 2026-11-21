@@ -1,4 +1,41 @@
-# ASCEND Hybrid AI Provider Manager — v0.16.0 (Android build 31)
+# ASCEND Hybrid AI Provider Manager — v0.16.0 → v0.16.1
+
+## v0.16.1 — Shared AI keys and model selection
+
+The single-quest Oracle previously displayed an incorrectly labeled **Hybrid Cloud**
+panel with only a Groq key editor. The full roadmap had separate Gemini, Groq
+and OpenRouter key controls. Both modes now use the SAME
+`ProviderSettings` component and the SAME SecureStore configuration.
+
+- Configure **Gemini API**, **Groq** and **OpenRouter** keys independently,
+  with clear saved/not-configured status and explicit Add/Replace/Remove actions.
+- Choose a **default cloud provider**: Auto, Gemini, Groq, or OpenRouter.
+  The preference remains saved after closing/reopening Oracle and across
+  signed Android upgrades.
+- Choose an **LLM independently for each provider**:
+  - Gemini: `gemini-2.5-flash`, `gemini-2.5-flash-lite`.
+  - Groq: `openai/gpt-oss-20b`, `openai/gpt-oss-120b`.
+  - OpenRouter: `openrouter/free` (rotating free-model router).
+- The saved model affects the real API request URL/body, not merely the UI.
+  The allowlist excludes arbitrary model IDs and paid model routers.
+- Keys remain available until explicitly replaced/removed, app data is
+  cleared, the app is uninstalled, or Android's underlying secure storage
+  becomes unavailable. Keys cannot technically survive all device changes
+  or app uninstalls automatically, and do NOT enter app backups.
+- Cloud consent remains per session and is not automatically remembered;
+  the requested provider is tried first, then configured fallback providers.
+- Gemini Nano is selectable in the on-device Oracle mode and has no cloud key.
+  ChatGPT Plus remains a manual roadmap JSON import/export route, not an
+  API key or billable OpenAI provider.
+- Display is scrollable with 44px minimum action controls and responsive
+  wrapping for longer model names.
+- The signed Android package ID remains `com.ascendrpg.personal`.
+
+**User test:** Open Oracle → Single Quest → Cloud AI. Configure Gemini, Groq
+and/or OpenRouter keys and select the desired model. Return to Full Roadmap;
+the same keys, default provider and per-provider model choices must appear.
+Close and restart ASCEND; settings must still be present. Check that no
+API keys are visible in app backups or exported quest plans.
 
 ## Capabilities implemented
 
