@@ -9,8 +9,9 @@ import {Action,Chip,T} from '../components/Elements';
 import {nanoDownload,nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {C} from '../theme';
 import * as SecureStore from 'expo-secure-store';
-import {generateWithProviders,configuredProviders,storeProviderKey,deleteProviderKey}
-  from '../ai/provider-manager';
+import {generateWithProviders,configuredProviders,selectedProvider,
+  type ProviderChoice} from '../ai/provider-manager';
+import {ProviderSettings} from './ProviderSettings';
 import {RoadmapArchitect} from './RoadmapArchitect';
 
 export type NanoDraft={
@@ -88,8 +89,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
   const [provider,setProvider]=useState<Provider>('auto');
   const [cloudConsent,setCloudConsent]=useState(false);
   const [keyConfigured,setKeyConfigured]=useState(false);
-  const [editingKey,setEditingKey]=useState(false);
-  const [keyInput,setKeyInput]=useState('');
+  const [cloudChoice,setCloudChoice]=useState<ProviderChoice>('auto');
   const [intent,setIntent]=useState('');
   const [draft,setDraft]=useState<NanoDraft|null>(null);
   const [busy,setBusy]=useState(false);
@@ -108,10 +108,12 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
       nanoStatus(),
       configuredProviders(),
       SecureStore.getItemAsync('ascend.ai.provider'),
-    ]).then(([nano,keys,mode])=>{
+      selectedProvider(),
+    ]).then(([nano,keys,mode,cloud])=>{
       if(!alive)return;
       setStatus(nano);
       setKeyConfigured(Object.values(keys).some(Boolean));
+      setCloudChoice(cloud);
       if(mode==='auto'||mode==='nano'||mode==='groq'||mode==='offline')
         setProvider(mode);
     }).catch(()=>{
@@ -129,29 +131,13 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
     setMessage('');
     void SecureStore.setItemAsync('ascend.ai.provider',next).catch(()=>{});
   };
-  const storeKey=async()=>{
-    try{
-      await storeProviderKey('groq',keyInput);
-      setKeyInput('');
-      setEditingKey(false);
-      setKeyConfigured(true);
-      setMessage('Groq key stored in Android encrypted secure storage. Cloud requests still require consent.');
-    }catch(e){Alert.alert('Key not saved',e instanceof Error?e.message:String(e));}
-  };
-  const eraseKey=async()=>{
-    try{
-      await deleteProviderKey('groq');
-      setKeyInput('');setKeyConfigured(false);setCloudConsent(false);setEditingKey(false);
-      setMessage('Groq key removed from this device.');
-    }catch(e){Alert.alert('Unable to remove key',String(e));}
-  };
   const generate=useCallback(async()=>{
     if(provider!=='offline'&&!consent){
       Alert.alert('Consent required','Review and approve the AI draft workflow first.');
       return;
     }
     if(provider==='groq'&&(!keyConfigured||!cloudConsent)){
-      Alert.alert('Groq requires approval','Save your personal Groq key and explicitly allow cloud inference.');
+      Alert.alert('Cloud approval needed','Save a provider key and approve cloud inference for this session.');
       return;
     }
     const id=++nonce.current;
@@ -170,9 +156,9 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
           suggestion=parseNanoDraft(raw);
         }catch(localError){
           // Only attempt a cloud fallback when the user explicitly opted in
-          // during this session and personally configured a Groq API key.
+          // during this session and configured a personal cloud API key.
           if(provider==='auto'&&keyConfigured&&cloudConsent){
-            const result=await generateWithProviders(prompt,'quest','auto',request.signal,
+            const result=await generateWithProviders(prompt,'quest',cloudChoice,request.signal,
               output=>{parseNanoDraft(output);});
             suggestion={...parseNanoDraft(result.output),origin:(result.provider+'-cloud') as
               'groq-cloud'|'gemini-cloud'|'openrouter-cloud'};
@@ -180,7 +166,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
           }else throw localError;
         }
       }else if((provider==='groq'||provider==='auto')&&keyConfigured&&cloudConsent){
-        const result=await generateWithProviders(prompt,'quest',provider==='groq'?'groq':'auto',
+        const result=await generateWithProviders(prompt,'quest',cloudChoice,
           request.signal,output=>{parseNanoDraft(output);});
         suggestion={...parseNanoDraft(result.output),
           origin:(result.provider+'-cloud') as
@@ -202,7 +188,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
     }finally{
       if(id===nonce.current){setBusy(false);currentCloudRequest.current=null;}
     }
-  },[provider,consent,keyConfigured,cloudConsent,intent,status,useHistory,recentQuestTitles]);
+  },[provider,consent,keyConfigured,cloudConsent,cloudChoice,intent,status,useHistory,recentQuestTitles]);
   const download=async()=>{
     if(!consent){Alert.alert('Consent required','Approve on-device model access before downloading.');return;}
     Alert.alert('Prepare Gemini Nano?','Android AICore may need to download model data. This may use Wi-Fi/mobile data and device storage. No personal data is sent to an ASCEND server.',[
@@ -312,29 +298,10 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
           <Action secondary disabled={busy} onPress={()=>void download()}>
             PREPARE GEMINI NANO
           </Action>}
-        {(provider==='groq'||provider==='auto')&&<View style={ss.cloudPanel}>
-          <T color={C.frost} bold size={13}>HYBRID CLOUD · GROQ / GEMINI / OPENROUTER</T>
-          <T color={C.sub} size={11} style={{marginTop:6}}>
-            {keyConfigured?'At least one personal cloud key is configured.':'No cloud provider key saved. Free-tier limits and availability can change.'}
-            {' '}Your key is never bundled into ASCEND or stored in progress backups.
-          </T>
-          {editingKey&&<TextInput secureTextEntry accessibilityLabel="Personal Groq API key"
-            placeholder="gsk_…" placeholderTextColor={C.dim}
-            autoCorrect={false} autoCapitalize="none" value={keyInput}
-            onChangeText={setKeyInput} style={ss.draftInput}/>}
-          <View style={{marginTop:10,gap:8}}>
-            {editingKey?<Action secondary disabled={busy||!keyInput.trim()}
-              onPress={()=>void storeKey()}>SAVE API KEY SECURELY</Action>:
-              <Action secondary disabled={busy} onPress={()=>setEditingKey(true)}>
-                {keyConfigured?'ADD / REPLACE GROQ KEY':'CONFIGURE GROQ KEY'}
-              </Action>}
-            {keyConfigured&&<Action secondary disabled={busy}
-              onPress={()=>void eraseKey()}>REMOVE GROQ KEY</Action>}
-          </View>
-          <T size={10} color={C.dim} style={{marginTop:9}}>
-            For personal use only. A future public version will require a server-side credential proxy.
-          </T>
-        </View>}
+        {(provider==='groq'||provider==='auto')&&
+          <ProviderSettings disabled={busy} onChange={(choice,keys)=>{
+            setCloudChoice(choice);setKeyConfigured(Object.values(keys).some(Boolean));
+          }}/>}
         <View style={{marginTop:20}}>
           <T size={12} color={C.sub} bold>WHAT DO YOU WANT TO IMPROVE?</T>
           <TextInput accessibilityLabel="Personal quest intention"
