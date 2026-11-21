@@ -14,6 +14,7 @@ import {generateHybridRoadmap,type StartingLevel,type RoadmapProgress} from '../
 import {configuredProviders,selectedProvider,requiresPaidApproval,type ProviderChoice,type ProviderKeyState}
   from '../ai/provider-manager';
 import {ProviderSettings} from './ProviderSettings';
+import {nanoStatus} from '../../modules/ascend-nano';
 import {parseChatGPTRoadmap,exportChatGPTRoadmap,loadRoadmapCheckpoint,
   clearRoadmapCheckpoint} from '../ai/roadmap-checkpoints';
 
@@ -33,6 +34,9 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   const [keyState,setKeyState]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false,openai:false,claude:false});
   const [existingStages,setExistingStages]=useState(0);
   const [approvedCloud,setApprovedCloud]=useState(false);
+  const [useNano,setUseNano]=useState(false);
+  const [approvedNano,setApprovedNano]=useState(false);
+  const [nanoReady,setNanoReady]=useState(false);
   const [approvedPaid,setApprovedPaid]=useState(false);
   const [plan,setPlan]=useState<RoadmapPlan|null>(null);
   const [busy,setBusy]=useState(false);
@@ -48,7 +52,9 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
     const [keys,choice]=await Promise.all([configuredProviders(),selectedProvider()]);
     setKeyState(keys);setProvider(choice);
   };
-  useEffect(()=>{void refreshProviders().catch(()=>{});},[]);
+  useEffect(()=>{void refreshProviders().catch(()=>{});
+    void nanoStatus().then(status=>setNanoReady(status==='available')).catch(()=>setNanoReady(false));
+  },[]);
   useEffect(()=>{
     void loadRoadmapCheckpoint({intent,startDate,duration,dailyMinutes:minutes,
       startingLevel:level}).then(p=>setExistingStages(p.weeks.length+(p.blueprint?1:0)))
@@ -113,11 +119,15 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   };
   const generate=async()=>{
     if(busy)return;
-    if(!Object.values(keyState).some(Boolean)){
+    if(!useNano&&!Object.values(keyState).some(Boolean)){
       Alert.alert('Configure a free provider','Add Gemini, Groq or OpenRouter API key, or import a ChatGPT roadmap JSON.');return;
     }
-    if(!approvedCloud){Alert.alert('Cloud permission required','Approve sending this goal and schedule to the selected provider for this session.');return;}
-    if(provider!=='auto'&&requiresPaidApproval(provider)&&!approvedPaid){
+    if(!useNano&&!approvedCloud){Alert.alert('Cloud permission required','Approve sending this goal and schedule to the selected provider for this session.');return;}
+    if(useNano&&!approvedNano){Alert.alert('Local model consent required',
+      'Approve multi-stage on-device Gemini Nano generation first.');return;}
+    if(useNano&&!nanoReady){Alert.alert('Gemini Nano unavailable',
+      'The on-device model is not ready. Select Cloud or prepare Gemini Nano in Quick Quest.');return;}
+    if(!useNano&&provider!=='auto'&&requiresPaidApproval(provider)&&!approvedPaid){
       Alert.alert('Paid API authorization required',
         'OpenAI and Claude API calls may incur charges. Confirm paid usage for this roadmap only.');return;
     }
@@ -131,7 +141,8 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
     setBusy(true);
     try{
       const p=await generateHybridRoadmap({intent,duration,startingLevel:level,
-        startDate,dailyMinutes:minutes},setProgress,task.signal,provider,approvedPaid);
+        startDate,dailyMinutes:minutes},setProgress,task.signal,
+        useNano?'nano':provider,approvedPaid);
       if(task.signal.aborted)return;
       setPlan(p);
       setDays(p.weeks.flatMap(w=>w.days.map(d=>d.day)));
@@ -235,10 +246,32 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
         <TextInput accessibilityLabel="Roadmap start date YYYY-MM-DD" value={startDate}
           onChangeText={setStartDate} style={ss.date} maxLength={10}
           placeholder="YYYY-MM-DD" placeholderTextColor={C.dim}/>
-        <ProviderSettings disabled={busy} onChange={(choice,keys)=>{
+        <T color={C.sub} size={12} bold style={{marginBottom:8}}>GENERATION ENGINE</T>
+        <View style={ss.chips}>
+          <Chip active={!useNano} onPress={()=>setUseNano(false)}>CLOUD · DETAILED</Chip>
+          <Chip active={useNano} onPress={()=>setUseNano(true)}>
+            GEMINI NANO · LOCAL EXPERIMENTAL
+          </Chip>
+        </View>
+        {useNano&&<T color={C.gold} size={11} style={{marginBottom:12}}>
+          {nanoReady?'Gemini Nano is ready.':'Gemini Nano is not ready on this device.'}
+          {' '}Local generation may need 6–14 short model stages and could take
+          significant time. Each valid week is saved. Failed stages never send
+          a cloud request or create quests.
+        </T>}
+        {!useNano&&<ProviderSettings disabled={busy} onChange={(choice,keys)=>{
           setProvider(choice);setKeyState(keys);setApprovedPaid(false);
-        }}/>
-        <Pressable accessibilityRole="checkbox"
+        }}/>}
+        {useNano&&<Pressable accessibilityRole="checkbox"
+          accessibilityState={{checked:approvedNano}} onPress={()=>setApprovedNano(v=>!v)}
+          style={ss.consent}>
+          <Selected checked={approvedNano}/>
+          <T color={C.sub} size={12} style={{flex:1}}>
+            I approve local Gemini Nano processing for this staged roadmap.
+            I understand it is experimental, slower and may fail validation.
+          </T>
+        </Pressable>}
+        {!useNano&&<Pressable accessibilityRole="checkbox"
           accessibilityState={{checked:approvedCloud}} onPress={()=>setApprovedCloud(x=>!x)}
           style={ss.consent}>
           <Selected checked={approvedCloud}/>
@@ -246,8 +279,8 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
             I permit ASCEND to send this typed goal to the selected cloud provider,
             with free-only failover. No other private data is required.
           </T>
-        </Pressable>
-        {provider!=='auto'&&requiresPaidApproval(provider)&&<Pressable
+        </Pressable>}
+        {!useNano&&provider!=='auto'&&requiresPaidApproval(provider)&&<Pressable
           accessibilityRole="checkbox" accessibilityState={{checked:approvedPaid}}
           onPress={()=>setApprovedPaid(p=>!p)}
           style={[ss.consent,{backgroundColor:'#362B33',paddingHorizontal:12,borderRadius:12}]}>
@@ -270,12 +303,15 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           </T>
         </View>
         <T color={C.dim} size={11} style={{marginBottom:11}}>
-          Generates a curriculum and weekly batches using selected provider.
+          {useNano?'Generates each stage on-device with Gemini Nano.':
+            'Generates curriculum and weekly batches using the selected provider.'}
           {existingStages>0?' '+existingStages+' validated stages saved: tap Generate to resume.':''}
           {' '}No partial plan is imported automatically.
         </T>
-        <Action disabled={busy||!Object.values(keyState).some(Boolean)||!approvedCloud||
-          (provider!=='auto'&&requiresPaidApproval(provider)&&!approvedPaid)||intent.trim().length<4}
+        <Action disabled={busy||(!useNano&&!Object.values(keyState).some(Boolean))||
+          (useNano?(!nanoReady||!approvedNano):(!approvedCloud||
+            (provider!=='auto'&&requiresPaidApproval(provider)&&!approvedPaid)))||
+          intent.trim().length<4}
           onPress={()=>void generate()}>
           {busy?'GENERATING ROADMAP…':existingStages>0?'RESUME SAVED ROADMAP':'GENERATE FULL ROADMAP'}
         </Action>
