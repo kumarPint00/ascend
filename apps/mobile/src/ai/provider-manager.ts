@@ -6,15 +6,18 @@ import {nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
  * Model names are explicitly constrained to zero-price variants; zero cost is
  * not guaranteed by providers if account-level billing policies change.
  */
-export type CloudProvider='gemini'|'groq'|'openrouter';
+export type CloudProvider='gemini'|'groq'|'openrouter'|'openai'|'claude';
+export type FreeProvider='gemini'|'groq'|'openrouter';
 export type ProviderId=CloudProvider|'nano'|'offline';
 export type ModelTask='roadmap'|'quest';
 export type ProviderChoice='auto'|CloudProvider;
 export type ProviderKeyState=Record<CloudProvider,boolean>;
+export const requiresPaidApproval=(provider:CloudProvider)=>provider==='openai'||provider==='claude';
 export type ProviderUsage={provider:CloudProvider;day:string;requests:number;
   inputTokens:number;outputTokens:number;rateLimitHits:number;blockedUntil:string|null};
 const PREFIX='ascend.ai.provider.key.';
-const KNOWN:CloudProvider[]=['gemini','groq','openrouter'];
+const FREE:FreeProvider[]=['gemini','groq','openrouter'];
+const KNOWN:CloudProvider[]=[...FREE,'openai','claude'];
 /** Audited model allowlist. Provider availability and free quotas can change.
  * Model selection is never arbitrary user-supplied API input; avoid paid IDs.
  */
@@ -30,16 +33,19 @@ export const PROVIDER_MODELS:Record<CloudProvider,readonly {id:string;label:stri
   openrouter:[
     {id:'openrouter/free',label:'Free Models Router'},
   ],
+  openai:[{id:'gpt-4.1-mini',label:'GPT-4.1 mini · Paid API'}],
+  claude:[{id:'claude-haiku-4-5',label:'Claude Haiku 4.5 · Paid API'},
+    {id:'claude-sonnet-4-6',label:'Claude Sonnet 4.6 · Paid API'}],
 };
 const DEFAULT_MODEL:Record<CloudProvider,string>={
   gemini:'gemini-2.5-flash',groq:'openai/gpt-oss-20b',
-  openrouter:'openrouter/free',
+  openrouter:'openrouter/free',openai:'gpt-4.1-mini',claude:'claude-haiku-4-5',
 };
 const MODEL_PREFIX='ascend.ai.provider.model.v1.';
 const CHOICE_KEY='ascend.ai.provider.choice.v1';
 export async function selectedProvider():Promise<ProviderChoice>{
   const value=await SecureStore.getItemAsync(CHOICE_KEY);
-  return value==='gemini'||value==='groq'||value==='openrouter'?value:'auto';
+  return value==='gemini'||value==='groq'||value==='openrouter'||value==='openai'||value==='claude'?value:'auto';
 }
 export async function saveSelectedProvider(value:ProviderChoice):Promise<void>{
   if(value!=='auto'&&!KNOWN.includes(value))throw Error('Unknown provider');
@@ -58,12 +64,14 @@ const URL:Record<CloudProvider,string>={
   gemini:'https://generativelanguage.googleapis.com/v1beta/models/',
   groq:'https://api.groq.com/openai/v1/chat/completions',
   openrouter:'https://openrouter.ai/api/v1/chat/completions',
+  openai:'https://api.openai.com/v1/chat/completions',
+  claude:'https://api.anthropic.com/v1/messages',
 };
 export const LIMIT_REQUESTS_PER_DAY:Record<CloudProvider,number>={
-  gemini:20,groq:60,openrouter:35,
+  gemini:20,groq:60,openrouter:35,openai:5,claude:5,
 }; // conservative local application safety budgets, NOT official quotas
 export const LIMIT_TOKENS_PER_DAY:Record<CloudProvider,number>={
-  gemini:90000,groq:150000,openrouter:45000,
+  gemini:90000,groq:150000,openrouter:45000,openai:10000,claude:10000,
 }; // local safety estimate; provider's own quota may be lower
 export class ProviderError extends Error{
   constructor(message:string,readonly provider:ProviderId,
@@ -75,6 +83,8 @@ export function validateProviderKey(provider:CloudProvider,value:string):string{
     throw Error('Key format invalid; check your provider dashboard');
   if(provider==='groq'&&!key.startsWith('gsk_'))throw Error('Groq keys begin with gsk_');
   if(provider==='openrouter'&&!key.startsWith('sk-or-'))throw Error('OpenRouter keys begin with sk-or-');
+  if(provider==='openai'&&!key.startsWith('sk-'))throw Error('OpenAI API keys begin with sk-');
+  if(provider==='claude'&&!key.startsWith('sk-ant-'))throw Error('Anthropic API keys begin with sk-ant-');
   return key;
 }
 async function readKey(provider:CloudProvider):Promise<string|null>{
@@ -93,7 +103,7 @@ async function readKey(provider:CloudProvider):Promise<string|null>{
 }
 export async function configuredProviders():Promise<ProviderKeyState>{
   const keys=await Promise.all(KNOWN.map(async name=>Boolean(await readKey(name))));
-  return {gemini:keys[0],groq:keys[1],openrouter:keys[2]};
+  return {gemini:keys[0],groq:keys[1],openrouter:keys[2],openai:keys[3],claude:keys[4]};
 }
 export async function storeProviderKey(provider:CloudProvider,value:string):Promise<void>{
   if(!KNOWN.includes(provider))throw Error('Unknown provider');
@@ -152,8 +162,12 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
   let accounted=false;
   try{
     const isGemini=provider==='gemini';
+    const isClaude=provider==='claude';
     const model=await selectedModel(provider);
-    const body=isGemini?{
+    const body=isClaude?{
+      model,max_tokens:task==='roadmap'?3500:900,
+      messages:[{role:'user',content:'Return only valid JSON. '+prompt}],
+    }:isGemini?{
       contents:[{role:'user',parts:[{text:prompt}]}],
       generationConfig:{responseMimeType:'application/json',
         maxOutputTokens:task==='roadmap'?4096:1000,temperature:.45},
@@ -168,7 +182,8 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
     const endpoint=isGemini?URL.gemini+encodeURIComponent(model)+':generateContent':URL[provider];
     const response=await fetch(endpoint,{
       method:'POST',headers:{'Content-Type':'application/json',
-        ...(isGemini?{'x-goog-api-key':key}:{Authorization:'Bearer '+key})},
+        ...(isGemini?{'x-goog-api-key':key}:isClaude?
+          {'x-api-key':key,'anthropic-version':'2023-06-01'}:{Authorization:'Bearer '+key})},
       body:JSON.stringify(body),signal:controller.signal,
     });
     if(!response.ok){
@@ -188,19 +203,24 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
     const raw=await response.text();
     if(raw.length>64000)throw new ProviderError('Response too large',provider,0);
     const json=JSON.parse(raw) as Record<string,unknown>;
-    const value=isGemini?
+    const value=isClaude?
+      (json.content as Array<{type?:string;text?:string}>|undefined)?.filter(x=>x.type==='text').map(x=>x.text??'').join(''):
+      isGemini?
       (json.candidates as Array<{content?:{parts?:Array<{text?:string}>}}>|
         undefined)?.[0]?.content?.parts?.map(x=>x.text??'').join('') :
       (json.choices as Array<{message?:{content?:string}}>|
         undefined)?.[0]?.message?.content;
     if(!value||typeof value!=='string'||value.length>17000)
       throw new ProviderError('Model returned no usable JSON',provider,0);
-    const usage=isGemini?json.usageMetadata as {promptTokenCount?:number;candidatesTokenCount?:number}|undefined:
+    const usage=isClaude?json.usage as {input_tokens?:number;output_tokens?:number}|undefined:
+      isGemini?json.usageMetadata as {promptTokenCount?:number;candidatesTokenCount?:number}|undefined:
       json.usage as {prompt_tokens?:number;completion_tokens?:number}|undefined;
     await track(provider,prompt,value,false,null,
-      usage?{input:(isGemini?(usage as {promptTokenCount?:number}).promptTokenCount:
+      usage?{input:(isClaude?(usage as {input_tokens?:number}).input_tokens:
+        isGemini?(usage as {promptTokenCount?:number}).promptTokenCount:
         (usage as {prompt_tokens?:number}).prompt_tokens)??estimateTokens(prompt,value).input,
-        output:(isGemini?(usage as {candidatesTokenCount?:number}).candidatesTokenCount:
+        output:(isClaude?(usage as {output_tokens?:number}).output_tokens:
+        isGemini?(usage as {candidatesTokenCount?:number}).candidatesTokenCount:
         (usage as {completion_tokens?:number}).completion_tokens)??estimateTokens(prompt,value).output}:undefined);
     accounted=true;
     return value;
@@ -214,14 +234,20 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
 }
 export interface GenerateResult{output:string;provider:ProviderId;attempted:CloudProvider[]}
 /** This is called only after the user explicitly agrees to sending this
- * request to cloud services. Never auto-switch on 401/403/402: an authentication
+ * request to cloud services. Paid providers require explicit per-request consent.
+ * Never auto-switch on 401/403/402: an authentication
  * or billing error is actionable and cannot be solved by silent retries.
  */
 export async function generateWithProviders(prompt:string,task:ModelTask,
   choice:ProviderChoice='auto',signal?:AbortSignal,
-  accept?:(raw:string)=>void):Promise<GenerateResult>{
+  accept?:(raw:string)=>void,paidApproved=false):Promise<GenerateResult>{
   if(prompt.length<4||prompt.length>5800)throw Error('Prompt outside safe limits');
-  const all=choice==='auto'?KNOWN:[choice,...KNOWN.filter(x=>x!==choice)];
+  // Never route to a billed endpoint unless the user chose it explicitly AND
+  // approved this individual generation. No fallback to another paid provider.
+  if(choice!=='auto'&&requiresPaidApproval(choice)&&!paidApproved)
+    throw Error('Explicit paid API approval is required for this request');
+  const all:CloudProvider[]=choice==='auto'?FREE:
+    requiresPaidApproval(choice)?[choice]:[choice,...FREE.filter(x=>x!==choice)];
   const attempted:CloudProvider[]=[];
   const keys=await configuredProviders();
   let last='No configured cloud provider is available within your application limits';
