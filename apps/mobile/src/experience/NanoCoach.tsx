@@ -9,8 +9,8 @@ import {Action,Chip,T} from '../components/Elements';
 import {nanoDownload,nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {C} from '../theme';
 import * as SecureStore from 'expo-secure-store';
-import {saveGroqKey,clearGroqKey} from '../ai/groq';
-import {generateWithProviders,configuredProviders} from '../ai/provider-manager';
+import {generateWithProviders,configuredProviders,storeProviderKey,deleteProviderKey}
+  from '../ai/provider-manager';
 import {RoadmapArchitect} from './RoadmapArchitect';
 
 export type NanoDraft={
@@ -131,7 +131,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
   };
   const storeKey=async()=>{
     try{
-      await saveGroqKey(keyInput);
+      await storeProviderKey('groq',keyInput);
       setKeyInput('');
       setEditingKey(false);
       setKeyConfigured(true);
@@ -140,7 +140,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
   };
   const eraseKey=async()=>{
     try{
-      await clearGroqKey();
+      await deleteProviderKey('groq');
       setKeyInput('');setKeyConfigured(false);setCloudConsent(false);setEditingKey(false);
       setMessage('Groq key removed from this device.');
     }catch(e){Alert.alert('Unable to remove key',String(e));}
