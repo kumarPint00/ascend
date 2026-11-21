@@ -48,6 +48,20 @@ loaded.require=name=>{
 };
 loaded._compile(compiled,sourcePath);
 const api=loaded.exports;
+const settingsUI=fs.readFileSync(path.join(__dirname,
+  '../apps/mobile/src/experience/ProviderSettings.tsx'),'utf8');
+const singleQuestUI=fs.readFileSync(path.join(__dirname,
+  '../apps/mobile/src/experience/NanoCoach.tsx'),'utf8');
+const roadmapUI=fs.readFileSync(path.join(__dirname,
+  '../apps/mobile/src/experience/RoadmapArchitect.tsx'),'utf8');
+assert.ok(singleQuestUI.includes('<ProviderSettings'));
+assert.ok(roadmapUI.includes('<ProviderSettings'));
+assert.ok(settingsUI.includes('PROVIDER_MODELS[provider]'));
+assert.ok(settingsUI.includes('storeProviderKey(editing,value)'));
+assert.ok(settingsUI.includes('deleteProviderKey(provider)'));
+assert.ok(settingsUI.includes('saveSelectedProvider(next)'));
+assert.ok(settingsUI.includes('saveSelectedModel(provider,model)'));
+assert.ok(!settingsUI.includes('gsk_…')); // no Groq-only configuration panel
 async function test(){
   // Legacy Groq key is migrated without modification and never exported.
   const legacy='gsk_'+('x'.repeat(40));
