@@ -18,7 +18,10 @@ function blueprint(days=duration){
     title:'Build applied LLM engineering skills',
     objective:'Build working LLM applications using RAG, evaluation and deployment',
     attribute:'intelligence',
-    weeklyThemes:themes.slice(0,roadmapWeekCount(days)),
+    weeklyThemes:Array.from({length:roadmapWeekCount(days)},(_,i)=>({
+      week:i+1,theme:'LLM learning stage '+(i+1),
+      achievement:'Demonstrate a working skill from stage '+(i+1)+' with a saved artifact'
+    })),
     monthlyAchievements:Array.from({length:Math.ceil(days/30)},(_,i)=>({
       month:i+1,title:'Month '+(i+1)+' practical project',
       proof:'Demo project '+(i+1)+' with reproducible test results'
