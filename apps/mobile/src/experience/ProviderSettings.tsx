@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useState} from 'react';
+import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {Alert,Pressable,StyleSheet,TextInput,View} from 'react-native';
 import {CheckCircle2,LockKeyhole,ShieldCheck} from 'lucide-react-native';
 import {T,Action,Chip} from '../components/Elements';
@@ -19,6 +19,8 @@ export interface ProviderSettingsProps {
  * No key is ever echoed to the UI, logged or kept in the local quest database.
  */
 export function ProviderSettings({disabled=false,onChange}:ProviderSettingsProps){
+  const notify=useRef(onChange);
+  notify.current=onChange;
   const [keys,setKeys]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false});
   const [choice,setChoice]=useState<ProviderChoice>('auto');
   const [models,setModels]=useState<Record<CloudProvider,string>>({
@@ -38,8 +40,8 @@ export function ProviderSettings({disabled=false,onChange}:ProviderSettingsProps
     ]);
     setKeys(keyState);setChoice(preferred);
     setModels({gemini,groq,openrouter});setUsage(stats);
-    onChange?.(preferred,keyState);
-  },[onChange]);
+    notify.current?.(preferred,keyState);
+  },[]);
   useEffect(()=>{void refresh().catch(()=>setNotice('Could not read saved AI settings'));},[refresh]);
   const updateChoice=async(next:ProviderChoice)=>{
     if(disabled)return;
