@@ -1,4 +1,4 @@
-# ASCEND Hybrid AI Provider Manager — v0.16.0 → v0.17.0
+# ASCEND Hybrid AI Provider Manager — v0.16.0 → v0.17.1
 
 ## v0.17.0 — OpenAI and Claude, full roadmap and cost safety
 
@@ -22,6 +22,14 @@
 - **More useful prompts:** emphasize domain-specific tools, dependencies,
   inspectable proof artifacts and nonrepetitive daily steps rather than
   generic motivational tasks.
+- **Experimental local full roadmap:** Oracle → Full Roadmap →
+  **Gemini Nano · Local Experimental** attempts a compact curriculum and
+  sequential weekly batches on-device (6/10/14 model stages for 30/60/90
+  days). Every week must pass the same schema validator and is checkpointed
+  in SQLite. It may be slow and some local devices/models cannot produce
+  valid long-form JSON; a failed stage retains prior validated weeks but
+  never silently sends cloud requests or creates quests. A cloud provider
+  can be selected explicitly to finish the remaining stages.
 - **Gemini Nano vs Nano Banana:** Gemini Nano is Google's on-device
   text model used for one short quest in the Quick Quest flow. Nano Banana
   is a separate image-generation family. Generating a detailed 90-day
