@@ -165,3 +165,5 @@ jobs:
 # v0.16.0 build 31: final hybrid free-provider AI, resumable roadmaps, SecureStore BYOK, ChatGPT file interchange. No public auto-publish; phone QA required.
 
 # v0.16.0 build31 final: validate shared SecureStore key lifecycle across Oracle modes and exact GitHub source head.
+
+# Final v0.16.0 build31 acceptance: tests include mocked AI provider failover, request budgets, SQLite v7 and secure key lifecycle. Build source head after these tests.
