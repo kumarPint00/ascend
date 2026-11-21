@@ -1,280 +1,122 @@
-import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {AppState,Pressable,StyleSheet,View} from 'react-native';
-import {GLView,type ExpoWebGLRenderingContext} from 'expo-gl';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {Animated,AppState,Image,Pressable,StyleSheet,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
-import {ChevronLeft,RotateCcw,ChevronRight,Shield} from 'lucide-react-native';
+import {Expand,Minimize2,Shield,Star} from 'lucide-react-native';
 import {C} from '../theme';
 import {T} from '../components/Elements';
+import {HUNTER_ILLUSTRATED_FRAMES} from './hunter-illustrated-frames';
 
-/** Original procedural articulated Hunter: all geometry is generated on-device.
- * No downloaded models, copyrighted assets, web requests or user data.
- * The geometric character is deliberately NOT advertised as a rigged glTF model.
+/**
+ * ASCEND Hunter is original AI-illustrated portrait art, NOT a procedural
+ * 3D mesh, a downloaded model, or a borrowed copyrighted character.
+ *
+ * Four offline portrait frames capture a gentle cloak shift and eye blink.
+ * Motion stops when offscreen, when Android backgrounds the app, or when
+ * reduced motion / battery quality is selected. Static frame is fully usable.
  */
 export type RenderQuality='immersive'|'balanced'|'battery';
 export type ArmorTheme='azure'|'royal'|'ember';
 type Props={active?:boolean;reduceMotion?:boolean;quality?:RenderQuality;
   height?:number;rank?:string;level?:number;inspect?:boolean;armor?:ArmorTheme};
-type Mesh={buffer:WebGLBuffer;count:number};
 
-function sphere(rows=12,cols=18):Float32Array{
-  const v:number[]=[];
-  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-    const point=(a:number,b:number):[number,number,number]=>{
-      const t=Math.PI*a/rows,p=2*Math.PI*b/cols;
-      return [Math.sin(t)*Math.cos(p),Math.cos(t),Math.sin(t)*Math.sin(p)];
-    };
-    v.push(...point(y,x),...point(y+1,x),...point(y,x+1));
-    v.push(...point(y,x+1),...point(y+1,x),...point(y+1,x+1));
-  }
-  return new Float32Array(v);
-}
-function particles():Float32Array{
-  const points:number[]=[];
-  let seed=75491;
-  const random=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
-  for(let i=0;i<155;i++){
-    points.push((random()-.5)*5.5,(random()-.5)*4.4,-.4-random()*1.5);
-  }
-  return new Float32Array(points);
-}
-function halo():Float32Array{
-  const points:number[]=[];
-  for(let i=0;i<=120;i++){
-    const a=i*Math.PI*2/120;
-    points.push(Math.cos(a)*1.36,Math.sin(a)*1.36,-.85);
-  }
-  return new Float32Array(points);
-}
-const VS=[
-  'precision mediump float;',
-  'attribute vec3 aPosition;',
-  'uniform vec3 uCenter;',
-  'uniform vec3 uSize;',
-  'uniform float uTurn;',
-  'uniform float uSwing;',
-  'uniform float uTime;',
-  'uniform float uAspect;',
-  'uniform float uMode;',
-  'varying vec3 vNorm;',
-  'varying float vDepth;',
-  'void main(){',
-  'vec3 p=aPosition*uSize;',
-  'float c=cos(uSwing),s=sin(uSwing);',
-  'p.yz=mat2(c,-s,s,c)*p.yz;',
-  'p+=uCenter;',
-  'float yaw=uTurn+sin(uTime*.22)*.07;',
-  'p.xz=mat2(cos(yaw),-sin(yaw),sin(yaw),cos(yaw))*p.xz;',
-  'vNorm=normalize(aPosition);vDepth=p.z;',
-  'float perspective=1.0/(1.0+p.z*.12);',
-  'gl_Position=vec4(p.x*.63*perspective/uAspect,p.y*.60*perspective,p.z*.14,1.);',
-  'gl_PointSize=uMode>0.5?2.4+1.8*abs(sin(uTime+p.x*3.)):2.;',
-  '}'
-].join('\n');
-const FS=[
-  'precision mediump float;',
-  'uniform vec3 uColor;',
-  'uniform float uTime;',
-  'uniform float uMode;',
-  'varying vec3 vNorm;',
-  'varying float vDepth;',
-  'void main(){',
-  'if(uMode>0.5){',
-  'vec2 p=gl_PointCoord-vec2(.5);',
-  'float fade=1.-smoothstep(.13,.49,length(p));',
-  'gl_FragColor=vec4(mix(vec3(.22,.68,1.),uColor,.55),fade*.78);return;',
-  '}',
-  'vec3 n=normalize(vNorm);',
-  'float diffuse=max(.11,dot(n,normalize(vec3(-.55,.8,.9))));',
-  'float rim=pow(1.-abs(n.z),2.1);',
-  'vec3 shade=uColor*(.25+diffuse*.69)+vec3(.18,.32,.46)*rim*.55;',
-  'shade+=uColor*.055*sin(uTime*1.4+vDepth*7.);',
-  'gl_FragColor=vec4(shade,.97);',
-  '}'
-].join('\n');
-function shader(gl:ExpoWebGLRenderingContext,type:number,source:string){
-  const s=gl.createShader(type);if(!s)throw Error('Hunter shader unavailable');
-  gl.shaderSource(s,source);gl.compileShader(s);
-  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s)||'Hunter shader failure');
-  return s;
-}
-function setup(gl:ExpoWebGLRenderingContext,software=false){
-  const p=gl.createProgram();if(!p)throw Error('Hunter GPU program unavailable');
-  const v=shader(gl,gl.VERTEX_SHADER,VS),f=shader(gl,gl.FRAGMENT_SHADER,FS);
-  gl.attachShader(p,v);gl.attachShader(p,f);gl.linkProgram(p);
-  if(!gl.getProgramParameter(p,gl.LINK_STATUS))
-    throw Error('Hunter GPU link failure: '+(gl.getProgramInfoLog(p)||'unknown GPU program error'));
-
-  gl.deleteShader(v);gl.deleteShader(f);gl.useProgram(p);
-  const a=gl.getAttribLocation(p,'aPosition');
-  const uniform=(key:string)=>{const u=gl.getUniformLocation(p,key);if(!u)throw Error('Missing Hunter uniform '+key);return u;};
-  const create=(points:Float32Array):Mesh=>{
-    const buffer=gl.createBuffer();if(!buffer)throw Error('Hunter GPU buffer unavailable');
-    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,points,gl.STATIC_DRAW);
-    return {buffer,count:points.length/3};
-  };
-  return {p,a,center:uniform('uCenter'),size:uniform('uSize'),turn:uniform('uTurn'),
-    swing:uniform('uSwing'),time:uniform('uTime'),aspect:uniform('uAspect'),
-    mode:uniform('uMode'),color:uniform('uColor'),
-    body:create(software?sphere(8,12):sphere()),
-    points:create(software?particles().slice(0,180):particles()),ring:create(halo())};
-}
-const tint:Record<string,[number,number,number]>={
-  E:[.31,.53,.75],D:[.22,.71,.92],C:[.39,.77,.83],
-  B:[.67,.52,.96],A:[.91,.68,.34],S:[.98,.79,.42]
+const accents:Record<ArmorTheme,[string,string,string]>={
+  azure:['#102A4B00','#0D547B4D','#10324FBC'],
+  royal:['#2B175400','#5D359A50','#1A1749BD'],
+  ember:['#321B1A00','#B2642850','#4C2415BD'],
 };
-const metal:[number,number,number]=[.13,.20,.33];
-const dark:[number,number,number]=[.08,.12,.23];
-const robe:[number,number,number]=[.12,.13,.31];
-const skin:[number,number,number]=[.56,.66,.77];
+const beats=[0,1,3,0,1,3,0,2,2,3,1,0] as const;
 
 export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
   height=350,rank='E',level=1,inspect=false,armor='azure'}:Props){
-  const activeRef=useRef(active),motionRef=useRef(reduceMotion),qualityRef=useRef(quality);
-  const turnRef=useRef(0),frame=useRef<number|null>(null),live=useRef(true),foreground=useRef(true);
-  const wake=useRef<()=>void>(()=>{}),invalidate=useRef<()=>void>(()=>{});
-  const [error,setError]=useState(false);
-  const [turn,setTurn]=useState(0);
-  useEffect(()=>{activeRef.current=active;motionRef.current=reduceMotion;qualityRef.current=quality;
-    invalidate.current();},[active,reduceMotion,quality]);
-  useEffect(()=>{turnRef.current=turn;invalidate.current();},[turn]);
+  const [frame,setFrame]=useState(0);
+  const [zoom,setZoom]=useState(false);
+  const [foreground,setForeground]=useState(AppState.currentState==='active');
+  const [artFailed,setArtFailed]=useState(false);
+  const drift=useRef(new Animated.Value(0)).current;
+  const playable=active&&foreground&&!reduceMotion&&quality!=='battery'&&!artFailed;
   useEffect(()=>{
-    const s=AppState.addEventListener('change',state=>{
-      foreground.current=state==='active';if(foreground.current)wake.current();
-    });
-    return ()=>{s.remove();live.current=false;if(frame.current!==null)cancelAnimationFrame(frame.current);};
+    const subscription=AppState.addEventListener('change',
+      state=>setForeground(state==='active'));
+    return ()=>subscription.remove();
   },[]);
-  const onContextCreate=useCallback((gl:ExpoWebGLRenderingContext)=>{
-    try{
-      // SwiftShader and llvmpipe are software renderers. A normal 30–45 fps
-      // GPU budget can starve the emulator launcher even if ASCEND stays alive.
-      // Reduce both mesh complexity and frame cadence in those environments.
-      const renderer=String(gl.getParameter(gl.RENDERER)??'');
-      const vendor=String(gl.getParameter(gl.VENDOR)??'');
-      const software=/swiftshader|software|llvmpipe|emulator|google inc\./i.test(renderer+' '+vendor);
-      console.info('[ASCEND/Hunter] renderer profile:',software?'software-safe':'hardware');
-      const g=setup(gl,software);
-      gl.viewport(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight);
-      gl.clearColor(0,0,0,0);
-      gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-      gl.enableVertexAttribArray(g.a);
-      let previous=0,origin=0,drawnStill=false;
-      const render=(stamp:number)=>{
-        frame.current=null;
-        if(!live.current||!activeRef.current||!foreground.current)return;
-        const still=motionRef.current||qualityRef.current==='battery';
-        if(still&&drawnStill)return;
-        const spacing=software?100:(qualityRef.current==='immersive'?22:33);
-        if(!still&&stamp-previous<spacing){frame.current=requestAnimationFrame(render);return;}
-        previous=stamp;if(!origin)origin=stamp;
-        const t=still?0:(stamp-origin)/1000;
-        const rankColor=tint[rank]??tint.E;
-        const accent:[number,number,number]=rank==='S'?rankColor:
-          armor==='royal'?[.67,.52,.95]:armor==='ember'?[.98,.58,.28]:rankColor;
-        const angle=turnRef.current;
-        const swing=still?0:Math.sin(t*1.35);
-        gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-        gl.useProgram(g.p);gl.uniform1f(g.time,t);
-        gl.uniform1f(g.turn,angle);gl.uniform1f(g.aspect,gl.drawingBufferWidth/gl.drawingBufferHeight);
-        const draw=(mesh:Mesh,mode:number,center:[number,number,number],
-          size:[number,number,number],color:[number,number,number],limb=0,kind:number=gl.TRIANGLES)=>{
-          gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buffer);
-          gl.vertexAttribPointer(g.a,3,gl.FLOAT,false,0,0);
-          gl.uniform3f(g.center,...center);gl.uniform3f(g.size,...size);
-          gl.uniform3f(g.color,...color);gl.uniform1f(g.swing,limb);
-          gl.uniform1f(g.mode,mode);gl.drawArrays(kind,0,mesh.count);
-        };
-        // Original sanctuary scene: starlight, portal, tiered dais and monoliths.
-        draw(g.points,1,[0,0,0],[1,1,1],accent,0,gl.POINTS);
-        draw(g.ring,0,[0,.02,-.1],[1,1,1],accent,0,gl.LINE_STRIP);
-        draw(g.body,0,[0,-1.45,-.13],[1.28,.12,.82],[.09,.31,.43]);
-        draw(g.body,0,[0,-1.51,-.13],[1.43,.055,.92],accent);
-        for(const x of [-1.18,1.18]){
-          draw(g.body,0,[x,-.25,-.77],[.105,1.12,.13],metal);
-          draw(g.body,0,[x,1.0,-.77],[.25,.12,.2],accent);
-          draw(g.body,0,[x,-1.15,-.74],[.27,.14,.29],dark);
-        }
-        // Hero: layered cloak, articulated limbs, armor and rank-dependent aura.
-        const bob=still?0:Math.sin(t*1.8)*.023;
-        draw(g.body,0,[0,-.21+bob,-.32],[.54,.86,.19],robe);
-        draw(g.body,0,[0,.14+bob,-.05],[.42,.63,.22],metal);
-        draw(g.body,0,[0,-.40+bob,.13],[.33,.21,.20],dark);
-        for(const x of [-1,1]){
-          draw(g.body,0,[x*.20,-.94+bob,.02],[.15,.55,.17],metal, x*swing*.035);
-          draw(g.body,0,[x*.20,-1.30+bob,.14],[.18,.19,.23],dark);
-          draw(g.body,0,[x*.47,.24+bob,0],[.19,.41,.19],metal,x*swing*.06);
-          draw(g.body,0,[x*.53,-.08+bob,.03],[.12,.24,.15],accent,x*swing*.11);
-          draw(g.body,0,[x*.47,.60+bob,-.01],[.27,.19,.23],accent);
-        }
-        draw(g.body,0,[0,.30+bob,.18],[.27,.31,.055],accent);
-        draw(g.body,0,[0,.82+bob,0],[.14,.15,.13],skin);
-        draw(g.body,0,[0,1.05+bob,0],[.25,.32,.24],metal);
-        draw(g.body,0,[0,1.07+bob,.21],[.20,.058,.05],accent);
-        draw(g.body,0,[0,-.34+bob,.17],[.25,.075,.10],accent);
-        if(level>=5){
-          draw(g.body,0,[.63,-.42+bob,.11],[.035,.77,.045],skin);
-          draw(g.body,0,[.63,.32+bob,.11],[.13,.12,.09],accent);
-        }
-        if(level>=10||rank==='S'){
-          draw(g.body,0,[0,.37+bob,.24],[.10,.11,.10],[.96,.75,.36]);
-        }
-        gl.flush();gl.endFrameEXP();
-        drawnStill=still;
-        // A frozen battery-saver or reduced-motion scene must not wake JS
-        // on every display refresh. It resumes only when invalidated.
-        if(!still&&live.current)frame.current=requestAnimationFrame(render);
-      };
-      wake.current=()=>{
-        if(live.current&&activeRef.current&&foreground.current&&frame.current===null)
-          frame.current=requestAnimationFrame(render);
-      };
-      invalidate.current=()=>{drawnStill=false;wake.current();};
-      wake.current();
-    }catch(e){
-      console.warn('[ASCEND/Hunter] GPU scene unavailable; using accessible fallback',
-        e instanceof Error?e.message:'unknown graphics issue');
-      if(live.current)setError(true);
-    }
-  },[rank,level,armor]);
-  return <View style={[s.shell,{height}]} accessibilityLabel="Original animated three-dimensional Hunter in a celestial sanctuary">
-    <LinearGradient colors={['#192B52','#11132D','#090F20']} style={StyleSheet.absoluteFill}/>
-    {(!error)&&<GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate}/>}
-    {error&&<View style={s.fallback}>
-      <Shield size={96} color={C.energy} strokeWidth={1}/>
-      <T bold size={14} color={C.frost}>HUNTER · RANK {rank}</T>
-      <T size={11} color={C.sub}>Reduced graphics mode</T>
-    </View>}
-    <LinearGradient colors={['transparent','#090D1B00','#090D1BCF']}
+  useEffect(()=>{
+    if(!playable){setFrame(0);return;}
+    let beat=0;
+    const interval=setInterval(()=>{
+      beat=(beat+1)%beats.length;
+      setFrame(beats[beat]);
+    },quality==='immersive'?190:300);
+    return ()=>clearInterval(interval);
+  },[playable,quality]);
+  useEffect(()=>{
+    drift.stopAnimation();
+    if(!playable){drift.setValue(0);return;}
+    const sequence=Animated.loop(Animated.sequence([
+      Animated.timing(drift,{toValue:1,duration:2400,useNativeDriver:true}),
+      Animated.timing(drift,{toValue:0,duration:2400,useNativeDriver:true}),
+    ]));
+    sequence.start();
+    return ()=>sequence.stop();
+  },[playable,drift]);
+  const sceneScale=useMemo(()=>drift.interpolate({
+    inputRange:[0,1],outputRange:[zoom?1.16:1.025,zoom?1.2:1.055],
+  }),[drift,zoom]);
+  const imageSource=useMemo(()=>({uri:HUNTER_ILLUSTRATED_FRAMES[frame]}),[frame]);
+  return <View style={[styles.shell,{height}]} accessible
+    accessibilityLabel={'Original animated illustrated fantasy Hunter. Rank '+rank+', level '+level}>
+    <LinearGradient colors={['#17234D','#13112C','#080D1F']} style={StyleSheet.absoluteFill}/>
+    {!artFailed?
+      <Animated.View style={[styles.art,{transform:[{scale:reduceMotion?1:sceneScale}]}]}
+        pointerEvents="none">
+        <Image source={imageSource} resizeMode="cover" style={styles.portrait}
+          fadeDuration={0} onError={()=>setArtFailed(true)}/>
+      </Animated.View>:
+      <View style={styles.fallback}>
+        <Shield size={84} color={C.energy}/>
+        <T color={C.frost} bold size={16}>Hunter illustration unavailable</T>
+        <T color={C.sub} size={12}>Your quests and XP are unaffected.</T>
+      </View>}
+    <LinearGradient colors={accents[armor]} pointerEvents="none"
+      style={StyleSheet.absoluteFill}/>
+    <LinearGradient colors={['#070D1B99','#070D1B00','#070D1B00','#070D1BF0']}
       pointerEvents="none" style={StyleSheet.absoluteFill}/>
-    <View style={s.label} pointerEvents="none">
-      <View style={s.live}/><T size={10} color={C.frost} bold>THE HUNTER SANCTUARY</T>
+    <View pointerEvents="none" style={styles.label}>
+      <Star size={13} color={C.gold}/>
+      <T size={10} color={C.frost} bold style={{letterSpacing:1.2}}>
+        THE HUNTER SANCTUARY
+      </T>
     </View>
-    {inspect&&<View style={s.controls}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Rotate Hunter left"
-        onPress={()=>setTurn(v=>v-.32)} style={s.control}>
-        <ChevronLeft size={20} color={C.frost}/>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="Reset Hunter rotation"
-        onPress={()=>setTurn(0)} style={s.control}><RotateCcw size={17} color={C.frost}/></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="Rotate Hunter right"
-        onPress={()=>setTurn(v=>v+.32)} style={s.control}>
-        <ChevronRight size={20} color={C.frost}/>
-      </Pressable>
-    </View>}
-    {inspect&&<View style={s.footer} pointerEvents="none">
-      <T size={10} color={C.gold} bold>RANK {rank} · LEVEL {level}</T>
-      <T size={10} color={C.sub}>Procedural 3D · {quality==='battery'?'Low power':quality}</T>
-    </View>}
+    {inspect&&<Pressable accessibilityRole="button"
+      accessibilityLabel={zoom?'Show full Hunter portrait':'Inspect Hunter portrait closer'}
+      onPress={()=>setZoom(value=>!value)} style={styles.inspect}>
+      {zoom?<Minimize2 size={18} color={C.frost}/>:<Expand size={18} color={C.frost}/>}
+    </Pressable>}
+    <View pointerEvents="none" style={styles.footer}>
+      <View style={{flex:1,minWidth:0}}>
+        <T color={C.gold} bold size={11}>RANK {rank} · LEVEL {level}</T>
+        <T color="#C8D3F2" size={10} numberOfLines={1}>
+          ORIGINAL HUNTER ART · {quality==='battery'?'STILL':reduceMotion?'REDUCED MOTION':'ANIMATED'}
+        </T>
+      </View>
+      <View style={[styles.aura,{backgroundColor:armor==='ember'?'#FD9D73':armor==='royal'?'#C5A8FF':'#8ADFFF'}]}/>
+    </View>
   </View>;
 }
-const s=StyleSheet.create({
-  shell:{overflow:'hidden',borderRadius:24,borderWidth:1,borderColor:'#5477AD',backgroundColor:C.bg},
-  label:{position:'absolute',top:14,left:15,flexDirection:'row',gap:7,alignItems:'center',
-    backgroundColor:'#0B1935CF',borderRadius:12,paddingHorizontal:10,paddingVertical:7},
-  live:{width:7,height:7,borderRadius:5,backgroundColor:'#8AEAD8'},
-  controls:{position:'absolute',right:12,top:'42%',gap:7},
-  control:{width:39,height:39,borderRadius:12,backgroundColor:'#132644D9',borderWidth:1,
-    borderColor:'#5F7EAA',alignItems:'center',justifyContent:'center'},
+const styles=StyleSheet.create({
+  shell:{overflow:'hidden',borderRadius:24,borderWidth:1,
+    borderColor:'#5477AD',backgroundColor:C.bg},
+  art:{...StyleSheet.absoluteFillObject},
+  portrait:{height:'100%',width:'100%',backgroundColor:'#101E3C'},
+  label:{position:'absolute',top:14,left:14,right:66,flexDirection:'row',
+    gap:7,alignItems:'center',alignSelf:'flex-start'},
+  inspect:{position:'absolute',right:12,top:12,width:46,height:46,
+    alignItems:'center',justifyContent:'center',borderRadius:14,
+    borderWidth:1,borderColor:'#6F90B8',backgroundColor:'#102347E9'},
   footer:{position:'absolute',bottom:12,left:12,right:12,flexDirection:'row',
-    justifyContent:'space-between',backgroundColor:'#101B31CC',padding:10,borderRadius:11},
-  fallback:{flex:1,justifyContent:'center',alignItems:'center',gap:8},
+    alignItems:'center',gap:11,backgroundColor:'#101B31DF',
+    paddingHorizontal:13,paddingVertical:11,borderRadius:14,
+    borderWidth:1,borderColor:'#4B6294',minHeight:58},
+  aura:{height:9,width:9,borderRadius:6},
+  fallback:{...StyleSheet.absoluteFillObject,alignItems:'center',
+    justifyContent:'center',gap:10,padding:24},
 });
