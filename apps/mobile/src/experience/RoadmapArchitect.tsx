@@ -286,9 +286,10 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           style={[ss.consent,{backgroundColor:'#362B33',paddingHorizontal:12,borderRadius:12}]}>
           <Selected checked={approvedPaid}/>
           <T color={C.gold} size={12} style={{flex:1}}>
-            I authorize PAID API requests to {provider.toUpperCase()} for this
-            roadmap generation and any resumed weeks. No fallback to other
-            paid providers. Review your account billing limits first.
+            I authorize billed {provider.toUpperCase()} API calls for
+            this roadmap (up to {Math.ceil(duration/7)+1} planned stages,
+            plus any user-initiated retries). No other paid provider is used.
+            Check account credits and spending limits first.
           </T>
         </Pressable>}
         <View style={{marginBottom:11,gap:9}}>
