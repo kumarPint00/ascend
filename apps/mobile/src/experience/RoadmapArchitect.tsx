@@ -192,10 +192,11 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
       <View style={ss.intro}>
         <Sparkles size={24} color={C.gold}/>
         <View style={{flex:1}}>
-          <T bold size={15}>Turn a goal into daily achievements</T>
+          <T bold size={15}>Build your entire learning timeline</T>
           <T color={C.sub} size={12} style={{marginTop:6}}>
-            A structured curriculum, daily proof of work, weekly assessments and
-            monthly milestones. You decide what enters your quests.
+            Generate all {duration} daily quests, {Math.ceil(duration/7)} weekly checkpoints
+            and {Math.ceil(duration/30)} monthly milestones in validated, resumable batches.
+            Gemini Nano's quick mode generates one quest only.
           </T>
         </View>
       </View>
@@ -205,6 +206,10 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           onChangeText={setIntent} maxLength={420} style={ss.input}
           placeholder="e.g. Build real LLM apps with Python, RAG, evaluations and agents"
           placeholderTextColor={C.dim}/>
+        <T color={C.dim} size={11} style={{marginBottom:14}}>
+          For detailed tasks, describe your starting skills, preferred tools,
+          constraints and what you want to demonstrate by the final day.
+        </T>
         <T size={12} color={C.sub} bold>MY CURRENT LEVEL</T>
         <View style={ss.chips}>
           {(['beginner','intermediate','advanced'] as StartingLevel[]).map(value=>
