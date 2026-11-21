@@ -23,10 +23,20 @@ assert.ok(app.includes("setQuestFilter('All')")); // JSON and AI import
 assert.ok(app.includes('Keyboard.addListener'));
 assert.ok(app.includes('!keyboardVisible&&<View style={s.nav}'));
 assert.ok(app.includes("behavior={Platform.OS==='ios'?'padding':undefined}")); // Android resize handles IME; no double shrink;
-assert.ok(planner.includes("behavior={Platform.OS==='ios'?'padding':'height'}"));
+assert.ok(planner.includes("behavior={Platform.OS==='ios'?'padding':undefined}")); // Android resize avoids double-IME adjustments
 assert.ok(oracle.includes("behavior={Platform.OS==='ios'?'padding':'height'}"));
 assert.ok(connect.includes("behavior={Platform.OS==='ios'?'padding':'height'}"));
 assert.ok(connect.includes('keyboardShouldPersistTaps="handled"'));
+// User-visible Hunter animation must come from original generated raster artwork,
+ // never from procedural GL geometry or a network image.
+const hunter=read('apps/mobile/src/experience/HunterWorld.tsx');
+const illustrated=read('apps/mobile/src/experience/hunter-illustrated-frames.ts');
+assert.ok(hunter.includes('HUNTER_ILLUSTRATED_FRAMES'));
+assert.ok(hunter.includes("Image source={imageSource}"));
+assert.ok(hunter.includes("quality!=='battery'"));
+assert.ok(hunter.includes("!reduceMotion"));
+assert.ok(!hunter.includes('GLView'));
+assert.equal((illustrated.match(/data:image\/jpeg;base64,/g)||[]).length,4);
 assert.ok(app.includes("width:'100%',alignSelf:'stretch'"));
 assert.ok(planner.includes("width:'100%',alignSelf:'stretch'"));
 assert.ok(oracle.includes("width:'100%',alignSelf:'stretch'"));
