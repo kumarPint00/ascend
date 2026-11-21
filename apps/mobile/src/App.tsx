@@ -378,13 +378,13 @@ export default function App() {
   const Home=()=> <>
     <View style={s.worldHero}>
       <HunterWorld key={'home:'+player.rank+':'+armor} active={tab==='Home'} reduceMotion={reduceMotion} quality={quality}
-        height={quality==='battery'?300:355} rank={player.rank} level={player.level} armor={armor}/>
+        height={quality==='battery'?300:340} rank={player.rank} level={player.level} armor={armor}/>
       <View pointerEvents="none" style={s.worldCaption}>
         <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
           <View style={s.liveDot}/>
           <T size={10} bold color="#A8E4FF" style={{letterSpacing:2.5}}>YOUR REALM · REFORGED</T>
         </View>
-        <T size={40} bold color="#FFFFFF" style={{letterSpacing:-2,marginTop:5}}>LEVEL {player.level}</T>
+        <T size={29} bold color="#FFFFFF" style={{letterSpacing:-1.2,marginTop:5}}>LEVEL {player.level}</T>
         <T size={12} bold color={C.gold} style={{letterSpacing:1.5}}>
           {player.rank}-RANK · THE ARCHITECT
         </T>
@@ -420,7 +420,7 @@ export default function App() {
         <T bold color={C.frost} size={11}>ORACLE</T>
       </Pressable>
     </View>
-    <View style={{marginBottom:14}}>
+    <View style={{marginBottom:16}}>
       <Action secondary onPress={()=>setTab('RealmMap')}>EXPLORE SANCTUARY GATES</Action>
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel="Open Gemini Nano Quest Architect"
@@ -1121,16 +1121,16 @@ const s=StyleSheet.create({
   root:{flex:1,backgroundColor:C.bg},
   brand:{width:42,height:42,borderRadius:14,borderWidth:1,borderColor:'#587BAC',
     alignItems:'center',justifyContent:'center'},
-  worldHero:{marginBottom:5,position:'relative'},
+  worldHero:{marginBottom:14},
   quickBar:{flexDirection:'row',gap:8,marginBottom:15},
   quickAction:{flex:1,minHeight:69,borderRadius:16,borderWidth:1,
     borderColor:'#4B6D9B',backgroundColor:'#132844',alignItems:'center',
     justifyContent:'center',gap:7},
-  worldCaption:{position:'absolute',top:54,left:21,right:20},
-  worldFooter:{position:'absolute',bottom:44,left:20,right:20,flexDirection:'row',
-    alignItems:'center',justifyContent:'space-between',
-    padding:13,backgroundColor:'#071222CF',borderRadius:16,
-    borderWidth:1,borderColor:'#29476A'},
+  worldCaption:{backgroundColor:'#101C34',borderRadius:17,borderWidth:1,
+    borderColor:'#355B86',paddingHorizontal:17,paddingVertical:15,marginBottom:10},
+  worldFooter:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',
+    padding:15,backgroundColor:'#0D1D34',borderRadius:17,
+    borderWidth:1,borderColor:'#355B86'},
   worldButton:{width:45,height:45,borderRadius:15,
     borderWidth:1,borderColor:'#70BCDE',backgroundColor:'#18466B',
     alignItems:'center',justifyContent:'center'},
