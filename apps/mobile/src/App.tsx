@@ -458,9 +458,11 @@ export default function App() {
       <T color={C.green} size={17} bold>Daily routine clear ✦</T>
       <T color={C.sub} size={12} style={{marginTop:7}}>No daily missions are due. Weekly and monthly quests remain separate.</T>
     </Panel>:dailyDue.slice(0,4).map(q=><QuestCard key={q.id} quest={q}/>)}
-    {dailyDue.length>4&&<Action secondary onPress={()=>{setQuestFilter('Daily');setTab('Quests');}}>
-      VIEW ALL {dailyDue.length} DAILY MISSIONS
-    </Action>}
+    {dailyDue.length>4&&<View style={{marginTop:5,marginBottom:14}}>
+      <Action secondary onPress={()=>{setQuestFilter('Daily');setTab('Quests');}}>
+        VIEW ALL {dailyDue.length} DAILY MISSIONS
+      </Action>
+    </View>}
     {otherDue.length>0&&<>
       <Section title="Other Missions Due Today"
         right={<Pressable accessibilityRole="button" onPress={()=>{setQuestFilter('Today');setTab('Quests');}}>
@@ -471,7 +473,7 @@ export default function App() {
       </T>
       {otherDue.slice(0,3).map(q=><QuestCard key={q.id} quest={q}/>)}
     </>}
-    <View style={{marginBottom:12}}> 
+    <View style={{marginTop:14,marginBottom:14}}>
       <Action onPress={()=>openQuest()} secondary>＋ FORGE A NEW QUEST</Action>
     </View>
     <Section title="Epic Questlines"
@@ -1122,8 +1124,8 @@ const s=StyleSheet.create({
   brand:{width:42,height:42,borderRadius:14,borderWidth:1,borderColor:'#587BAC',
     alignItems:'center',justifyContent:'center'},
   worldHero:{marginBottom:14},
-  quickBar:{flexDirection:'row',gap:8,marginBottom:15},
-  quickAction:{flex:1,minHeight:69,borderRadius:16,borderWidth:1,
+  quickBar:{flexDirection:'row',gap:10,marginBottom:17},
+  quickAction:{flex:1,minWidth:0,minHeight:72,borderRadius:16,borderWidth:1,
     borderColor:'#4B6D9B',backgroundColor:'#132844',alignItems:'center',
     justifyContent:'center',gap:7},
   worldCaption:{backgroundColor:'#101C34',borderRadius:17,borderWidth:1,
@@ -1152,8 +1154,8 @@ const s=StyleSheet.create({
   searchRow:{flexDirection:'row',gap:10,alignItems:'center',backgroundColor:C.elevated,borderColor:C.border,borderWidth:1,borderRadius:13,paddingHorizontal:13,marginBottom:13,minHeight:48},
   searchInput:{flex:1,minWidth:0,color:C.ink,fontSize:16,minHeight:50,paddingVertical:10},
   between:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
-  statRow:{flexDirection:'row',gap:10,alignItems:'stretch'},
-  miniPanel:{flex:1,minWidth:0,minHeight:88,justifyContent:'space-between'},
+  statRow:{flexDirection:'row',gap:12,alignItems:'stretch',marginTop:3,marginBottom:8},
+  miniPanel:{flex:1,minWidth:0,minHeight:107,justifyContent:'space-between',gap:4},
   reward:{borderWidth:1,borderRadius:11,paddingHorizontal:9,paddingVertical:5,alignItems:'center',minWidth:48},
   finish:{backgroundColor:C.energy,borderRadius:9,paddingHorizontal:12,paddingVertical:9,minHeight:44,justifyContent:'center'},
   rankEmblem:{height:85,width:80,borderColor:'#927547',borderWidth:1,borderRadius:20,justifyContent:'center',alignItems:'center',backgroundColor:'#252B3E'},
