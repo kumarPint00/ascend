@@ -25,9 +25,12 @@ const MODELS:Record<CloudProvider,string>={
   groq:'openai/gpt-oss-20b',
   openrouter:'openrouter/free',
 };
-const LIMIT_REQUESTS_PER_DAY:Record<CloudProvider,number>={
+export const LIMIT_REQUESTS_PER_DAY:Record<CloudProvider,number>={
   gemini:20,groq:60,openrouter:35,
-}; // conservative user-configurable application safety budgets, NOT official quotas
+}; // conservative local application safety budgets, NOT official quotas
+export const LIMIT_TOKENS_PER_DAY:Record<CloudProvider,number>={
+  gemini:90000,groq:150000,openrouter:45000,
+}; // local safety estimate; provider's own quota may be lower
 export class ProviderError extends Error{
   constructor(message:string,readonly provider:ProviderId,
     readonly status:number,readonly retryAfterSeconds=0){super(message);}
@@ -94,7 +97,11 @@ async function canUse(provider:CloudProvider):Promise<boolean>{
   const row=await db.getFirstAsync<{requests:number;blocked_until:string|null}>(
     'SELECT requests,blocked_until FROM ai_provider_usage WHERE provider=? AND day=?',
     provider,dayKey());
+  const tokens=await db.getFirstAsync<{used:number}>(
+    'SELECT input_tokens+output_tokens AS used FROM ai_provider_usage WHERE provider=? AND day=?',
+    provider,dayKey());
   return (!row||row.requests<LIMIT_REQUESTS_PER_DAY[provider])&&
+    (!tokens||tokens.used<LIMIT_TOKENS_PER_DAY[provider])&&
     (!row?.blocked_until||Date.parse(row.blocked_until)<Date.now());
 }
 async function fetchModel(provider:CloudProvider,key:string,prompt:string,
@@ -124,8 +131,11 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
       body:JSON.stringify(body),signal:controller.signal,
     });
     if(!response.ok){
-      const retry=Number(response.headers.get('retry-after')??'0');
-      const delay=response.status===429?Math.min(3600,Math.max(60,retry)):0;
+      const retryHeader=response.headers.get('retry-after')??'';
+      const numeric=Number(retryHeader);
+      const retrySeconds=Number.isFinite(numeric)&&numeric>=0?numeric:
+        Math.max(0,(Date.parse(retryHeader)-Date.now())/1000)||60;
+      const delay=response.status===429?Math.min(3600,Math.max(60,retrySeconds)):0;
       const until=delay?new Date(Date.now()+delay*1000).toISOString():null;
       await track(provider,prompt,'',response.status===429,until);
       throw new ProviderError(response.status===429?'Free quota or rate limit reached':
