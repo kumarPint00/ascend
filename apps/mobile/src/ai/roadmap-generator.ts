@@ -2,24 +2,26 @@ import {
   parseRoadmapBlueprint,parseRoadmapWeek,assembleRoadmap,roadmapWeekCount,
   type RoadmapDuration,type RoadmapPlan,roadmapDaysForWeek
 } from '@ascend/game-engine';
-import {groqGenerate} from './groq';
+import {generateWithProviders,type ProviderChoice} from './provider-manager';
+import {loadRoadmapCheckpoint,storeRoadmapBlueprint,storeRoadmapWeek} from './roadmap-checkpoints';
 
 export type StartingLevel='beginner'|'intermediate'|'advanced';
 export interface RoadmapRequest {
   intent:string;startDate:string;duration:RoadmapDuration;dailyMinutes:number;
   startingLevel:StartingLevel;
 }
-export type RoadmapProgress={complete:number;total:number;message:string};
+export type RoadmapProgress={complete:number;total:number;message:string;
+  provider?:string;resumed?:boolean};
 const safe=(str:string,max:number)=>str.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,max);
 const fenced=(value:unknown)=>JSON.stringify(value);
 
-/** Intent-only Groq requests. No journals, health records, source messages,
- * API key or completion ledger enter any roadmap prompt.
- * The first response makes a curriculum, subsequent responses create exactly
- * seven verifiable daily deliverables (or fewer in the final week).
+/** Free-provider hybrid generation. Each validated stage is durably stored,
+ * never imported into the quest database until explicit user approval.
+ * No journal, medical records, API key or XP history is sent to cloud.
  */
-export async function generateGroqRoadmap(
-  request:RoadmapRequest,onProgress:(p:RoadmapProgress)=>void,signal?:AbortSignal
+export async function generateHybridRoadmap(
+  request:RoadmapRequest,onProgress:(p:RoadmapProgress)=>void,
+  signal?:AbortSignal,choice:ProviderChoice='auto'
 ):Promise<RoadmapPlan>{
   const intent=safe(request.intent,420);
   if(intent.length<4)throw Error('Describe a learning goal in at least four characters');
@@ -50,15 +52,28 @@ export async function generateGroqRoadmap(
     'Choose attribute from strength,intelligence,discipline,finance,relationships,recovery.',
     'Use meaningful chapters progressing from foundations to applied projects to assessment.',
   ].join('\n');
-  onProgress({complete:0,total:totalWeeks+1,message:'Designing '+request.duration+'-day curriculum'});
+  onProgress({complete:0,total:totalWeeks+1,message:'Loading saved generation checkpoints'});
   if(signal?.aborted)throw Error('Roadmap cancelled');
-  const raw=await groqGenerate(blueprintPrompt,signal,'roadmap');
-  const blueprint=parseRoadmapBlueprint(raw,request.duration);
-  onProgress({complete:1,total:totalWeeks+1,message:'Curriculum ready: generating daily achievements'});
-  const weeks=[];
+  const checkpoint=await loadRoadmapCheckpoint(request);
+  let blueprint=checkpoint.blueprint;
+  if(!blueprint){
+    const result=await generateWithProviders(blueprintPrompt,'roadmap',choice,signal,
+      output=>{parseRoadmapBlueprint(output,request.duration);});
+    blueprint=parseRoadmapBlueprint(result.output,request.duration);
+    await storeRoadmapBlueprint(request,blueprint);
+    onProgress({complete:1,total:totalWeeks+1,
+      message:'Curriculum ready via '+result.provider,provider:result.provider});
+  }else onProgress({complete:1,total:totalWeeks+1,
+    message:'Resuming saved curriculum',resumed:true});
+  const weeks=[...checkpoint.weeks];
   for(let week=1;week<=totalWeeks;week++){
     if(signal?.aborted)throw Error('Roadmap cancelled');
     const stage=blueprint.weeklyThemes[week-1];
+    if(weeks.some(saved=>saved.week===week)){
+      onProgress({complete:Math.min(totalWeeks+1,1+weeks.length),total:totalWeeks+1,
+        message:'Reusing validated week '+week,resumed:true});
+      continue;
+    }
     const startDay=(week-1)*7+1,days=roadmapDaysForWeek(request.duration,week);
     const prev=week>1?blueprint.weeklyThemes[week-2]:null;
     const next=week<totalWeeks?blueprint.weeklyThemes[week]:null;
@@ -76,17 +91,25 @@ export async function generateGroqRoadmap(
       'Avoid repeating identical lessons. No marketing, sales pitches, generic "learn more" tasks.'
     ].join('\n');
     try{
-      const response=await groqGenerate(prompt,signal,'roadmap');
-      weeks.push(parseRoadmapWeek(response,request.duration,week,request.dailyMinutes,stage));
+      const result=await generateWithProviders(prompt,'roadmap',choice,signal,output=>{
+        parseRoadmapWeek(output,request.duration,week,request.dailyMinutes,stage);
+      });
+      const validated=parseRoadmapWeek(result.output,request.duration,week,
+        request.dailyMinutes,stage);
+      await storeRoadmapWeek(request,blueprint,validated);
+      weeks.push(validated);
+      onProgress({complete:Math.min(totalWeeks+1,1+weeks.length),total:totalWeeks+1,
+        message:'Week '+week+' saved via '+result.provider,provider:result.provider});
     }catch(e){
       if(signal?.aborted)throw Error('Roadmap generation cancelled');
       const reason=e instanceof Error?e.message:'Unknown response';
-      throw Error('Week '+week+' of '+totalWeeks+' could not be generated: '+reason+
-        '. Nothing has been imported. Retry with a shorter duration.');
+      throw Error('Week '+week+' of '+totalWeeks+' interrupted: '+reason+
+        '. Verified earlier weeks are safely saved. Resume when a provider is available; nothing has been imported.');
     }
     onProgress({complete:week+1,total:totalWeeks+1,
       message:'Completed '+Math.min(request.duration,week*7)+'/'+request.duration+' daily achievements'});
   }
+  weeks.sort((a,b)=>a.week-b.week);
   return assembleRoadmap({title:blueprint.title,objective:blueprint.objective,
     attribute:blueprint.attribute,intent,startDate:request.startDate,durationDays:request.duration,
     dailyMinutes:request.dailyMinutes,monthlyAchievements:blueprint.monthlyAchievements},weeks);
