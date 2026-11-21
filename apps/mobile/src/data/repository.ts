@@ -41,7 +41,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 6) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 7) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -233,6 +233,31 @@ export async function initialize(): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS idx_context_audit_date ON context_audit(occurred_at);
         PRAGMA user_version = 6;
+      `);
+    });
+  }
+  if ((version?.user_version ?? 0) < 7) {
+    // Purely additive. AI usage and incomplete drafts never modify the XP ledger.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        CREATE TABLE IF NOT EXISTS ai_provider_usage (
+          provider TEXT NOT NULL CHECK(provider IN ('gemini','groq','openrouter')),
+          day TEXT NOT NULL,requests INTEGER NOT NULL DEFAULT 0,
+          input_tokens INTEGER NOT NULL DEFAULT 0,output_tokens INTEGER NOT NULL DEFAULT 0,
+          rate_limit_hits INTEGER NOT NULL DEFAULT 0,blocked_until TEXT,
+          PRIMARY KEY(provider,day)
+        );
+        CREATE TABLE IF NOT EXISTS ai_roadmap_sessions (
+          id TEXT PRIMARY KEY,request_json TEXT NOT NULL,
+          blueprint_json TEXT,updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS ai_roadmap_stages (
+          session_id TEXT NOT NULL REFERENCES ai_roadmap_sessions(id) ON DELETE CASCADE,
+          week INTEGER NOT NULL CHECK(week BETWEEN 1 AND 13),
+          payload_json TEXT NOT NULL,
+          PRIMARY KEY(session_id,week)
+        );
+        PRAGMA user_version = 7;
       `);
     });
   }
