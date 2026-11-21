@@ -14,8 +14,8 @@ import {generateHybridRoadmap,type StartingLevel,type RoadmapProgress} from '../
 import {configuredProviders,storeProviderKey,deleteProviderKey,readProviderUsage,
   type ProviderChoice,type CloudProvider,type ProviderKeyState,type ProviderUsage}
   from '../ai/provider-manager';
-import {parseChatGPTRoadmap,exportChatGPTRoadmap,loadRoadmapCheckpoint}
-  from '../ai/roadmap-checkpoints';
+import {parseChatGPTRoadmap,exportChatGPTRoadmap,loadRoadmapCheckpoint,
+  clearRoadmapCheckpoint} from '../ai/roadmap-checkpoints';
 
 /** Dedicated roadmap flow. Model text is untrusted until the pure engine
  * validates each dated achievement. The entire selection is reviewable and
@@ -73,6 +73,17 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
       {text:'Cancel',style:'cancel'},
       {text:'Remove',style:'destructive',onPress:()=>{void deleteProviderKey(which)
         .then(refreshProviders).catch(e=>Alert.alert('Could not remove key',String(e)));}},
+    ]);
+  };
+  const clearDraft=()=>{
+    Alert.alert('Erase saved roadmap stages?',
+      'Deletes only this incomplete draft. Your existing quests, goals and XP stay unchanged.',[
+      {text:'Cancel',style:'cancel'},
+      {text:'Erase draft',style:'destructive',onPress:()=>{
+        void clearRoadmapCheckpoint({intent,startDate,duration,dailyMinutes:minutes,
+          startingLevel:level}).then(()=>{setExistingStages(0);setPlan(null);
+            setMessage('Saved stages cleared.');}).catch(e=>Alert.alert('Could not clear draft',String(e)));
+      }},
     ]);
   };
   const manualImport=async()=>{
@@ -260,6 +271,12 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
                 {' '}{usage.find(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10))?.requests??0}
                 {' '}requests today
               </T>
+              {usage.some(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10))&&
+                <T color={C.dim} size={10}>
+                  {(()=>{const stat=usage.find(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10));
+                    return (stat?.inputTokens??0)+' input / '+(stat?.outputTokens??0)+
+                      ' output tokens · '+(stat?.rateLimitHits??0)+' limit hits';})()}
+                </T>}
             </View>
             <Pressable accessibilityRole="button" onPress={()=>{setEditingProvider(which);setKey('');}}
               style={ss.keyButton}><T size={11} color={C.energy} bold>
@@ -294,6 +311,8 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           <T color={C.dim} size={11}>
             ChatGPT Plus does not provide OpenAI API credits. Export a structured
             JSON file from ChatGPT and import it privately; review before saving.
+            Provider usage figures are from ASCEND only, not official account quotas.
+            Gemini free access depends on your Google project billing configuration.
           </T>
         </View>
         <T color={C.dim} size={11} style={{marginBottom:11}}>
@@ -305,6 +324,9 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           onPress={()=>void generate()}>
           {busy?'GENERATING ROADMAP…':existingStages>0?'RESUME SAVED ROADMAP':'GENERATE FULL ROADMAP'}
         </Action>
+        {existingStages>0&&<View style={{marginTop:10}}>
+          <Action secondary disabled={busy} onPress={clearDraft}>ERASE SAVED GENERATION DRAFT</Action>
+        </View>}
       </>}
       {busy&&<View style={ss.progress}>
         <ActivityIndicator color={C.energy}/>
