@@ -21,7 +21,7 @@ const fenced=(value:unknown)=>JSON.stringify(value);
  */
 export async function generateHybridRoadmap(
   request:RoadmapRequest,onProgress:(p:RoadmapProgress)=>void,
-  signal?:AbortSignal,choice:ProviderChoice='auto'
+  signal?:AbortSignal,choice:ProviderChoice='auto',paidApproved=false
 ):Promise<RoadmapPlan>{
   const intent=safe(request.intent,420);
   if(intent.length<4)throw Error('Describe a learning goal in at least four characters');
@@ -58,7 +58,7 @@ export async function generateHybridRoadmap(
   let blueprint=checkpoint.blueprint;
   if(!blueprint){
     const result=await generateWithProviders(blueprintPrompt,'roadmap',choice,signal,
-      output=>{parseRoadmapBlueprint(output,request.duration);});
+      output=>{parseRoadmapBlueprint(output,request.duration);},paidApproved);
     blueprint=parseRoadmapBlueprint(result.output,request.duration);
     await storeRoadmapBlueprint(request,blueprint);
     onProgress({complete:1,total:totalWeeks+1,
@@ -93,7 +93,7 @@ export async function generateHybridRoadmap(
     try{
       const result=await generateWithProviders(prompt,'roadmap',choice,signal,output=>{
         parseRoadmapWeek(output,request.duration,week,request.dailyMinutes,stage);
-      });
+      },paidApproved);
       const validated=parseRoadmapWeek(result.output,request.duration,week,
         request.dailyMinutes,stage);
       await storeRoadmapWeek(request,blueprint,validated);
