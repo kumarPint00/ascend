@@ -14,6 +14,8 @@ const v5=code.match(/\/\/ Additive v4→v5:[\s\S]*?await tx\.execAsync\(`([\s\S]
 assert.ok(v5,'Cannot find v5 adaptive and Lite migration');
 const v6=code.match(/\/\/ Additive v5→v6:[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
 assert.ok(v6,'Cannot find SQLite v6 private context migration');
+const v7=code.match(/\/\/ Purely additive\. AI usage[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
+assert.ok(v7,'Cannot find SQLite v7 provider usage and roadmap checkpoint migration');
 const db=new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
 db.exec(v1[1]);
@@ -105,7 +107,26 @@ assert.throws(()=>db.prepare(`INSERT INTO context_items
 assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
 db.prepare('DELETE FROM connected_sources WHERE source=?').run('chatgpt');
 assert.equal(db.prepare('SELECT COUNT(*) n FROM context_items').get().n,0);
-console.log('ASCEND v1→v6: XP preserved, encrypted context schema, FK/deletion and dedupe verified');
+db.exec('BEGIN EXCLUSIVE');db.exec(v7[1]);db.exec('COMMIT');
+assert.equal(db.prepare('PRAGMA user_version').get().user_version,7);
+for(const name of ['ai_provider_usage','ai_roadmap_sessions','ai_roadmap_stages'])
+  assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name),name);
+db.prepare('INSERT INTO ai_roadmap_sessions(id,request_json,updated_at) VALUES(?,?,?)')
+  .run('draft-test','{"intent":"Example"}','2026-11-21T00:00:00Z');
+db.prepare('INSERT INTO ai_roadmap_stages(session_id,week,payload_json) VALUES(?,?,?)')
+  .run('draft-test',1,'{"week":1,"days":[]}');
+assert.throws(()=>db.prepare('INSERT INTO ai_roadmap_stages(session_id,week,payload_json) VALUES(?,?,?)')
+  .run('draft-test',1,'duplicate'));
+assert.throws(()=>db.prepare('INSERT INTO ai_roadmap_stages(session_id,week,payload_json) VALUES(?,?,?)')
+  .run('missing',2,'orphan'));
+db.prepare('INSERT INTO ai_provider_usage(provider,day,requests) VALUES(?,?,?)')
+  .run('groq','2026-11-21',1);
+assert.throws(()=>db.prepare('INSERT INTO ai_provider_usage(provider,day,requests) VALUES(?,?,?)')
+  .run('nonexistent','2026-11-21',1));
+db.prepare('DELETE FROM ai_roadmap_sessions WHERE id=?').run('draft-test');
+assert.equal(db.prepare('SELECT COUNT(*) n FROM ai_roadmap_stages').get().n,0);
+assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
+console.log('ASCEND v1→v7: XP intact, secure context, provider usage and resumable stage FK verified');
 
 
 // Staged partial import SQL contract: same migrated SQLite schema as the app.
