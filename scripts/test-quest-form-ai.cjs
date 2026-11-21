@@ -22,7 +22,7 @@ assert.ok(oracle.includes("o.repeatRule==='monthly'?'monthly'"));
 assert.ok(app.includes("setQuestFilter('All')")); // JSON and AI import
 assert.ok(app.includes('Keyboard.addListener'));
 assert.ok(app.includes('!keyboardVisible&&<View style={s.nav}'));
-assert.ok(app.includes("behavior={Platform.OS==='ios'?'padding':'height'}"));
+assert.ok(app.includes("behavior={Platform.OS==='ios'?'padding':undefined}")); // Android resize handles IME; no double shrink;
 assert.ok(planner.includes("behavior={Platform.OS==='ios'?'padding':'height'}"));
 assert.ok(oracle.includes("behavior={Platform.OS==='ios'?'padding':'height'}"));
 assert.ok(connect.includes("behavior={Platform.OS==='ios'?'padding':'height'}"));
