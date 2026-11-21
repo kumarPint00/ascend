@@ -16,6 +16,8 @@ const v6=code.match(/\/\/ Additive v5→v6:[\s\S]*?await tx\.execAsync\(`([\s\S]
 assert.ok(v6,'Cannot find SQLite v6 private context migration');
 const v7=code.match(/\/\/ Purely additive\. AI usage[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
 assert.ok(v7,'Cannot find SQLite v7 provider usage and roadmap checkpoint migration');
+const v8=code.match(/\/\/ Extend only usage metadata[\s\S]*?await tx\.execAsync\(`([\s\S]*?)`\);/);
+assert.ok(v8,'Cannot find SQLite v8 paid provider usage migration');
 const db=new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
 db.exec(v1[1]);
@@ -126,7 +128,15 @@ assert.throws(()=>db.prepare('INSERT INTO ai_provider_usage(provider,day,request
 db.prepare('DELETE FROM ai_roadmap_sessions WHERE id=?').run('draft-test');
 assert.equal(db.prepare('SELECT COUNT(*) n FROM ai_roadmap_stages').get().n,0);
 assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
-console.log('ASCEND v1→v7: XP intact, secure context, provider usage and resumable stage FK verified');
+db.exec('BEGIN EXCLUSIVE');db.exec(v8[1]);db.exec('COMMIT');
+assert.equal(db.prepare('PRAGMA user_version').get().user_version,8);
+assert.equal(db.prepare("SELECT requests FROM ai_provider_usage WHERE provider='groq'").get().requests,1);
+db.prepare('INSERT INTO ai_provider_usage(provider,day,requests) VALUES(?,?,?)')
+  .run('openai','2026-11-21',1);
+db.prepare('INSERT INTO ai_provider_usage(provider,day,requests) VALUES(?,?,?)')
+  .run('claude','2026-11-21',1);
+assert.equal(db.prepare('SELECT amount FROM xp_events WHERE id=?').get('e1').amount,10);
+console.log('ASCEND v1→v8: XP intact, legacy quotas preserved, optional paid usage and resume tables verified');
 
 
 // Staged partial import SQL contract: same migrated SQLite schema as the app.
