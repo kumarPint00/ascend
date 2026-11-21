@@ -2,9 +2,9 @@ import React,{useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,KeyboardAvoidingView,Platform,Pressable,ScrollView,
   StyleSheet,TextInput,View} from 'react-native';
 import {CalendarClock,CheckCircle2,ChevronDown,ChevronLeft,ChevronUp,
-  Circle,FileCheck2,KeyRound,LockKeyhole,Sparkles} from 'lucide-react-native';
+  Circle,LockKeyhole,Sparkles} from 'lucide-react-native';
 import {compileRoadmapPack,localDayKey,roadmapDate,type RoadmapPlan,
-  type RoadmapDuration,type RoadmapDay} from '@ascend/game-engine';
+  type RoadmapDuration} from '@ascend/game-engine';
 import {Action,Chip,T} from '../components/Elements';
 import {C} from '../theme';
 import {generateGroqRoadmap,type StartingLevel,type RoadmapProgress} from '../ai/roadmap-generator';
@@ -169,7 +169,7 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           </View>
         </View>
         {!hasKey&&<Action secondary onPress={()=>setKeyOpen(true)}>
-          <KeyRound size={15} color={C.energy}/> CONFIGURE GROQ KEY
+          CONFIGURE GROQ KEY
         </Action>}
         {keyOpen&&<View>
           <TextInput value={key} onChangeText={setKey} style={ss.date} secureTextEntry
@@ -315,7 +315,7 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           Existing progress is never overwritten.
         </T>
         <Action disabled={busy||chosen===0} onPress={()=>void importPlan()}>
-          <FileCheck2 size={15} color={C.bg}/> IMPORT {chosen} APPROVED ACHIEVEMENTS
+          IMPORT {chosen} APPROVED ACHIEVEMENTS
         </Action>
         <View style={{marginTop:10}}>
           <Action secondary disabled={busy} onPress={abandonPlan}>DISCARD AND REGENERATE</Action>
