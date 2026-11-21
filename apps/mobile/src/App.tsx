@@ -439,12 +439,12 @@ export default function App() {
       </LinearGradient>
     </Pressable>
     <View style={s.statRow}>
-      <Panel style={[s.miniPanel,{marginRight:5}]}>
+      <Panel style={[s.miniPanel]}>
         <T color={C.sub} size={10} bold style={{letterSpacing:1.4}}>QUESTS CLEARED</T>
         <T bold size={26} color={C.green}>{completedToday.length}</T>
         <T color={C.dim} size={10}>today</T>
       </Panel>
-      <Panel style={[s.miniPanel,{marginLeft:5}]}>
+      <Panel style={[s.miniPanel]}>
         <T color={C.sub} size={10} bold style={{letterSpacing:1.4}}>ACTIVE MISSIONS</T>
         <T bold size={26} color={C.energy}>{dueToday.length}</T>
         <T color={C.dim} size={10}>ready for you</T>
@@ -612,7 +612,7 @@ export default function App() {
   const Hunter=()=> <>
     <HunterWorld key={'hunter:'+player.rank+':'+armor} active={tab==='Hunter'} reduceMotion={reduceMotion} quality={quality}
       height={390} rank={player.rank} level={player.level} armor={armor} inspect/>
-    <Panel style={{alignItems:'center',paddingVertical:25}}>
+    <Panel style={{alignItems:'center',paddingVertical:21}}>
       <T color={C.gold} size={10} bold style={{letterSpacing:2.5}}>YOUR HUNTER IDENTITY</T>
       <T size={28} bold style={{marginTop:7}}>Rank {player.rank} · Level {player.level}</T>
       <T size={12} color={C.sub} style={{marginTop:7}}>{player.totalXP.toLocaleString()} lifetime XP</T>
@@ -620,7 +620,7 @@ export default function App() {
         <Meter value={player.progress} tint={C.energy} height={10}/>
       </View>
       <T color={C.dim} size={11} style={{marginTop:12,textAlign:'center'}}>
-        The animated core evolves with your progress. Character armor and customizable avatars are later additions.
+        Your original illustrated Hunter animates when motion is enabled. Aura styles are cosmetic; XP determines rank.
       </T>
     </Panel>
     <Panel>
@@ -676,8 +676,8 @@ export default function App() {
       </T>
     </Panel>
       <View style={s.statRow}>
-        <Panel style={[s.miniPanel,{marginRight:5}]}><T size={11} color={C.sub}>LIFETIME XP</T><T bold size={25}>{player.totalXP}</T></Panel>
-        <Panel style={[s.miniPanel,{marginLeft:5}]}><T size={11} color={C.sub}>TOTAL COMPLETIONS</T><T bold size={25}>{data.completions.length}</T></Panel>
+        <Panel style={[s.miniPanel]}><T size={11} color={C.sub}>LIFETIME XP</T><T bold size={25}>{player.totalXP}</T></Panel>
+        <Panel style={[s.miniPanel]}><T size={11} color={C.sub}>TOTAL COMPLETIONS</T><T bold size={25}>{data.completions.length}</T></Panel>
       </View>
       <Panel>
         <T bold size={16}>Last 7 days</T>
@@ -822,13 +822,15 @@ export default function App() {
     <StatusBar barStyle="light-content"/>
     <CelestialBackdrop reduceMotion={reduceMotion}/>
     <View style={s.top}>
-      <View style={{flexDirection:'row',alignItems:'center',gap:11}}>
+      <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:10}}>
         <LinearGradient colors={['#344D7C','#172340']} style={s.brand}>
           <Sparkles size={20} color={C.energy}/>
         </LinearGradient>
-        <View>
-          <T color={C.frost} size={17} bold style={{letterSpacing:3.2}}>ASCEND</T>
-          <T color={C.sub} size={10} style={{letterSpacing:.6}}>CHRONICLES · {fmt(clock)}</T>
+        <View style={{flex:1,minWidth:0}}>
+          <T color={C.frost} size={17} bold numberOfLines={1}
+            style={{letterSpacing:2.3}}>ASCEND</T>
+          <T color={C.sub} size={10} numberOfLines={1}
+            style={{letterSpacing:.2}}>CHRONICLES · {fmt(clock)}</T>
         </View>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={updates.available?'Update available, open settings':'Open hunter profile'}
@@ -858,7 +860,8 @@ export default function App() {
         style={[s.navTab,active&&{backgroundColor:'#25466B',borderColor:'#89D7F0'}]}
         onPress={()=>setTab(t.tab)}>
         <NavIcon size={20} color={active?C.energy:C.sub} strokeWidth={active?2.6:1.7}/>
-        <T size={9} bold={active} color={active?C.frost:C.sub}>{t.label}</T>
+        <T size={9} bold={active} color={active?C.frost:C.sub}
+          numberOfLines={1} style={{textAlign:'center'}}>{t.label}</T>
       </Pressable>;})}
     </View>}
     <NanoCoach visible={nanoVisible} initialIntent={nanoContextIntent}
@@ -903,7 +906,7 @@ export default function App() {
       }}/>
 
     <Modal visible={questModal} animationType="slide" transparent onRequestClose={()=>setQuestModal(false)}>
-      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
             contentContainerStyle={{padding:20,paddingBottom:40}}>
           <View style={s.between}><T size={20} bold>{editingQuest?'Edit Quest':'New Quest'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setQuestModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
@@ -943,7 +946,7 @@ export default function App() {
       </KeyboardAvoidingView>
     </Modal>
     <Modal visible={goalModal} animationType="slide" transparent onRequestClose={()=>setGoalModal(false)}>
-      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
             contentContainerStyle={{padding:20,paddingBottom:40}}>
           <View style={s.between}><T size={20} bold>{editingGoal?'Edit Goal':'New Questline'}</T><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" hitSlop={8} onPress={()=>setGoalModal(false)}><T color={C.sub}>Close ✕</T></Pressable></View>
@@ -965,7 +968,7 @@ export default function App() {
     </Modal>
     <Modal visible={questPackText!==null} animationType="slide" transparent
       onRequestClose={()=>{setQuestPackText(null);setImportPreview(null);}}>
-      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView style={[s.modalSheet,{maxHeight:'88%'}]}
           keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
             contentContainerStyle={{padding:20,paddingBottom:40}}>
@@ -1080,7 +1083,7 @@ export default function App() {
       </KeyboardAvoidingView>
     </Modal>
     <Modal visible={restoreText!==null} animationType="slide" transparent onRequestClose={()=>setRestoreText(null)}>
-      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':'height'}>
+      <KeyboardAvoidingView style={s.modalBackdrop} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
           style={[s.modalSheet,{maxHeight:'83%'}]}
           contentContainerStyle={{padding:20,paddingBottom:45}}>
@@ -1141,14 +1144,16 @@ const s=StyleSheet.create({
     paddingHorizontal:18,paddingBottom:12,
     flexDirection:'row',alignItems:'center',justifyContent:'space-between',
     borderBottomWidth:1,borderColor:'#384567',backgroundColor:'#080F20EC'},
-  levelPill:{paddingHorizontal:12,paddingVertical:10,borderColor:'#907443',borderWidth:1,borderRadius:14,backgroundColor:'#292738',flexDirection:'row',alignItems:'center',gap:6,minHeight:44},
-  content:{padding:16,paddingBottom:42},
+  levelPill:{flexShrink:0,marginLeft:8,paddingHorizontal:11,paddingVertical:10,
+    borderColor:'#907443',borderWidth:1,borderRadius:14,backgroundColor:'#292738',
+    flexDirection:'row',alignItems:'center',gap:6,minHeight:44},
+  content:{paddingHorizontal:16,paddingTop:15,paddingBottom:44},
   hero:{borderRadius:25,borderWidth:1,borderColor:'#5D7EB7',padding:20,marginBottom:15,overflow:'hidden'},
   searchRow:{flexDirection:'row',gap:10,alignItems:'center',backgroundColor:C.elevated,borderColor:C.border,borderWidth:1,borderRadius:13,paddingHorizontal:13,marginBottom:13,minHeight:48},
   searchInput:{flex:1,minWidth:0,color:C.ink,fontSize:16,minHeight:50,paddingVertical:10},
   between:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
-  statRow:{flexDirection:'row',justifyContent:'space-between'},
-  miniPanel:{flex:1,minHeight:85,justifyContent:'space-between'},
+  statRow:{flexDirection:'row',gap:10,alignItems:'stretch'},
+  miniPanel:{flex:1,minWidth:0,minHeight:88,justifyContent:'space-between'},
   reward:{borderWidth:1,borderRadius:11,paddingHorizontal:9,paddingVertical:5,alignItems:'center',minWidth:48},
   finish:{backgroundColor:C.energy,borderRadius:9,paddingHorizontal:12,paddingVertical:9,minHeight:44,justifyContent:'center'},
   rankEmblem:{height:85,width:80,borderColor:'#927547',borderWidth:1,borderRadius:20,justifyContent:'center',alignItems:'center',backgroundColor:'#252B3E'},
@@ -1165,7 +1170,7 @@ const s=StyleSheet.create({
     borderWidth:1,borderColor:'transparent',borderRadius:17,minHeight:59},
   modalBackdrop:{flex:1,backgroundColor:'#030914D9',justifyContent:'flex-end'},
   modalSheet:{width:'100%',backgroundColor:C.surface,borderTopLeftRadius:24,
-    borderTopRightRadius:24,maxHeight:'88%'},
+    borderTopRightRadius:24,maxHeight:'86%'},
   input:{width:'100%',alignSelf:'stretch',minWidth:0,borderWidth:1,
     borderColor:'#537197',borderRadius:12,backgroundColor:'#102139',color:C.ink,
     paddingVertical:11,paddingHorizontal:14,fontSize:16,minHeight:52},
