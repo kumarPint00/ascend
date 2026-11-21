@@ -24,6 +24,18 @@ for attempt in 1 2 3; do
   if [ "$attempt" -eq 3 ]; then
     adb exec-out screencap -p > test-output/ascend-default-font.png
     test -s test-output/ascend-default-font.png
+    # Capture the illustrated Hunter as well as Home to catch art framing
+    # regressions. Pixel 6 emulator bottom tabs: Hunter is tab 4 of 5.
+    dimensions="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)"
+    screen_width="${dimensions%x*}"
+    screen_height="${dimensions#*x}"
+    if [[ "$screen_width" =~ ^[0-9]+$ && "$screen_height" =~ ^[0-9]+$ ]]; then
+      adb shell input tap "$((screen_width*75/100))" "$((screen_height*95/100))"
+      sleep 3
+      adb exec-out screencap -p > test-output/ascend-hunter-portrait.png
+      test -s test-output/ascend-hunter-portrait.png
+      adb shell input tap "$((screen_width*10/100))" "$((screen_height*95/100))"
+    fi
   fi
 done
 # Exercise a non-default font scale to catch immediate native/JS startup
