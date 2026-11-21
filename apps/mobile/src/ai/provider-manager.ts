@@ -85,6 +85,7 @@ async function readKey(provider:CloudProvider):Promise<string|null>{
     const legacy=await SecureStore.getItemAsync('ascend.groq.personal-key.v1');
     if(legacy){
       await SecureStore.setItemAsync(PREFIX+provider,validateProviderKey(provider,legacy));
+      await SecureStore.deleteItemAsync('ascend.groq.personal-key.v1');
       return legacy;
     }
   }
@@ -97,6 +98,9 @@ export async function configuredProviders():Promise<ProviderKeyState>{
 export async function storeProviderKey(provider:CloudProvider,value:string):Promise<void>{
   if(!KNOWN.includes(provider))throw Error('Unknown provider');
   await SecureStore.setItemAsync(PREFIX+provider,validateProviderKey(provider,value));
+  // Once the new key is safely persisted, scrub any stale Groq credential
+  // so it cannot be resurrected later by the legacy migration path.
+  if(provider==='groq')await SecureStore.deleteItemAsync('ascend.groq.personal-key.v1');
 }
 export async function deleteProviderKey(provider:CloudProvider):Promise<void>{
   await SecureStore.deleteItemAsync(PREFIX+provider);
