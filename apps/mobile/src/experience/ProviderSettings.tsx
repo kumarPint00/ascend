@@ -11,7 +11,7 @@ import {
   type ProviderKeyState,type ProviderUsage,
 } from '../ai/provider-manager';
 
-const PROVIDERS:CloudProvider[]=['gemini','groq','openrouter'];
+const PROVIDERS:CloudProvider[]=['gemini','groq','openrouter','openai','claude'];
 export interface ProviderSettingsProps {
   disabled?:boolean;onChange?:(choice:ProviderChoice,keys:ProviderKeyState)=>void;
 }
@@ -21,11 +21,11 @@ export interface ProviderSettingsProps {
 export function ProviderSettings({disabled=false,onChange}:ProviderSettingsProps){
   const notify=useRef(onChange);
   notify.current=onChange;
-  const [keys,setKeys]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false});
+  const [keys,setKeys]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false,openai:false,claude:false});
   const [choice,setChoice]=useState<ProviderChoice>('auto');
   const [models,setModels]=useState<Record<CloudProvider,string>>({
     gemini:'gemini-2.5-flash',groq:'openai/gpt-oss-20b',
-    openrouter:'openrouter/free',
+    openrouter:'openrouter/free',openai:'gpt-4.1-mini',claude:'claude-haiku-4-5',
   });
   const [usage,setUsage]=useState<ProviderUsage[]>([]);
   const [editing,setEditing]=useState<CloudProvider|null>(null);
@@ -33,13 +33,14 @@ export function ProviderSettings({disabled=false,onChange}:ProviderSettingsProps
   const [saving,setSaving]=useState(false);
   const [notice,setNotice]=useState('');
   const refresh=useCallback(async()=>{
-    const [keyState,preferred,gemini,groq,openrouter,stats]=await Promise.all([
+    const [keyState,preferred,gemini,groq,openrouter,openai,claude,stats]=await Promise.all([
       configuredProviders(),selectedProvider(),
       selectedModel('gemini'),selectedModel('groq'),selectedModel('openrouter'),
+      selectedModel('openai'),selectedModel('claude'),
       readProviderUsage(),
     ]);
     setKeys(keyState);setChoice(preferred);
-    setModels({gemini,groq,openrouter});setUsage(stats);
+    setModels({gemini,groq,openrouter,openai,claude});setUsage(stats);
     notify.current?.(preferred,keyState);
   },[]);
   useEffect(()=>{void refresh().catch(()=>setNotice('Could not read saved AI settings'));},[refresh]);
@@ -102,7 +103,7 @@ export function ProviderSettings({disabled=false,onChange}:ProviderSettingsProps
     </View>
     <T color={C.dim} size={11} style={{marginTop:2,marginBottom:11}}>
       AUTO tries configured providers in order. A selected provider is tried first,
-      then other configured providers if it fails. Cloud generation still requires consent.
+      then only other FREE providers if it fails. Paid OpenAI and Claude are never automatic fallbacks.
     </T>
     {PROVIDERS.map(provider=>{
       const day=new Date().toISOString().slice(0,10);
@@ -111,6 +112,8 @@ export function ProviderSettings({disabled=false,onChange}:ProviderSettingsProps
         <View style={styles.nameRow}>
           <View style={{flex:1,minWidth:0}}>
             <T color={C.frost} size={13} bold>{provider.toUpperCase()}</T>
+            {(provider==='openai'||provider==='claude')&&
+              <T color={C.gold} size={10} bold>PAID API · EXPLICIT PER-REQUEST APPROVAL</T>}
             <View style={styles.status}>
               {keys[provider]&&<CheckCircle2 color={C.green} size={13}/>}
               <T color={keys[provider]?C.green:C.sub} size={11}>
@@ -167,8 +170,9 @@ export function ProviderSettings({disabled=false,onChange}:ProviderSettingsProps
       </T>
     </View>
     <T color={C.dim} size={10} style={{marginTop:9}}>
-      Free-tier access and models depend on your provider account.
-      A saved key does not guarantee free billing. No paid model IDs are offered.
+      Free-tier access depends on your account. OpenAI and Claude are PAID API
+      providers: they are excluded from AUTO and require separate confirmation
+      for each roadmap generation. A saved key never authorizes paid calls.
     </T>
     {!!notice&&<T color={C.gold} size={11} style={{marginTop:8}}>{notice}</T>}
   </View>;
