@@ -3,6 +3,7 @@ import {
   type RoadmapDuration,type RoadmapPlan,roadmapDaysForWeek
 } from '@ascend/game-engine';
 import {generateWithProviders,type ProviderChoice} from './provider-manager';
+import {nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {loadRoadmapCheckpoint,storeRoadmapBlueprint,storeRoadmapWeek} from './roadmap-checkpoints';
 
 export type StartingLevel='beginner'|'intermediate'|'advanced';
@@ -21,7 +22,7 @@ const fenced=(value:unknown)=>JSON.stringify(value);
  */
 export async function generateHybridRoadmap(
   request:RoadmapRequest,onProgress:(p:RoadmapProgress)=>void,
-  signal?:AbortSignal,choice:ProviderChoice='auto',paidApproved=false
+  signal?:AbortSignal,choice:ProviderChoice|'nano'='auto',paidApproved=false
 ):Promise<RoadmapPlan>{
   const intent=safe(request.intent,420);
   if(intent.length<4)throw Error('Describe a learning goal in at least four characters');
@@ -30,6 +31,35 @@ export async function generateHybridRoadmap(
     throw Error('Choose a valid roadmap duration and daily effort');
   const totalWeeks=roadmapWeekCount(request.duration);
   const totalMonths=Math.ceil(request.duration/30);
+  if(choice==='nano'&&await nanoStatus()!=='available')
+    throw Error('Gemini Nano is not ready on this device. Prepare the model or select a cloud provider.');
+  const nanoBlueprint=[
+    'Return ONLY a compact valid JSON roadmap blueprint.',
+    'JSON keys: title string, objective string, attribute one of strength,intelligence,discipline,finance,relationships,recovery,',
+    'weeklyThemes array of '+totalWeeks+' objects with week sequential 1..'+totalWeeks+', theme and achievement strings,',
+    'monthlyAchievements array of '+totalMonths+' objects with month sequential 1..'+totalMonths+', title and proof strings.',
+    'A goal must have verifiable evidence per week/month. Never use generic motivational goals.',
+    'User objective: '+fenced(intent)+'. Level '+request.startingLevel+'. Minutes/day '+request.dailyMinutes+'.',
+    'Build specific dependent chapters. No markdown, JSON only.'
+  ].join(' ');
+  const ask=async(prompt:string,nanoPrompt:string,accept:(raw:string)=>void)=>{
+    if(signal?.aborted)throw Error('Roadmap generation cancelled');
+    if(choice!=='nano')return generateWithProviders(prompt,'roadmap',choice,signal,accept,paidApproved);
+    // Gemini Nano has short-response limits: split into focused stages.
+    // Never fall back to a cloud service without a separate user choice.
+    let last='Gemini Nano could not produce a valid roadmap stage';
+    for(let attempt=0;attempt<2;attempt++){
+      if(signal?.aborted)throw Error('Roadmap generation cancelled');
+      try{
+        const output=await nanoGenerate(nanoPrompt);
+        accept(output);
+        return {output,provider:'nano' as const,attempted:[]};
+      }catch(error){
+        last=error instanceof Error?error.message:last;
+      }
+    }
+    throw Error(last+'. Validated earlier stages are saved. Try again or explicitly select cloud.');
+  };
   const intro=[
     'ASCEND generates an EVIDENCE-BASED personal learning roadmap, not a vague habit.',
     'The learner starts at '+request.startingLevel+' level, has '+request.dailyMinutes+
@@ -63,8 +93,8 @@ export async function generateHybridRoadmap(
   const checkpoint=await loadRoadmapCheckpoint(request);
   let blueprint=checkpoint.blueprint;
   if(!blueprint){
-    const result=await generateWithProviders(blueprintPrompt,'roadmap',choice,signal,
-      output=>{parseRoadmapBlueprint(output,request.duration);},paidApproved);
+    const result=await ask(blueprintPrompt,nanoBlueprint,
+      output=>{parseRoadmapBlueprint(output,request.duration);});
     blueprint=parseRoadmapBlueprint(result.output,request.duration);
     await storeRoadmapBlueprint(request,blueprint);
     onProgress({complete:1,total:totalWeeks+1,
@@ -104,9 +134,19 @@ export async function generateHybridRoadmap(
       'Avoid repeating identical lessons. No marketing, sales pitches, generic "learn more" tasks.'
     ].join('\n');
     try{
-      const result=await generateWithProviders(prompt,'roadmap',choice,signal,output=>{
+      const nanoWeek=[
+        'Return ONLY valid JSON with keys week='+week+' and days array of '+days+' objects.',
+        'Each day object: day integer, title 4-85 chars, deliverable 4-260 chars, minutes 5..'+request.dailyMinutes+'.',
+        'Day numbers MUST be sequential '+startDay+' through '+(startDay+days-1)+'.',
+        'Specific user goal: '+fenced(intent)+'. Experience '+request.startingLevel+'.',
+        'Week theme '+fenced(stage.theme)+'; weekly proof '+fenced(stage.achievement)+'.',
+        'Prior proof '+fenced(prev?.achievement??'none')+'.',
+        'Make each task concrete, distinct and feasible. Last day checks weekly proof.',
+        'No inspirational filler. No markdown. JSON only.'
+      ].join(' ');
+      const result=await ask(prompt,nanoWeek,output=>{
         parseRoadmapWeek(output,request.duration,week,request.dailyMinutes,stage);
-      },paidApproved);
+      });
       const validated=parseRoadmapWeek(result.output,request.duration,week,
         request.dailyMinutes,stage);
       await storeRoadmapWeek(request,blueprint,validated);
