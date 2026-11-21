@@ -179,3 +179,7 @@ export type {AdaptiveSettings,AdaptiveDecisionRecord,AdaptiveEvidence,AdaptivePr
 
 export {CONTEXT_SOURCES,MAX_CONTEXT_CHARS,contextKey,validateContextCandidate,fromSharedText,parseChatGPTConversations,extractChatGPTSelection,inferContextDraft,deduplicateCandidates} from './context';
 export type {ContextSource,ContextKind,ContextSensitivity,ContextCandidate,ChatGPTConversation,ContextDraft} from './context';
+
+export {roadmapWeekCount,roadmapMonthCount,roadmapDaysForWeek,roadmapDate,
+  parseRoadmapBlueprint,parseRoadmapWeek,assembleRoadmap,compileRoadmapPack,ROADMAP_DURATIONS} from './roadmap';
+export type {RoadmapDuration,RoadmapDay,RoadmapWeek,RoadmapBlueprint,RoadmapPlan,RoadmapSelection} from './roadmap';
