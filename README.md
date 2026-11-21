@@ -1,3 +1,22 @@
+## v0.15.1 — Full AI Learning Roadmap Architect
+
+Oracle now opens in a detailed roadmap mode by default. Given a skill or long-term habit goal,
+it produces a **30-, 60- or 90-day plan** with daily tasks, weekly evidence checkpoints and
+monthly achievements. Choose your starting level, time available per day and start date;
+review, edit or exclude any task before a single, additive import.
+
+A personal Groq key and explicit cloud consent are required for model-generated plans.
+The model outputs are validated in week-sized chunks. Monthly and weekly checkpoints
+are surfaced under Journey; daily achievements are scheduled in Today and visible
+under the relevant Journey goal. Your existing Single Quest option, offline fallback,
+saved progress, backups and Android signing remain unchanged.
+
+**Important:** Generating 90 days requires multiple Groq requests and may encounter
+free-tier rate limits. A 90-day plan is a structured learning path, not a promise
+of expertise. Real device and real-account generative acceptance still require testing.
+
+[AI Roadmap technical and privacy notes](docs/AI_ROADMAPS.md).
+
 # ASCEND — Real-Life Leveling System
 
 ## ASCEND v0.14.2 — Daily Quests, Keyboard Fixes & Optional Groq Cloud
