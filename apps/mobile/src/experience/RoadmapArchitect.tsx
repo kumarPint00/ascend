@@ -12,6 +12,7 @@ import {Action,Chip,T} from '../components/Elements';
 import {C} from '../theme';
 import {generateHybridRoadmap,type StartingLevel,type RoadmapProgress} from '../ai/roadmap-generator';
 import {configuredProviders,storeProviderKey,deleteProviderKey,readProviderUsage,
+  LIMIT_REQUESTS_PER_DAY,LIMIT_TOKENS_PER_DAY,
   type ProviderChoice,type CloudProvider,type ProviderKeyState,type ProviderUsage}
   from '../ai/provider-manager';
 import {parseChatGPTRoadmap,exportChatGPTRoadmap,loadRoadmapCheckpoint,
@@ -269,13 +270,14 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
               <T color={C.sub} size={11}>
                 {keyState[which]?'Secure key configured':'Not connected'} ·
                 {' '}{usage.find(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10))?.requests??0}
-                {' '}requests today
+                {' '}of {LIMIT_REQUESTS_PER_DAY[which]} local requests today
               </T>
               {usage.some(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10))&&
                 <T color={C.dim} size={10}>
                   {(()=>{const stat=usage.find(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10));
                     return (stat?.inputTokens??0)+' input / '+(stat?.outputTokens??0)+
-                      ' output tokens · '+(stat?.rateLimitHits??0)+' limit hits';})()}
+                      ' output tokens / '+LIMIT_TOKENS_PER_DAY[which]+
+                      ' estimated daily cap · '+(stat?.rateLimitHits??0)+' limit hits';})()}
                 </T>}
             </View>
             <Pressable accessibilityRole="button" onPress={()=>{setEditingProvider(which);setKey('');}}
