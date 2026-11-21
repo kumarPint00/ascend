@@ -105,7 +105,7 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
 const styles=StyleSheet.create({
   shell:{overflow:'hidden',borderRadius:24,borderWidth:1,
     borderColor:'#5477AD',backgroundColor:C.bg},
-  art:{...StyleSheet.absoluteFillObject},
+  art:{...StyleSheet.absoluteFill},
   portrait:{height:'100%',width:'100%',backgroundColor:'#101E3C'},
   label:{position:'absolute',top:14,left:14,right:66,flexDirection:'row',
     gap:7,alignItems:'center',alignSelf:'flex-start'},
@@ -117,6 +117,6 @@ const styles=StyleSheet.create({
     paddingHorizontal:13,paddingVertical:11,borderRadius:14,
     borderWidth:1,borderColor:'#4B6294',minHeight:58},
   aura:{height:9,width:9,borderRadius:6},
-  fallback:{...StyleSheet.absoluteFillObject,alignItems:'center',
+  fallback:{...StyleSheet.absoluteFill,alignItems:'center',
     justifyContent:'center',gap:10,padding:24},
 });
