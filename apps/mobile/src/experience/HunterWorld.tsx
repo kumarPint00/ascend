@@ -59,7 +59,7 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
     return ()=>sequence.stop();
   },[playable,drift]);
   const sceneScale=useMemo(()=>drift.interpolate({
-    inputRange:[0,1],outputRange:[zoom?1.16:1.025,zoom?1.2:1.055],
+    inputRange:[0,1],outputRange:[zoom?1.07:1,zoom?1.11:1.015],
   }),[drift,zoom]);
   const imageSource=useMemo(()=>({uri:HUNTER_ILLUSTRATED_FRAMES[frame]}),[frame]);
   return <View style={[styles.shell,{height}]} accessible
@@ -68,7 +68,7 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
     {!artFailed?
       <Animated.View style={[styles.art,{transform:[{scale:reduceMotion?1:sceneScale}]}]}
         pointerEvents="none">
-        <Image source={imageSource} resizeMode="cover" style={styles.portrait}
+        <Image source={imageSource} resizeMode="contain" style={styles.portrait}
           fadeDuration={0} onError={()=>setArtFailed(true)}/>
       </Animated.View>:
       <View style={styles.fallback}>
@@ -91,7 +91,7 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
       onPress={()=>setZoom(value=>!value)} style={styles.inspect}>
       {zoom?<Minimize2 size={18} color={C.frost}/>:<Expand size={18} color={C.frost}/>}
     </Pressable>}
-    <View pointerEvents="none" style={styles.footer}>
+    {inspect&&<View pointerEvents="none" style={styles.footer}>
       <View style={{flex:1,minWidth:0}}>
         <T color={C.gold} bold size={11}>RANK {rank} · LEVEL {level}</T>
         <T color="#C8D3F2" size={10} numberOfLines={1}>
@@ -99,14 +99,14 @@ export function HunterWorld({active=true,reduceMotion=false,quality='balanced',
         </T>
       </View>
       <View style={[styles.aura,{backgroundColor:armor==='ember'?'#FD9D73':armor==='royal'?'#C5A8FF':'#8ADFFF'}]}/>
-    </View>
+    </View>}
   </View>;
 }
 const styles=StyleSheet.create({
   shell:{overflow:'hidden',borderRadius:24,borderWidth:1,
-    borderColor:'#5477AD',backgroundColor:C.bg},
+    borderColor:'#5477AD',backgroundColor:C.bg,marginBottom:12},
   art:{...StyleSheet.absoluteFill},
-  portrait:{height:'100%',width:'100%',backgroundColor:'#101E3C'},
+  portrait:{height:'100%',width:'100%'},
   label:{position:'absolute',top:14,left:14,right:66,flexDirection:'row',
     gap:7,alignItems:'center',alignSelf:'flex-start'},
   inspect:{position:'absolute',right:12,top:12,width:46,height:46,
