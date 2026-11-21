@@ -40,9 +40,21 @@ export function validateProviderKey(provider:CloudProvider,value:string):string{
   if(provider==='openrouter'&&!key.startsWith('sk-or-'))throw Error('OpenRouter keys begin with sk-or-');
   return key;
 }
+async function readKey(provider:CloudProvider):Promise<string|null>{
+  const primary=await SecureStore.getItemAsync(PREFIX+provider);
+  if(primary)return primary;
+  if(provider==='groq'){
+    // Preserve earlier ASCEND Groq installations without exposing the key.
+    const legacy=await SecureStore.getItemAsync('ascend.groq.personal-key.v1');
+    if(legacy){
+      await SecureStore.setItemAsync(PREFIX+provider,validateProviderKey(provider,legacy));
+      return legacy;
+    }
+  }
+  return null;
+}
 export async function configuredProviders():Promise<ProviderKeyState>{
-  const keys=await Promise.all(KNOWN.map(async name=>
-    Boolean(await SecureStore.getItemAsync(PREFIX+name))));
+  const keys=await Promise.all(KNOWN.map(async name=>Boolean(await readKey(name))));
   return {gemini:keys[0],groq:keys[1],openrouter:keys[2]};
 }
 export async function storeProviderKey(provider:CloudProvider,value:string):Promise<void>{
@@ -51,6 +63,7 @@ export async function storeProviderKey(provider:CloudProvider,value:string):Prom
 }
 export async function deleteProviderKey(provider:CloudProvider):Promise<void>{
   await SecureStore.deleteItemAsync(PREFIX+provider);
+  if(provider==='groq')await SecureStore.deleteItemAsync('ascend.groq.personal-key.v1');
 }
 export async function readProviderUsage():Promise<ProviderUsage[]>{
   const db=await getDb();
@@ -159,7 +172,7 @@ export async function generateWithProviders(prompt:string,task:ModelTask,
   for(const provider of all){
     if(signal?.aborted)throw Error('Generation cancelled');
     if(!keys[provider]||!(await canUse(provider)))continue;
-    const key=await SecureStore.getItemAsync(PREFIX+provider);
+    const key=await readKey(provider);
     if(!key)continue;
     attempted.push(provider);
     try{
