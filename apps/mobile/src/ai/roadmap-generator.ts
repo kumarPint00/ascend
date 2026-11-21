@@ -31,6 +31,9 @@ export async function generateHybridRoadmap(
     throw Error('Choose a valid roadmap duration and daily effort');
   const totalWeeks=roadmapWeekCount(request.duration);
   const totalMonths=Math.ceil(request.duration/30);
+  // This is experimental staged on-device generation. It may be slower
+  // and less specific than cloud models. Each successful week is committed
+  // locally before proceeding, and cloud services are never invoked here.
   if(choice==='nano'&&await nanoStatus()!=='available')
     throw Error('Gemini Nano is not ready on this device. Prepare the model or select a cloud provider.');
   const nanoBlueprint=[
