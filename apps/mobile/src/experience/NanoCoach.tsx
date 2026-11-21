@@ -9,7 +9,7 @@ import {Action,Chip,T} from '../components/Elements';
 import {nanoDownload,nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {C} from '../theme';
 import * as SecureStore from 'expo-secure-store';
-import {generateWithProviders,configuredProviders,selectedProvider,
+import {generateWithProviders,configuredProviders,requiresPaidApproval,selectedProvider,
   type ProviderChoice} from '../ai/provider-manager';
 import {ProviderSettings} from './ProviderSettings';
 import {RoadmapArchitect} from './RoadmapArchitect';
@@ -17,7 +17,7 @@ import {RoadmapArchitect} from './RoadmapArchitect';
 export type NanoDraft={
   kind:'quest'|'goal';title:string;description:string;attribute:Attribute;
   difficulty:Difficulty;repeatRule:RepeatRule;minutes:number;targetCount:number;
-  origin:'gemini-nano'|'groq-cloud'|'gemini-cloud'|'openrouter-cloud'|'offline-fallback';
+  origin:'gemini-nano'|'groq-cloud'|'gemini-cloud'|'openrouter-cloud'|'openai-cloud'|'claude-cloud'|'offline-fallback';
 };
 type Status='available'|'downloadable'|'downloading'|'unavailable'|'unsupported'|'checking';
 type Provider='auto'|'nano'|'groq'|'offline';
@@ -90,6 +90,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
   const [cloudConsent,setCloudConsent]=useState(false);
   const [keyConfigured,setKeyConfigured]=useState(false);
   const [cloudChoice,setCloudChoice]=useState<ProviderChoice>('auto');
+  const [paidConsent,setPaidConsent]=useState(false);
   const [intent,setIntent]=useState('');
   const [draft,setDraft]=useState<NanoDraft|null>(null);
   const [busy,setBusy]=useState(false);
@@ -102,7 +103,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
   useEffect(()=>{
     if(!visible)return;
     let alive=true;
-    setCloudConsent(false); // Cloud consent is per open session, never implicit.
+    setCloudConsent(false);setPaidConsent(false); // Consent is never implicit.
     setRoadmapMode(true);
     void Promise.all([
       nanoStatus(),
@@ -140,6 +141,10 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
       Alert.alert('Cloud approval needed','Save a provider key and approve cloud inference for this session.');
       return;
     }
+    if((provider==='groq'||provider==='auto')&&cloudConsent&&cloudChoice!=='auto'&&
+       requiresPaidApproval(cloudChoice)&&!paidConsent){
+      Alert.alert('Paid API approval required','Confirm this billed API call before generating a quest.');return;
+    }
     const id=++nonce.current;
     const request=new AbortController();
     currentCloudRequest.current=request;
@@ -159,18 +164,18 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
           // during this session and configured a personal cloud API key.
           if(provider==='auto'&&keyConfigured&&cloudConsent){
             const result=await generateWithProviders(prompt,'quest',cloudChoice,request.signal,
-              output=>{parseNanoDraft(output);});
+              output=>{parseNanoDraft(output);},paidConsent);
             suggestion={...parseNanoDraft(result.output),origin:(result.provider+'-cloud') as
-              'groq-cloud'|'gemini-cloud'|'openrouter-cloud'};
+              'groq-cloud'|'gemini-cloud'|'openrouter-cloud'|'openai-cloud'|'claude-cloud'};
             setMessage('Local AI was unavailable. '+result.provider+' generated this reviewed cloud draft.');
           }else throw localError;
         }
       }else if((provider==='groq'||provider==='auto')&&keyConfigured&&cloudConsent){
         const result=await generateWithProviders(prompt,'quest',cloudChoice,
-          request.signal,output=>{parseNanoDraft(output);});
+          request.signal,output=>{parseNanoDraft(output);},paidConsent);
         suggestion={...parseNanoDraft(result.output),
           origin:(result.provider+'-cloud') as
-            'groq-cloud'|'gemini-cloud'|'openrouter-cloud'};
+            'groq-cloud'|'gemini-cloud'|'openrouter-cloud'|'openai-cloud'|'claude-cloud'};
       }else{
         suggestion=createSafeFallback(intent);
         setMessage(provider==='nano'
@@ -188,7 +193,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
     }finally{
       if(id===nonce.current){setBusy(false);currentCloudRequest.current=null;}
     }
-  },[provider,consent,keyConfigured,cloudConsent,cloudChoice,intent,status,useHistory,recentQuestTitles]);
+  },[provider,consent,keyConfigured,cloudConsent,cloudChoice,paidConsent,intent,status,useHistory,recentQuestTitles]);
   const download=async()=>{
     if(!consent){Alert.alert('Consent required','Approve on-device model access before downloading.');return;}
     Alert.alert('Prepare Gemini Nano?','Android AICore may need to download model data. This may use Wi-Fi/mobile data and device storage. No personal data is sent to an ASCEND server.',[
@@ -300,7 +305,8 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
           </Action>}
         {(provider==='groq'||provider==='auto')&&
           <ProviderSettings disabled={busy} onChange={(choice,keys)=>{
-            setCloudChoice(choice);setKeyConfigured(Object.values(keys).some(Boolean));
+            setCloudChoice(choice);setPaidConsent(false);
+            setKeyConfigured(Object.values(keys).some(Boolean));
           }}/>}
         <View style={{marginTop:20}}>
           <T size={12} color={C.sub} bold>WHAT DO YOU WANT TO IMPROVE?</T>
@@ -340,9 +346,23 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
               providers, including fallbacks. Do not include sensitive private details.
             </T>
           </Pressable>}
+        {cloudChoice!=='auto'&&requiresPaidApproval(cloudChoice)&&
+          (provider==='groq'||provider==='auto')&&
+          <Pressable accessibilityRole="checkbox" accessibilityState={{checked:paidConsent}}
+            onPress={()=>setPaidConsent(v=>!v)} style={ss.consent}>
+            <View style={[ss.square,paidConsent&&{backgroundColor:C.gold}]}>
+              {paidConsent&&<CheckCircle2 size={18} color={C.dark}/>}
+            </View>
+            <T color={C.gold} size={12} style={{flex:1}}>
+              I authorize billed {cloudChoice.toUpperCase()} API usage for this quest.
+              AUTO never selects paid models.
+            </T>
+          </Pressable>}
         <Action disabled={busy||intent.trim().length<4||
           (provider!=='offline'&&!consent)||
-          (provider==='groq'&&(!keyConfigured||!cloudConsent))}
+          (provider==='groq'&&(!keyConfigured||!cloudConsent))||
+          ((provider==='groq'||provider==='auto')&&cloudConsent&&
+            cloudChoice!=='auto'&&requiresPaidApproval(cloudChoice)&&!paidConsent)}
           onPress={()=>void generate()}>
           {busy?'CREATING DRAFT...':'GENERATE PERSONAL QUEST'}
         </Action>
@@ -356,6 +376,8 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
                 draft.origin==='groq-cloud'?'GROQ CLOUD DRAFT':
                 draft.origin==='gemini-cloud'?'GEMINI CLOUD DRAFT':
                 draft.origin==='openrouter-cloud'?'OPENROUTER DRAFT':
+                draft.origin==='openai-cloud'?'OPENAI DRAFT':
+                draft.origin==='claude-cloud'?'CLAUDE DRAFT':
                 'OFFLINE STARTER DRAFT'}
             </T>
           </View>
