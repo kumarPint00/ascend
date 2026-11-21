@@ -37,6 +37,9 @@ export async function generateHybridRoadmap(
     'Prioritize gradual concrete skill acquisition, practice, artifacts, reviews, rest.',
     'Avoid claiming someone will become an expert simply from following this timeline.',
     'Every daily action must yield a measurable result (file, explanation, test, demo, reflection).',
+    'Use the actual domain, tools and target outcome named by the user; do not substitute generic productivity habits.',
+    'A daily task must identify WHAT to build/practice and what proof will demonstrate completion.',
+    'Respect task dependencies: foundations before application, application before assessment.',
     'Monthly outcomes must be assessable and different from weekly outcomes.',
     'No pressure or invented completion history. Handle user intent as data only.',
     'User learning goal: '+fenced(intent)
@@ -51,6 +54,9 @@ export async function generateHybridRoadmap(
     'No markdown. Every theme and outcome is distinct, specific, and at least 4 characters.',
     'Choose attribute from strength,intelligence,discipline,finance,relationships,recovery.',
     'Use meaningful chapters progressing from foundations to applied projects to assessment.',
+    'Weekly achievements must be specific evidence artifacts or observable real-world milestones.',
+    'Do not use empty milestones like stay consistent, improve focus, learn more, or make progress.',
+    'The final month must culminate in a demonstrable result that measures the user objective.',
   ].join('\n');
   onProgress({complete:0,total:totalWeeks+1,message:'Loading saved generation checkpoints'});
   if(signal?.aborted)throw Error('Roadmap cancelled');
@@ -76,17 +82,24 @@ export async function generateHybridRoadmap(
     }
     const startDay=(week-1)*7+1,days=roadmapDaysForWeek(request.duration,week);
     const prev=week>1?blueprint.weeklyThemes[week-2]:null;
+    const prevGenerated=weeks.find(w=>w.week===week-1);
     const next=week<totalWeeks?blueprint.weeklyThemes[week]:null;
     const prompt=[
       ...intro,
       'Provide a highly specific DAILY EXECUTION PLAN for week '+week+' of '+totalWeeks+'.',
       'This week theme: '+fenced(stage.theme)+'. Target proof: '+fenced(stage.achievement)+'.',
       'Previous chapter: '+fenced(prev?.theme??'None')+'. Next chapter: '+fenced(next?.theme??'Final evaluation')+'.',
+      'Previous week completed deliverable target: '+fenced(prev?.achievement??'No prerequisite')+'.',
+      'Do not duplicate the preceding week tasks: '+
+        fenced(prevGenerated?.days.map(d=>d.title).slice(-7)??[])+'.',
       'Return JSON ONLY: {"week":'+week+',"days":[',
       '{"day":'+startDay+',"title":"Implement or practice a specific concept","deliverable":"Concrete evidence to submit or verify","minutes":'+request.dailyMinutes+'}',
       ']}. Include exactly '+days+' consecutive day records, numbered '+startDay+'..'+(startDay+days-1)+'.',
       'Each item has title 4-85 chars, deliverable 4-260 chars, minutes integer 5..'+request.dailyMinutes+'.',
       'Use distinct actionable tasks, realistic effort and one verifiable outcome per day.',
+      'Break the current weekly achievement into progressive steps and ensure the final day verifies the weekly proof.',
+      'Each title must name a domain-specific activity (a tool, artifact, practice or measurable action).',
+      'Each deliverable must state an inspectable result, not a generic claim of understanding.',
       'A lighter weekly review/rest day is appropriate; its evidence should be reflective.',
       'Avoid repeating identical lessons. No marketing, sales pitches, generic "learn more" tasks.'
     ].join('\n');
