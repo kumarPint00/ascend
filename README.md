@@ -1,3 +1,11 @@
+## v0.15.2 — Original Animated Hunter & UI Refinement
+
+- **Original illustrated Hunter artwork** replaces the procedural, code-generated 3D humanoid on the Home and Hunter screens. Four illustrated portrait frames are generated specifically for ASCEND, embedded locally as compressed images and animated without downloading assets.
+- The portrait supports energy-aura colors, zoom inspection, rank and level identity, reduced-motion and battery-saving static modes. The existing XP, quest engine, and offline experience are unchanged.
+- Responsive header width, navigation labels, equal stat-card gutters, Planner metric wrapping and keyboard-safe scrollable form sheets have been refined for smaller displays and large text settings.
+- There is **no 3D rotation** of the new illustrated portrait; its motion is frame-based illustration, not a rigged character model. The original 3D realm/world effects remain separate where still used.
+- Source validation and Android build acceptance are managed in GitHub Actions. Physical-device image quality, animation smoothness, and keyboard acceptance still need direct review.
+
 ## v0.15.1 — Full AI Learning Roadmap Architect
 
 Oracle now opens in a detailed roadmap mode by default. Given a skill or long-term habit goal,
@@ -59,9 +67,9 @@ Widgets use lightweight Android RemoteViews through the existing Expo native mod
 
 ## ASCEND // REFORGED v0.13.3 (signed candidate)
 
-The Phase 4 UX foundation now includes an original **procedurally articulated 3D Hunter** in a celestial sanctuary, inspect/rotation controls, rank-aware colors, level-driven equipment, and three locally saved armor styles. A new **Realm / Missions / Journey / Hunter / Hub** bottom navigation separates routine tasks from immersive character screens. The accessible **Sanctuary Gates** world map opens six functional app areas; mission cards have a compact view, today's raid summary, and one-tap completion. Questlines show real milestone states in an interactive journey path. Oracle includes suggested starting intents. Connect shows concise private-source totals. GPU quality settings offer Immersive, Balanced and Battery modes, with reduced-motion compliance.
+The earlier Phase 4 UX build included an original **procedurally articulated 3D Hunter** in a celestial sanctuary, inspect/rotation controls, rank-aware colors, level-driven equipment, and three locally saved armor styles. A new **Realm / Missions / Journey / Hunter / Hub** bottom navigation separates routine tasks from immersive character screens. The accessible **Sanctuary Gates** world map opens six functional app areas; mission cards have a compact view, today's raid summary, and one-tap completion. Questlines show real milestone states in an interactive journey path. Oracle includes suggested starting intents. Connect shows concise private-source totals. GPU quality settings offer Immersive, Balanced and Battery modes, with reduced-motion compliance.
 
-**Implementation limit:** The character is custom procedural WebGL geometry with limb motion, **not a professionally rigged glTF humanoid**. One sanctuary scene and an interactive navigational map exist, not a multi-world game, animated NPC campaign, or a complete cinematic equipment inventory. Google, Gemini Nano, Health Connect and physical migration still require real-account/device acceptance. No user data is moved into the public repository.
+**Implementation limit:** The v0.15.2 Hunter uses original illustrated animation frames, replacing the earlier procedural geometry; it is **not a professionally rigged glTF humanoid**. One sanctuary scene and an interactive navigational map exist, not a multi-world game, animated NPC campaign, or a complete cinematic equipment inventory. Google, Gemini Nano, Health Connect and physical migration still require real-account/device acceptance. No user data is moved into the public repository.
 
 **v0.13.1 hardening:** Android hardware Back navigates immersive screens predictably, and Battery Saver/reduced-motion rendering no longer schedules recurring animation frames.
 
