@@ -5,16 +5,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import {CalendarClock,CheckCircle2,ChevronDown,ChevronLeft,ChevronUp,
-  Circle,LockKeyhole,Sparkles} from 'lucide-react-native';
+  Circle,Sparkles} from 'lucide-react-native';
 import {compileRoadmapPack,localDayKey,roadmapDate,assembleRoadmap,
   type RoadmapPlan,type RoadmapDuration} from '@ascend/game-engine';
 import {Action,Chip,T} from '../components/Elements';
 import {C} from '../theme';
 import {generateHybridRoadmap,type StartingLevel,type RoadmapProgress} from '../ai/roadmap-generator';
-import {configuredProviders,storeProviderKey,deleteProviderKey,readProviderUsage,
-  LIMIT_REQUESTS_PER_DAY,LIMIT_TOKENS_PER_DAY,
-  type ProviderChoice,type CloudProvider,type ProviderKeyState,type ProviderUsage}
+import {configuredProviders,selectedProvider,type ProviderChoice,type ProviderKeyState}
   from '../ai/provider-manager';
+import {ProviderSettings} from './ProviderSettings';
 import {parseChatGPTRoadmap,exportChatGPTRoadmap,loadRoadmapCheckpoint,
   clearRoadmapCheckpoint} from '../ai/roadmap-checkpoints';
 
@@ -31,10 +30,7 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   const [minutes,setMinutes]=useState(45);
   const [startDate,setStartDate]=useState(localDayKey(new Date()));
   const [provider,setProvider]=useState<ProviderChoice>('auto');
-  const [editingProvider,setEditingProvider]=useState<CloudProvider|null>(null);
   const [keyState,setKeyState]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false});
-  const [usage,setUsage]=useState<ProviderUsage[]>([]);
-  const [key,setKey]=useState('');
   const [existingStages,setExistingStages]=useState(0);
   const [approvedCloud,setApprovedCloud]=useState(false);
   const [plan,setPlan]=useState<RoadmapPlan|null>(null);
@@ -48,8 +44,8 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   const [editingDay,setEditingDay]=useState<number|null>(null);
   const controller=useRef<AbortController|null>(null);
   const refreshProviders=async()=>{
-    const [keys,stats]=await Promise.all([configuredProviders(),readProviderUsage()]);
-    setKeyState(keys);setUsage(stats);
+    const [keys,choice]=await Promise.all([configuredProviders(),selectedProvider()]);
+    setKeyState(keys);setProvider(choice);
   };
   useEffect(()=>{void refreshProviders().catch(()=>{});},[]);
   useEffect(()=>{
@@ -59,23 +55,6 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   },[intent,startDate,duration,minutes,level]);
   useEffect(()=>()=>{controller.current?.abort();},[]);
   const abandonPlan=()=>{setPlan(null);setProgress(null);setMessage('');};
-  const saveKey=async()=>{
-    if(!editingProvider)return;
-    try{
-      await storeProviderKey(editingProvider,key);
-      const which=editingProvider;
-      setKey('');setEditingProvider(null);
-      await refreshProviders();
-      setMessage(which.toUpperCase()+' key saved in Android SecureStore. Not included in backups.');
-    }catch(e){Alert.alert('Key could not be saved',e instanceof Error?e.message:String(e));}
-  };
-  const removeKey=async(which:CloudProvider)=>{
-    Alert.alert('Remove '+which+' key?','This does not delete existing quests or plans.',[
-      {text:'Cancel',style:'cancel'},
-      {text:'Remove',style:'destructive',onPress:()=>{void deleteProviderKey(which)
-        .then(refreshProviders).catch(e=>Alert.alert('Could not remove key',String(e)));}},
-    ]);
-  };
   const clearDraft=()=>{
     Alert.alert('Erase saved roadmap stages?',
       'Deletes only this incomplete draft. Your existing quests, goals and XP stay unchanged.',[
@@ -246,57 +225,9 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
         <TextInput accessibilityLabel="Roadmap start date YYYY-MM-DD" value={startDate}
           onChangeText={setStartDate} style={ss.date} maxLength={10}
           placeholder="YYYY-MM-DD" placeholderTextColor={C.dim}/>
-        <View style={ss.private}>
-          <LockKeyhole size={18} color={C.energy}/>
-          <View style={{flex:1}}>
-            <T color={C.frost} bold size={13}>Hybrid AI · Free Provider Manager</T>
-            <T color={C.sub} size={11} style={{marginTop:4}}>
-              Keys stay in Android SecureStore. Each request uses only your typed goal.
-              Automatic failover never switches to paid models.
-            </T>
-          </View>
-        </View>
-        <T color={C.sub} size={12} bold>PROVIDER ROUTING</T>
-        <View style={ss.chips}>
-          {(['auto','gemini','groq','openrouter'] as ProviderChoice[]).map(value=>
-            <Chip key={value} active={provider===value} onPress={()=>setProvider(value)}>
-              {value.toUpperCase()}
-            </Chip>)}
-        </View>
-        {(['gemini','groq','openrouter'] as CloudProvider[]).map(which=>
-          <View key={which} style={ss.providerRow}>
-            <View style={{flex:1,minWidth:0}}>
-              <T color={C.frost} size={13} bold>{which.toUpperCase()}</T>
-              <T color={C.sub} size={11}>
-                {keyState[which]?'Secure key configured':'Not connected'} ·
-                {' '}{usage.find(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10))?.requests??0}
-                {' '}of {LIMIT_REQUESTS_PER_DAY[which]} local requests today
-              </T>
-              {usage.some(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10))&&
-                <T color={C.dim} size={10}>
-                  {(()=>{const stat=usage.find(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10));
-                    return (stat?.inputTokens??0)+' input / '+(stat?.outputTokens??0)+
-                      ' output tokens / '+LIMIT_TOKENS_PER_DAY[which]+
-                      ' estimated daily cap · '+(stat?.rateLimitHits??0)+' limit hits';})()}
-                </T>}
-            </View>
-            <Pressable accessibilityRole="button" onPress={()=>{setEditingProvider(which);setKey('');}}
-              style={ss.keyButton}><T size={11} color={C.energy} bold>
-                {keyState[which]?'REPLACE':'ADD KEY'}
-              </T></Pressable>
-            {keyState[which]&&<Pressable accessibilityRole="button"
-              onPress={()=>void removeKey(which)} style={ss.keyButton}>
-              <T color={C.danger} size={11}>REMOVE</T>
-            </Pressable>}
-          </View>)}
-        {editingProvider&&<View style={{marginBottom:13}}>
-          <T color={C.sub} size={12}>Personal {editingProvider.toUpperCase()} API key</T>
-          <TextInput value={key} onChangeText={setKey} style={ss.date} secureTextEntry
-            accessibilityLabel="Personal AI provider API key" autoCapitalize="none"
-            autoCorrect={false} placeholder="Paste your private API key"
-            placeholderTextColor={C.dim}/>
-          <Action disabled={!key.trim()} onPress={()=>void saveKey()}>SAVE KEY SECURELY</Action>
-        </View>}
+        <ProviderSettings disabled={busy} onChange={(choice,keys)=>{
+          setProvider(choice);setKeyState(keys);
+        }}/>
         <Pressable accessibilityRole="checkbox"
           accessibilityState={{checked:approvedCloud}} onPress={()=>setApprovedCloud(x=>!x)}
           style={ss.consent}>
