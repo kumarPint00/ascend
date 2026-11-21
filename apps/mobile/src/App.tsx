@@ -842,6 +842,20 @@ export default function App() {
     <NanoCoach visible={nanoVisible} initialIntent={nanoContextIntent}
       onClose={()=>{setNanoVisible(false);setNanoContextIntent(null);}}
       recentQuestTitles={data.quests.filter(q=>!q.archived).slice(0,5).map(q=>q.title)}
+      onAcceptRoadmap={async(packJson:string)=>{
+        const result=await importQuestPack(packJson,
+          {goals:true,quests:true,milestones:true},{activateDatedOneOffs:true});
+        await refresh();
+        setQuestSearch('');
+        setQuestLimit(20);
+        setGoalLimit(8);
+        setTab('Goals');
+        Alert.alert('Roadmap created',
+          result.goalsAdded+' goal, '+result.questsAdded+' dated daily achievements and '+
+          result.milestonesAdded+' weekly/monthly checkpoints added. '+
+          result.skipped+' already imported items were safely skipped. '+
+          'Open Journey for the full roadmap and Today for tasks due now. No XP was awarded.');
+      }}
       onAccept={async(draft:NanoDraft)=>{
         // Generated content always enters the same bounded, transactional
         // approval path as rule-based suggestions; never activates quests.

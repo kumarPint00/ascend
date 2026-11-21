@@ -313,10 +313,14 @@ export async function saveQuest(input: QuestInput, id?: string): Promise<void> {
 /** Atomic, additive staged import. Same packId + stable item key = same ID.
  * Existing quests, completion records, XP and user-edited items are never
  * overwritten. A missing or ambiguous goal link rolls back the whole batch.
+ * Explicitly reviewed roadmap imports may activate only dated one-offs,
+ * so their daily achievements show on their due day; generic imports remain
+ * safely inactive by default.
  */
 export async function importQuestPack(
   source:string,
-  selection:ImportSelection={goals:true,quests:true,milestones:true}
+  selection:ImportSelection={goals:true,quests:true,milestones:true},
+  options:{activateDatedOneOffs?:boolean}={}
 ):Promise<{goalsAdded:number;questsAdded:number;milestonesAdded:number;skipped:number}>{
   const pack=filterImportItems(parseImportableQuestPack(source),selection);
   if(pack.goals.length+pack.quests.length===0)
@@ -361,7 +365,8 @@ export async function importQuestPack(
       // User-modified schedule, state and completion always win on reimport.
       await tx.runAsync(
         'INSERT OR IGNORE INTO quest_state(quest_id,status,due_on) VALUES(?,?,?)',
-        id,quest.repeatRule==='once'?'backlog':'active',quest.dueOn??null);
+        id,quest.repeatRule==='once'&&!(options.activateDatedOneOffs&&quest.dueOn)?
+          'backlog':'active',quest.dueOn??null);
     }
   });
   return {goalsAdded,questsAdded,milestonesAdded,skipped};

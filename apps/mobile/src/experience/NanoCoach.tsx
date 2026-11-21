@@ -10,6 +10,7 @@ import {nanoDownload,nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {C} from '../theme';
 import * as SecureStore from 'expo-secure-store';
 import {GROQ_MODEL,hasGroqKey,saveGroqKey,clearGroqKey,groqGenerate} from '../ai/groq';
+import {RoadmapArchitect} from './RoadmapArchitect';
 
 export type NanoDraft={
   kind:'quest'|'goal';title:string;description:string;attribute:Attribute;
@@ -74,10 +75,12 @@ function makePrompt(intent:string,hints:readonly string[]):string{
     'Optional approved recent quest titles: '+JSON.stringify(context),
   ].join('\n');
 }
-export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initialIntent}:{
+export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestTitles=[],initialIntent}:{
   visible:boolean;onClose:()=>void;onAccept:(draft:NanoDraft)=>Promise<void>;
+  onAcceptRoadmap:(packJson:string)=>Promise<void>;
   recentQuestTitles?:string[];initialIntent?:string|null;
 }){
+  const [roadmapMode,setRoadmapMode]=useState(true); // Roadmap is the primary Oracle experience.
   const [status,setStatus]=useState<Status>('checking');
   const [consent,setConsent]=useState(false);
   const [useHistory,setUseHistory]=useState(false);
@@ -99,6 +102,7 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
     if(!visible)return;
     let alive=true;
     setCloudConsent(false); // Cloud consent is per open session, never implicit.
+    setRoadmapMode(true);
     void Promise.all([
       nanoStatus(),
       hasGroqKey(),
@@ -220,6 +224,16 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
     catch(e){Alert.alert('Could not save the draft',e instanceof Error?e.message:String(e));}
     finally{setBusy(false);}
   };
+  if(roadmapMode)return <Modal visible={visible} animationType="slide" transparent={false}
+    onRequestClose={onClose}>
+    <RoadmapArchitect initialIntent={intent||initialIntent||''}
+      onBack={()=>setRoadmapMode(false)}
+      onApprove={async packJson=>{
+        await onAcceptRoadmap(packJson);
+        setRoadmapMode(false);
+        onClose();
+      }}/>
+  </Modal>;
   return <Modal visible={visible} animationType="slide" transparent={false}
     onRequestClose={onClose}>
     <KeyboardAvoidingView style={ss.screen} behavior={Platform.OS==='ios'?'padding':'height'}>
@@ -246,6 +260,12 @@ export function NanoCoach({visible,onClose,onAccept,recentQuestTitles=[],initial
             </T>
           </View>
         </LinearGradient>
+        <Action secondary onPress={()=>setRoadmapMode(true)}>
+          BUILD A FULL 30 / 60 / 90 DAY ROADMAP
+        </Action>
+        <T color={C.sub} size={11} style={{marginTop:8,marginBottom:9}}>
+          You're in single-quest mode. For daily, weekly and monthly outcomes, use Full Roadmap.
+        </T>
         <T size={12} color={C.sub} bold style={{marginBottom:8}}>AI PROVIDER</T>
         <View style={ss.tags}>
           {([
