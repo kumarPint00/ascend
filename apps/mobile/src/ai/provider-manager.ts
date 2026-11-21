@@ -111,6 +111,7 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
   if(signal?.aborted)throw Error('Generation cancelled');
   signal?.addEventListener('abort',abort,{once:true});
   const timeout=setTimeout(()=>controller.abort(),45000);
+  let accounted=false;
   try{
     const isGemini=provider==='gemini';
     const body=isGemini?{
@@ -138,6 +139,7 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
       const delay=response.status===429?Math.min(3600,Math.max(60,retrySeconds)):0;
       const until=delay?new Date(Date.now()+delay*1000).toISOString():null;
       await track(provider,prompt,'',response.status===429,until);
+      accounted=true;
       throw new ProviderError(response.status===429?'Free quota or rate limit reached':
         response.status===401||response.status===403?'Check the API key and its permissions':
         response.status===402?'Provider reports insufficient credits':
@@ -160,8 +162,12 @@ async function fetchModel(provider:CloudProvider,key:string,prompt:string,
         (usage as {prompt_tokens?:number}).prompt_tokens)??estimateTokens(prompt,value).input,
         output:(isGemini?(usage as {candidatesTokenCount?:number}).candidatesTokenCount:
         (usage as {completion_tokens?:number}).completion_tokens)??estimateTokens(prompt,value).output}:undefined);
+    accounted=true;
     return value;
   }catch(e){
+    // Malformed provider JSON and network errors still consume a request slot.
+    // This limits repeated failed calls and preserves quota visibility.
+    if(!accounted)await track(provider,prompt,'',false,null).catch(()=>{});
     if(controller.signal.aborted)throw Error(signal?.aborted?'Generation cancelled':'AI request timed out');
     throw e;
   }finally{clearTimeout(timeout);signal?.removeEventListener('abort',abort);}
