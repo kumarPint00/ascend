@@ -1,14 +1,21 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,KeyboardAvoidingView,Platform,Pressable,ScrollView,
   StyleSheet,TextInput,View} from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 import {CalendarClock,CheckCircle2,ChevronDown,ChevronLeft,ChevronUp,
   Circle,LockKeyhole,Sparkles} from 'lucide-react-native';
-import {compileRoadmapPack,localDayKey,roadmapDate,type RoadmapPlan,
-  type RoadmapDuration} from '@ascend/game-engine';
+import {compileRoadmapPack,localDayKey,roadmapDate,assembleRoadmap,
+  type RoadmapPlan,type RoadmapDuration} from '@ascend/game-engine';
 import {Action,Chip,T} from '../components/Elements';
 import {C} from '../theme';
-import {generateGroqRoadmap,type StartingLevel,type RoadmapProgress} from '../ai/roadmap-generator';
-import {hasGroqKey,saveGroqKey} from '../ai/groq';
+import {generateHybridRoadmap,type StartingLevel,type RoadmapProgress} from '../ai/roadmap-generator';
+import {configuredProviders,storeProviderKey,deleteProviderKey,readProviderUsage,
+  type ProviderChoice,type CloudProvider,type ProviderKeyState,type ProviderUsage}
+  from '../ai/provider-manager';
+import {parseChatGPTRoadmap,exportChatGPTRoadmap,loadRoadmapCheckpoint}
+  from '../ai/roadmap-checkpoints';
 
 /** Dedicated roadmap flow. Model text is untrusted until the pure engine
  * validates each dated achievement. The entire selection is reviewable and
@@ -22,9 +29,12 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   const [level,setLevel]=useState<StartingLevel>('beginner');
   const [minutes,setMinutes]=useState(45);
   const [startDate,setStartDate]=useState(localDayKey(new Date()));
-  const [hasKey,setHasKey]=useState(false);
-  const [keyOpen,setKeyOpen]=useState(false);
+  const [provider,setProvider]=useState<ProviderChoice>('auto');
+  const [editingProvider,setEditingProvider]=useState<CloudProvider|null>(null);
+  const [keyState,setKeyState]=useState<ProviderKeyState>({gemini:false,groq:false,openrouter:false});
+  const [usage,setUsage]=useState<ProviderUsage[]>([]);
   const [key,setKey]=useState('');
+  const [existingStages,setExistingStages]=useState(0);
   const [approvedCloud,setApprovedCloud]=useState(false);
   const [plan,setPlan]=useState<RoadmapPlan|null>(null);
   const [busy,setBusy]=useState(false);
@@ -36,20 +46,85 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
   const [openWeeks,setOpenWeeks]=useState<number[]>([1]);
   const [editingDay,setEditingDay]=useState<number|null>(null);
   const controller=useRef<AbortController|null>(null);
-  useEffect(()=>{void hasGroqKey().then(setHasKey).catch(()=>setHasKey(false));},[]);
+  const refreshProviders=async()=>{
+    const [keys,stats]=await Promise.all([configuredProviders(),readProviderUsage()]);
+    setKeyState(keys);setUsage(stats);
+  };
+  useEffect(()=>{void refreshProviders().catch(()=>{});},[]);
+  useEffect(()=>{
+    void loadRoadmapCheckpoint({intent,startDate,duration,dailyMinutes:minutes,
+      startingLevel:level}).then(p=>setExistingStages(p.weeks.length+(p.blueprint?1:0)))
+      .catch(()=>setExistingStages(0));
+  },[intent,startDate,duration,minutes,level]);
   useEffect(()=>()=>{controller.current?.abort();},[]);
   const abandonPlan=()=>{setPlan(null);setProgress(null);setMessage('');};
   const saveKey=async()=>{
+    if(!editingProvider)return;
     try{
-      await saveGroqKey(key);
-      setKey('');setKeyOpen(false);setHasKey(true);
-      setMessage('Personal Groq key saved on this device.');
+      await storeProviderKey(editingProvider,key);
+      const which=editingProvider;
+      setKey('');setEditingProvider(null);
+      await refreshProviders();
+      setMessage(which.toUpperCase()+' key saved in Android SecureStore. Not included in backups.');
     }catch(e){Alert.alert('Key could not be saved',e instanceof Error?e.message:String(e));}
+  };
+  const removeKey=async(which:CloudProvider)=>{
+    Alert.alert('Remove '+which+' key?','This does not delete existing quests or plans.',[
+      {text:'Cancel',style:'cancel'},
+      {text:'Remove',style:'destructive',onPress:()=>{void deleteProviderKey(which)
+        .then(refreshProviders).catch(e=>Alert.alert('Could not remove key',String(e)));}},
+    ]);
+  };
+  const manualImport=async()=>{
+    if(busy)return;
+    try{
+      const picked=await DocumentPicker.getDocumentAsync({
+        type:'application/json',copyToCacheDirectory:true});
+      if(picked.canceled||!picked.assets[0])return;
+      const file=picked.assets[0];
+      if(file.size&&file.size>65000)throw Error('File is too large');
+      const source=await FileSystem.readAsStringAsync(file.uri);
+      const parsed=parseChatGPTRoadmap(source);
+      const p=assembleRoadmap({
+        title:parsed.blueprint.title,objective:parsed.blueprint.objective,
+        attribute:parsed.blueprint.attribute,intent:parsed.request.intent,
+        startDate:parsed.request.startDate,durationDays:parsed.request.duration,
+        dailyMinutes:parsed.request.dailyMinutes,
+        monthlyAchievements:parsed.blueprint.monthlyAchievements},parsed.weeks);
+      setIntent(parsed.request.intent);setStartDate(parsed.request.startDate);
+      setDuration(parsed.request.duration);setMinutes(parsed.request.dailyMinutes);
+      setLevel(parsed.request.startingLevel);
+      setPlan(p);setDays(p.weeks.flatMap(w=>w.days.map(d=>d.day)));
+      setWeeks(p.weeks.map(w=>w.week));
+      setMonths(p.monthlyAchievements.map(m=>m.month));setOpenWeeks([1]);
+      setMessage('ChatGPT JSON validated. Review, edit, and approve before importing.');
+    }catch(e){Alert.alert('Cannot import ChatGPT roadmap',
+      e instanceof Error?e.message:String(e));}
+  };
+  const manualExport=async()=>{
+    if(!plan)return;
+    try{
+      const blueprint={
+        title:plan.title,objective:plan.objective,attribute:plan.attribute,
+        weeklyThemes:plan.weeks.map(w=>({week:w.week,theme:w.theme,achievement:w.achievement})),
+        monthlyAchievements:plan.monthlyAchievements,
+      };
+      const content=exportChatGPTRoadmap({intent:plan.intent,startDate:plan.startDate,
+        duration:plan.durationDays,dailyMinutes:plan.dailyMinutes,
+        startingLevel:level},blueprint,plan.weeks);
+      if(!FileSystem.documentDirectory)throw Error('Device documents directory unavailable');
+      const file=FileSystem.documentDirectory+'ASCEND-ChatGPT-roadmap.json';
+      await FileSystem.writeAsStringAsync(file,content);
+      if(!await Sharing.isAvailableAsync())throw Error('File sharing unavailable');
+      await Sharing.shareAsync(file,{mimeType:'application/json'});
+    }catch(e){Alert.alert('Export failed',e instanceof Error?e.message:String(e));}
   };
   const generate=async()=>{
     if(busy)return;
-    if(!hasKey){Alert.alert('Groq key required','Configure your personal Groq key to generate detailed roadmaps.');return;}
-    if(!approvedCloud){Alert.alert('Cloud permission required','Approve sending your goal to Groq for this roadmap.');return;}
+    if(!Object.values(keyState).some(Boolean)){
+      Alert.alert('Configure a free provider','Add Gemini, Groq or OpenRouter API key, or import a ChatGPT roadmap JSON.');return;
+    }
+    if(!approvedCloud){Alert.alert('Cloud permission required','Approve sending this goal and schedule to your configured free cloud providers for this session.');return;}
     if(intent.trim().length<4){Alert.alert('Describe a goal','Enter a clear skill or habit you want to develop.');return;}
     // A date is validated by the game engine, not by the AI.
     try{roadmapDate(startDate,duration);}catch(e){
@@ -59,8 +134,8 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
     const task=new AbortController();controller.current=task;
     setBusy(true);
     try{
-      const p=await generateGroqRoadmap({intent,duration,startingLevel:level,
-        startDate,dailyMinutes:minutes},setProgress,task.signal);
+      const p=await generateHybridRoadmap({intent,duration,startingLevel:level,
+        startDate,dailyMinutes:minutes},setProgress,task.signal,provider);
       if(task.signal.aborted)return;
       setPlan(p);
       setDays(p.weeks.flatMap(w=>w.days.map(d=>d.day)));
@@ -71,6 +146,7 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
     }catch(e){
       if(!task.signal.aborted)setMessage(e instanceof Error?e.message:'Could not generate roadmap');
     }finally{
+      void refreshProviders().catch(()=>{});
       if(controller.current===task){controller.current=null;setBusy(false);}
     }
   };
@@ -161,20 +237,45 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
         <View style={ss.private}>
           <LockKeyhole size={18} color={C.energy}/>
           <View style={{flex:1}}>
-            <T color={C.frost} bold size={13}>Groq Cloud · Personal key</T>
+            <T color={C.frost} bold size={13}>Hybrid AI · Free Provider Manager</T>
             <T color={C.sub} size={11} style={{marginTop:4}}>
-              {hasKey?'Key configured on device.':'No personal Groq key saved yet.'}
-              {' '}Roadmap generation uses cloud requests, not Gemini Nano.
+              Keys stay in Android SecureStore. Each request uses only your typed goal.
+              Automatic failover never switches to paid models.
             </T>
           </View>
         </View>
-        {!hasKey&&<Action secondary onPress={()=>setKeyOpen(true)}>
-          CONFIGURE GROQ KEY
-        </Action>}
-        {keyOpen&&<View>
+        <T color={C.sub} size={12} bold>PROVIDER ROUTING</T>
+        <View style={ss.chips}>
+          {(['auto','gemini','groq','openrouter'] as ProviderChoice[]).map(value=>
+            <Chip key={value} active={provider===value} onPress={()=>setProvider(value)}>
+              {value.toUpperCase()}
+            </Chip>)}
+        </View>
+        {(['gemini','groq','openrouter'] as CloudProvider[]).map(which=>
+          <View key={which} style={ss.providerRow}>
+            <View style={{flex:1,minWidth:0}}>
+              <T color={C.frost} size={13} bold>{which.toUpperCase()}</T>
+              <T color={C.sub} size={11}>
+                {keyState[which]?'Secure key configured':'Not connected'} ·
+                {' '}{usage.find(x=>x.provider===which&&x.day===new Date().toISOString().slice(0,10))?.requests??0}
+                {' '}requests today
+              </T>
+            </View>
+            <Pressable accessibilityRole="button" onPress={()=>{setEditingProvider(which);setKey('');}}
+              style={ss.keyButton}><T size={11} color={C.energy} bold>
+                {keyState[which]?'REPLACE':'ADD KEY'}
+              </T></Pressable>
+            {keyState[which]&&<Pressable accessibilityRole="button"
+              onPress={()=>void removeKey(which)} style={ss.keyButton}>
+              <T color={C.danger} size={11}>REMOVE</T>
+            </Pressable>}
+          </View>)}
+        {editingProvider&&<View style={{marginBottom:13}}>
+          <T color={C.sub} size={12}>Personal {editingProvider.toUpperCase()} API key</T>
           <TextInput value={key} onChangeText={setKey} style={ss.date} secureTextEntry
-            accessibilityLabel="Personal Groq API key" autoCapitalize="none"
-            autoCorrect={false} placeholder="gsk_…" placeholderTextColor={C.dim}/>
+            accessibilityLabel="Personal AI provider API key" autoCapitalize="none"
+            autoCorrect={false} placeholder="Paste your private API key"
+            placeholderTextColor={C.dim}/>
           <Action disabled={!key.trim()} onPress={()=>void saveKey()}>SAVE KEY SECURELY</Action>
         </View>}
         <Pressable accessibilityRole="checkbox"
@@ -182,17 +283,27 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
           style={ss.consent}>
           <Selected checked={approvedCloud}/>
           <T color={C.sub} size={12} style={{flex:1}}>
-            I allow my goal and settings to be sent to Groq. Don't include confidential
-            personal records. This approval is only for this roadmap session.
+            I consent to sending this typed goal and schedule to my configured
+            cloud AI providers for this roadmap session, including fallback providers.
           </T>
         </Pressable>
+        <View style={{marginBottom:11,gap:9}}>
+          <Action secondary disabled={busy} onPress={()=>void manualImport()}>
+            IMPORT CHATGPT PLUS ROADMAP JSON
+          </Action>
+          <T color={C.dim} size={11}>
+            ChatGPT Plus does not provide OpenAI API credits. Export a structured
+            JSON file from ChatGPT and import it privately; review before saving.
+          </T>
+        </View>
         <T color={C.dim} size={11} style={{marginBottom:11}}>
-          Generates one curriculum request plus one request per week. Free Groq quotas
-          may interrupt large roadmaps; incomplete plans are never imported.
+          Generates a curriculum and weekly batches using configured free providers.
+          {existingStages>0?' '+existingStages+' validated stages saved: tap Generate to resume.':''}
+          {' '}No partial plan is imported automatically.
         </T>
-        <Action disabled={busy||!hasKey||!approvedCloud||intent.trim().length<4}
+        <Action disabled={busy||!Object.values(keyState).some(Boolean)||!approvedCloud||intent.trim().length<4}
           onPress={()=>void generate()}>
-          {busy?'GENERATING ROADMAP…':'GENERATE FULL ROADMAP'}
+          {busy?'GENERATING ROADMAP…':existingStages>0?'RESUME SAVED ROADMAP':'GENERATE FULL ROADMAP'}
         </Action>
       </>}
       {busy&&<View style={ss.progress}>
@@ -202,6 +313,7 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
         </T>
         {!!progress&&<T size={11} color={C.sub}>
           {progress.complete} of {progress.total} stages generated
+          {progress.provider?' · '+progress.provider.toUpperCase():''}
         </T>}
         {controller.current&&<Action secondary onPress={()=>controller.current?.abort()}>
           CANCEL GENERATION
@@ -317,8 +429,13 @@ export function RoadmapArchitect({initialIntent,onBack,onApprove}:{
         <Action disabled={busy||chosen===0} onPress={()=>void importPlan()}>
           IMPORT {chosen} APPROVED ACHIEVEMENTS
         </Action>
-        <View style={{marginTop:10}}>
-          <Action secondary disabled={busy} onPress={abandonPlan}>DISCARD AND REGENERATE</Action>
+        <View style={{marginTop:10,gap:9}}>
+          <Action secondary disabled={busy} onPress={()=>void manualExport()}>
+            EXPORT CHATGPT-COMPATIBLE JSON
+          </Action>
+          <Action secondary disabled={busy} onPress={abandonPlan}>
+            CLOSE PREVIEW (KEEP SAVED STAGES)
+          </Action>
         </View>
       </>}
       <View style={{height:42}}/>
@@ -351,5 +468,9 @@ const ss=StyleSheet.create({
   line:{flexDirection:'row',alignItems:'center',gap:9,minHeight:46,paddingVertical:7},
   evidence:{color:C.ink,fontSize:13,backgroundColor:'#122039',borderRadius:10,
     borderWidth:1,borderColor:'#4C688D',padding:10,minHeight:54,marginTop:7},
-  day:{borderTopWidth:1,borderColor:'#34455E',paddingVertical:10,marginTop:7}
+  day:{borderTopWidth:1,borderColor:'#34455E',paddingVertical:10,marginTop:7},
+  providerRow:{flexDirection:'row',alignItems:'center',gap:6,
+    paddingVertical:9,borderBottomWidth:1,borderBottomColor:'#283F5B'},
+  keyButton:{minHeight:44,paddingHorizontal:9,alignItems:'center',
+    justifyContent:'center',borderRadius:8,backgroundColor:'#20304B'}
 });
