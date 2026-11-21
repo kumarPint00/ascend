@@ -1,6 +1,6 @@
-# ASCEND — Detailed AI Learning Roadmaps (v0.15.x)
+# ASCEND — Detailed AI Learning Roadmaps (v0.15.x → v0.16.0)
 
-## What changed
+> **v0.16.0 update:** Roadmap generation now uses the [Hybrid AI Provider Manager](AI_PROVIDER_MANAGER.md) with Gemini API, Groq and OpenRouter free-model routing, SecureStore key management, local quota counters, and per-week SQLite checkpoints for interruption/resume. Original Groq keys are migrated. Gemini Nano stays available for short device-local quests but cannot reliably generate a full 90-day curriculum. ChatGPT Plus can exchange completed roadmap JSON files manually; it does not provide OpenAI API credits. In-progress generation drafts are not included in full-backup v4. The Groq-only description below documents the earlier v0.15.x behavior.\n\n## What changed
 Oracle previously created only one brief quest. Full Roadmap is now its default mode, while Single Quest remains available through Back.
 
 Choose a goal (for example, "Build practical LLM engineering skills"), initial ability (Beginner / Intermediate / Advanced), a 30-, 60- or 90-day horizon, daily time (20–90 minutes), and start date. The result provides:
