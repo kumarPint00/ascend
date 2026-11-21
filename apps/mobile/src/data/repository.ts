@@ -41,7 +41,7 @@ export async function initialize(): Promise<void> {
   const db = await getDb();
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) > 7) throw new Error('Database created by a newer version of ASCEND');
+  if ((version?.user_version ?? 0) > 8) throw new Error('Database created by a newer version of ASCEND');
   if ((version?.user_version ?? 0) < 1) {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -258,6 +258,26 @@ export async function initialize(): Promise<void> {
           PRIMARY KEY(session_id,week)
         );
         PRAGMA user_version = 7;
+      `);
+    });
+  }
+  if ((version?.user_version ?? 0) < 8) {
+    // Extend only usage metadata to support optional explicitly paid BYOK.
+    // Preserve historical quotas, quests, goals, XP and existing checkpoints.
+    await db.withExclusiveTransactionAsync(async tx=>{
+      await tx.execAsync(`
+        CREATE TABLE ai_provider_usage_next (
+          provider TEXT NOT NULL CHECK(provider IN ('gemini','groq','openrouter','openai','claude')),
+          day TEXT NOT NULL,requests INTEGER NOT NULL DEFAULT 0,
+          input_tokens INTEGER NOT NULL DEFAULT 0,output_tokens INTEGER NOT NULL DEFAULT 0,
+          rate_limit_hits INTEGER NOT NULL DEFAULT 0,blocked_until TEXT,
+          PRIMARY KEY(provider,day)
+        );
+        INSERT INTO ai_provider_usage_next
+          SELECT * FROM ai_provider_usage;
+        DROP TABLE ai_provider_usage;
+        ALTER TABLE ai_provider_usage_next RENAME TO ai_provider_usage;
+        PRAGMA user_version = 8;
       `);
     });
   }
