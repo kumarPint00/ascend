@@ -53,7 +53,7 @@ const difficulty=(v:unknown):Difficulty=>{
 };
 const recurrence=(v:unknown,kind:'quest'|'milestone'):RepeatRule=>{
   if(optional(v))return 'once'; // Safe default: one-off items start in backlog.
-  if(!['once','daily','weekly'].includes(String(v)))throw new Error('Invalid quest repeatRule');
+  if(!['once','daily','weekly','monthly'].includes(String(v)))throw new Error('Invalid quest repeatRule');
   if(kind==='milestone'&&v!=='once')throw new Error('Milestones must use repeatRule "once"');
   return v as RepeatRule;
 };

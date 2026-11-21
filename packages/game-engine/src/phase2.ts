@@ -56,8 +56,19 @@ export function questDueOn(q:Quest,control:QuestControl,date:Date):boolean {
   const key=localDayKey(date);
   if(control.snoozedUntil&&key<control.snoozedUntil)return false;
   if(q.repeatRule==='once')return !control.dueOn||key>=control.dueOn;
-  if(control.weekdays.length>0&&!control.weekdays.includes(date.getDay()))return false;
   if(control.dueOn&&key<control.dueOn)return false;
+  if(q.repeatRule==='monthly'){
+    // Monthly recurrence is anchored to the explicit first due date (if set)
+    // or to the quest's creation day. 31st -> last day in short months.
+    const anchor=control.dueOn??localDayKey(new Date(q.createdAt));
+    const desired=Number(anchor.slice(8,10));
+    const finalDay=new Date(date.getFullYear(),date.getMonth()+1,0).getDate();
+    return date.getDate()===Math.min(desired,finalDay);
+  }
+  if(control.weekdays.length>0)return control.weekdays.includes(date.getDay());
+  // Previously weekly was due EVERY DAY, causing weekly tasks in daily lists.
+  // Monday is the default (consistent with the existing weekly reminder).
+  if(q.repeatRule==='weekly')return date.getDay()===1;
   return true;
 }
 export function blockedByDependencies(q:Quest,deps:readonly QuestDependency[],completions:readonly Completion[]):boolean {
@@ -86,7 +97,7 @@ export function dueMissionList(quests:readonly Quest[],controls:Readonly<Record<
   return ranked.sort((a,b)=>{
     const ca=controls[a.id]??defaultQuestControl(a),cb=controls[b.id]??defaultQuestControl(b);
     const score=(q:Quest,c:QuestControl)=>(4-c.priority)*100+(c.dueOn&&c.dueOn<=localDayKey(date)?70:0)+
-      (q.repeatRule==='daily'?40:q.repeatRule==='weekly'?20:10);
+      (q.repeatRule==='daily'?40:q.repeatRule==='weekly'?20:q.repeatRule==='monthly'?12:10);
     return score(b,cb)-score(a,ca)||a.createdAt.localeCompare(b.createdAt);
   });
 }

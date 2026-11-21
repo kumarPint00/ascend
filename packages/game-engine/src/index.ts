@@ -4,7 +4,7 @@ export const ATTRIBUTES = [
 ] as const;
 export type Attribute = (typeof ATTRIBUTES)[number];
 export type Difficulty = 'easy' | 'medium' | 'hard';
-export type RepeatRule = 'once' | 'daily' | 'weekly';
+export type RepeatRule = 'once' | 'daily' | 'weekly' | 'monthly';
 
 export interface Quest {
   id: string;
@@ -61,9 +61,20 @@ export function isoWeekKey(date: Date): string {
   return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
+/** A monthly quest can only be rewarded once per local calendar month. */
+export function localMonthKey(date: Date): string {
+  return localDayKey(date).slice(0,7);
+}
 export function periodKey(rule: RepeatRule, date: Date): string {
   return rule === 'daily' ? localDayKey(date)
-    : rule === 'weekly' ? isoWeekKey(date) : 'once';
+    : rule === 'weekly' ? isoWeekKey(date)
+    : rule === 'monthly' ? localMonthKey(date) : 'once';
+}
+/** Strict frequency filtering. Due Today is a different view: a weekly or
+ * monthly task may be due today without becoming a daily recurrence. */
+export function matchesQuestCadence(quest: Pick<Quest,'repeatRule'>,
+  cadence:'Daily'|'Weekly'|'Monthly'): boolean {
+  return quest.repeatRule===cadence.toLowerCase();
 }
 
 export function isCompleted(quest: Quest, completions: readonly Completion[], date: Date): boolean {

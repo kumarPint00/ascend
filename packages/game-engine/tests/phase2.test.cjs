@@ -103,3 +103,29 @@ test('new daily quests stay visible in Today even after focus limit is reached',
  const paused={...defaultQuestControl(quests[6]),status:'paused'};
  assert.ok(!dueMissionList(quests,{[quests[6].id]:paused},[],[],date).some(x=>x.id==='daily-6'));
 });
+
+test('default weekly quests appear only on Monday, not every daily board',()=>{
+  const weekly=q('weekly','weekly'),daily=q('daily','daily');
+  const monday=new Date(2026,10,16,12),tuesday=new Date(2026,10,17,12);
+  assert.equal(questDueOn(weekly,defaultQuestControl(weekly),monday),true);
+  assert.equal(questDueOn(weekly,defaultQuestControl(weekly),tuesday),false);
+  assert.deepEqual(dueMissionList([weekly,daily],{},[],[],tuesday).map(q=>q.id),['daily']);
+  const tueControl={...defaultQuestControl(weekly),weekdays:[2]};
+  assert.equal(questDueOn(weekly,tueControl,tuesday),true);
+});
+test('monthly cadence uses target date or creation day and short-month clamp',()=>{
+  const monthly={...q('monthly','monthly'),createdAt:'2026-01-31T12:00:00Z'};
+  const base=defaultQuestControl(monthly);
+  assert.equal(questDueOn(monthly,base,new Date(2026,1,27,12)),false);
+  assert.equal(questDueOn(monthly,base,new Date(2026,1,28,12)),true);
+  assert.equal(questDueOn(monthly,base,new Date(2026,2,31,12)),true);
+  const explicit={...base,dueOn:'2026-11-21'};
+  assert.equal(questDueOn(monthly,explicit,new Date(2026,10,20,12)),false);
+  assert.equal(questDueOn(monthly,explicit,new Date(2026,10,21,12)),true);
+  assert.equal(questDueOn(monthly,explicit,new Date(2026,11,21,12)),true);
+  assert.equal(questDueOn(monthly,explicit,new Date(2026,11,22,12)),false);
+  const calendar=occurrencesForDays([monthly],{monthly:explicit},[],[],
+    new Date(2026,10,16,12),40);
+  assert.deepEqual(calendar.filter(d=>d.quests.length).map(d=>d.date),
+    ['2026-11-21','2026-12-21']);
+});

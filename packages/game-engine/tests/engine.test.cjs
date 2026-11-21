@@ -54,3 +54,23 @@ test('quest title is validated', () => {
   assert.throws(() => cleanQuestInput({title:'   ',attribute:'strength',difficulty:'easy',repeatRule:'once'}));
   assert.equal(cleanQuestInput({title:'  Run  ',attribute:'strength',difficulty:'easy',repeatRule:'daily'}).title,'Run');
 });
+
+test('monthly periods reset at local calendar month, weekly stays weekly',()=>{
+  const november=new Date(2026,10,21,12);
+  const december=new Date(2026,11,1,12);
+  assert.equal(periodKey('monthly',november),'2026-11');
+  assert.equal(periodKey('monthly',december),'2026-12');
+  const q={id:'monthly',repeatRule:'monthly'};
+  const completions=[{id:'c',questId:'monthly',periodKey:'2026-11',completedAt:november.toISOString()}];
+  assert.equal(isCompleted(q,completions,november),true);
+  assert.equal(isCompleted(q,completions,december),false);
+});
+test('frequency filters do not leak weekly or monthly quests into Daily',()=>{
+  const {matchesQuestCadence}=require('../dist/index.js');
+  for(const cadence of ['Daily','Weekly','Monthly']){
+    for(const rule of ['daily','weekly','monthly','once']){
+      assert.equal(matchesQuestCadence({repeatRule:rule},cadence),
+        rule===cadence.toLowerCase(),cadence+' vs '+rule);
+    }
+  }
+});

@@ -46,7 +46,7 @@ export function parseQuestPack(source:string):QuestPack {
        !goalKeys.has(q.goalKey)||!text(q.title,98)||typeof q.description!=='string'||
        q.description.length>370||!ATTRIBUTES.includes(q.attribute as Attribute)||
        !['easy','medium','hard'].includes(String(q.difficulty))||
-       !['daily','weekly','once'].includes(String(q.repeatRule))||
+       !['daily','weekly','monthly','once'].includes(String(q.repeatRule))||
        !['quest','milestone'].includes(String(q.kind))||questKeys.has(q.key)||
        (q.kind==='milestone'&&q.repeatRule!=='once')||
        (q.dueOn!==undefined&&(typeof q.dueOn!=='string'||!validDate(q.dueOn)))||
