@@ -84,6 +84,7 @@ export default function App() {
   const [importPreview,setImportPreview] = useState<ImportableQuestPack|null>(null);
   const [importSections,setImportSections] = useState<ImportSelection>({goals:true,quests:true,milestones:true});
   const [expandedGoals,setExpandedGoals] = useState<Record<string,boolean>>({});
+  const [roadmapShown,setRoadmapShown] = useState<Record<string,number>>({});
   const [questFilter,setQuestFilter] = useState<'Today'|'Daily'|'Weekly'|'Monthly'|'Milestones'|'Pending'|'Done'|'All'>('Daily');
   const [questSearch,setQuestSearch] = useState('');
   const [questLimit,setQuestLimit] = useState(20);
@@ -428,10 +429,10 @@ export default function App() {
         end={{x:1,y:1}} style={s.oracleCard}>
         <View style={s.oracleOrb}><Sparkles size={26} color="#F4D5FF"/></View>
         <View style={{flex:1}}>
-          <T color="#E7C8FF" size={10} bold style={{letterSpacing:2}}>THE ORACLE / GEMINI NANO</T>
-          <T size={17} bold style={{marginTop:2}}>Forge your next quest</T>
+          <T color="#E7C8FF" size={10} bold style={{letterSpacing:2}}>THE ORACLE / LEARNING ARCHITECT</T>
+          <T size={17} bold style={{marginTop:2}}>Build your learning roadmap</T>
           <T size={11} color={C.sub} style={{marginTop:3}}>
-            Create a personalized draft on-device. Review before saving.
+            Generate 30, 60 or 90 days of daily tasks, weekly goals and monthly achievements.
           </T>
         </View>
         <ChevronRight size={20} color="#D7BAFF"/>
@@ -537,6 +538,12 @@ export default function App() {
   const GoalCard=({goal}:{goal:Goal})=>{
     const count=completedGoalCount(goal.id,data.quests,data.completions);
     const milestones=quests.filter(q=>q.goalId===goal.id&&isMilestoneQuest(q));
+    const roadmapDays=quests.filter(q=>q.goalId===goal.id&&
+      q.id.startsWith('pack:roadmap-')&&/^Day \d+ · /.test(q.title))
+      .sort((a,b)=>{
+        const n=(q:Quest)=>Number(q.title.match(/^Day (\d+)/)?.[1]??0);
+        return n(a)-n(b);
+      });
     const cleared=milestones.filter(completed).length;
     return <Panel>
       <View style={s.between}>
@@ -550,16 +557,31 @@ export default function App() {
         <Pressable accessibilityRole="button" onPress={()=>setExpandedGoals(v=>({...v,[goal.id]:!v[goal.id]}))}>
           <T color={C.energy} size={12} bold>◆ Milestones {cleared}/{milestones.length} · {expandedGoals[goal.id]?'Hide':'View'}</T>
         </Pressable>
-        {!!expandedGoals[goal.id]&&<JourneyPath
-          steps={milestones.map(m=>{
-            const blocked=blockedByDependencies(m,phaseSummary.dependencies,data.completions);
-            const due=questDueOn(m,phaseSummary.controls[m.id]??defaultQuestControl(m),clock);
-            return {id:m.id,title:m.title.slice(MILESTONE_PREFIX.length),
-              description:m.description,done:completed(m),blocked,ready:due&&!blocked};
-          })}
-          onActivate={id=>{const selected=milestones.find(m=>m.id===id);if(selected)void finish(selected);}}
-          onPlan={id=>{setPlannerTarget(id);setTab('Planner');}}
-        />}
+        {!!expandedGoals[goal.id]&&<>
+          <JourneyPath
+            steps={milestones.map(m=>{
+              const blocked=blockedByDependencies(m,phaseSummary.dependencies,data.completions);
+              const due=questDueOn(m,phaseSummary.controls[m.id]??defaultQuestControl(m),clock);
+              return {id:m.id,title:m.title.slice(MILESTONE_PREFIX.length),
+                description:m.description,done:completed(m),blocked,ready:due&&!blocked};
+            })}
+            onActivate={id=>{const selected=milestones.find(m=>m.id===id);if(selected)void finish(selected);}}
+            onPlan={id=>{setPlannerTarget(id);setTab('Planner');}}
+          />
+          {roadmapDays.length>0&&<View style={{marginTop:18}}>
+            <T size={13} color={C.energy} bold>DAILY LEARNING ROADMAP</T>
+            <T color={C.sub} size={11} style={{marginTop:6,marginBottom:12}}>
+              {roadmapDays.filter(completed).length}/{roadmapDays.length} dated achievements cleared.
+              These appear in Today when due, not as repeating daily habits.
+            </T>
+            {roadmapDays.slice(0,roadmapShown[goal.id]??7).map(q=>
+              <QuestCard key={q.id} quest={q}/>)}
+            {roadmapDays.length>(roadmapShown[goal.id]??7)&&
+              <Action secondary onPress={()=>setRoadmapShown(v=>({
+                ...v,[goal.id]:(v[goal.id]??7)+7
+              }))}>SHOW NEXT 7 DAYS</Action>}
+          </View>}
+        </>}
       </View>}
       <View style={[s.between,{marginTop:13}]}>
         <Pressable onPress={()=>openGoal(goal)}><T color={C.sub} size={12}>Edit goal</T></Pressable>
