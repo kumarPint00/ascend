@@ -161,3 +161,5 @@ jobs:
 # v0.14.0 build22: four read-only native Android home widgets. Same package and signing identity; no public release before device acceptance.
 
 # v0.14.1 build23: additive partial JSON imports with selective preview and transactional goal linkage.
+
+# v0.16.0 build 31: final hybrid free-provider AI, resumable roadmaps, SecureStore BYOK, ChatGPT file interchange. No public auto-publish; phone QA required.
