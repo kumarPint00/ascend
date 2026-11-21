@@ -9,7 +9,7 @@ import {Action,Chip,T} from '../components/Elements';
 import {nanoDownload,nanoGenerate,nanoStatus} from '../../modules/ascend-nano';
 import {C} from '../theme';
 import * as SecureStore from 'expo-secure-store';
-import {GROQ_MODEL,hasGroqKey,saveGroqKey,clearGroqKey} from '../ai/groq';
+import {saveGroqKey,clearGroqKey} from '../ai/groq';
 import {generateWithProviders,configuredProviders} from '../ai/provider-manager';
 import {RoadmapArchitect} from './RoadmapArchitect';
 
@@ -329,7 +329,7 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
                 {keyConfigured?'ADD / REPLACE GROQ KEY':'CONFIGURE GROQ KEY'}
               </Action>}
             {keyConfigured&&<Action secondary disabled={busy}
-              onPress={()=>void eraseKey()}>REMOVE SAVED KEY</Action>}
+              onPress={()=>void eraseKey()}>REMOVE GROQ KEY</Action>}
           </View>
           <T size={10} color={C.dim} style={{marginTop:9}}>
             For personal use only. A future public version will require a server-side credential proxy.
@@ -386,7 +386,10 @@ export function NanoCoach({visible,onClose,onAccept,onAcceptRoadmap,recentQuestT
             <Sparkles size={18} color={C.gold}/>
             <T size={10} color={C.gold} bold>
               {draft.origin==='gemini-nano'?'GEMINI NANO DRAFT':
-                draft.origin==='groq-cloud'?'GROQ CLOUD DRAFT':'OFFLINE STARTER DRAFT'}
+                draft.origin==='groq-cloud'?'GROQ CLOUD DRAFT':
+                draft.origin==='gemini-cloud'?'GEMINI CLOUD DRAFT':
+                draft.origin==='openrouter-cloud'?'OPENROUTER DRAFT':
+                'OFFLINE STARTER DRAFT'}
             </T>
           </View>
           <T size={10} color={C.sub} bold style={{marginTop:14}}>EDIT TITLE BEFORE APPROVAL</T>
